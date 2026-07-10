@@ -1,0 +1,251 @@
+﻿“FundBridge”  
+A Secure Business Investment & Fundraising Platform for Student Entrepreneurs and Small Businesses
+
+
+Software Requirements Specification
+CSE470
+
+
+Prepared by
+Group: 05 Section: 05
+Student ID
+	Name
+	22301184
+	Pritom Mondal
+	21301483
+	Zaima Zaman Sarker
+	22301019
+	Abu Nayeem Md. Tanzim Adib
+	24141260
+	Md. Samiul Islam
+	
+
+
+
+
+
+1. Introduction        3
+1.1 Purpose        3
+1.2 Scope        3
+1.3 Definitions, Acronyms, and Abbreviations        3
+1.4 References        3
+1.5 Overview        4
+2. Overall Description        4
+2.1 Product Perspective        4
+2.2 Product Features        4
+2.3 User Classes and Characteristics        4
+2.4 Operating Environment        5
+2.5 Constraints        5
+2.6 Assumptions and Dependencies        5
+3. System Requirements        5
+3.1 Functional Requirements        5
+3.1.1 Authentication & Authorization        5
+3.1.2 Patient & Doctor Interaction        6
+3.1.3 Patient Care & Medical Services        6
+3.1.4 Additional Services        6
+3.2 Non-Functional Requirements        7
+3.2.1 Performance Requirements        7
+3.2.2 Security Requirements        7
+3.2.3 Reliability & Availability        7
+3.2.4 Maintainability        7
+3.2.5 Scalability        7
+3.3 External Interface Requirements        8
+3.3.1 User Interfaces        8
+3.3.2 Hardware Interfaces        8
+3.3.3 Software Interfaces        8
+3.3.4 Communication Interfaces        8
+4. Technology Stack & Architectural Overview        8
+4.1 MERN Stack Components        8
+4.2 High-Level Architecture        8
+5. Tentative Development Plan (Agile Methodology)        9
+Sprint 1 (Weeks 1–2): Core Setup, DB Models & Authentication        9
+Sprint 2 (Weeks 3–4): Profile Management & Business Verification Uploads        9
+Sprint 3 (Weeks 5–6): Campaign Creation, Vetting, & Multi-Parameter Discovery        10
+Sprint 4 (Week 7): Investment Request Processing, Watchlists & Multi-Startup Comparison        10
+Sprint 5 (Weeks 8–9): Real-Time Chat, Notifications, AI Assistant & Administrative Control        11
+6. Acceptance Criteria        11
+7. Conclusion        11
+1. Introduction
+1.1 Purpose
+This Software Requirement Specification (SRS) document outlines the system requirements for developing FundBridge, a secure, transparent investment and campaign management web application designed using the MERN stack (MongoDB, Express.js, React.js, Node.js).
+The application is engineered to bridge networking and financing gaps faced by early-stage university startups and campus-led projects. It directly connects student business owners with private investors, venture analysts, and university alumni while offering strict administrative compliance controls, secure text negotiations, and customized business matching patterns.
+
+
+1.2 Scope
+The scope of this project encompasses the design, implementation, testing, and deployment of the FundBridge web application, centering on three primary roles:
+* Business Owners / Student Entrepreneurs: Can register, construct and update business profiles, upload sensitive validation documents, set up campaign boundaries, review and progress investment requests, announce dynamic project updates, and communicate directly with interested backers.
+* Investors: Can browse campaigns, execute granular search operations across multiple metrics, add businesses to tracking folders, conduct head-to-head comparison matrices of multiple startups, submit formal investment requests, and converse in real-time with prospective student entrepreneurs.
+* Administrators: Act as platform moderators who verify uploaded student credentials or registration documents, inspect pending campaigns before publication, oversee overall platform activities, track fraudulent entities, and block suspicious users.
+This SRS covers the functional and non-functional requirements for the project, the constraints, assumptions, high-level design, and the development plan following Agile methodology.
+1.3 Definitions, Acronyms, and Abbreviations
+* MERN: MongoDB, Express.js, React.js, Node.js.
+* SRS: Software Requirements Specification.
+* OTP: One-Time Password.
+* RBAC: Role-Based Access Control.
+* JWT: JSON Web Token (used for secure session handling).
+* MVC: Model-View-Controller architecture.
+* AI: Artificial Intelligence (for platform smart capabilities).
+* API: Application Programming Interface.
+
+
+1.4 References
+* MERN Stack documentation:
+   * MongoDB
+   * Express.js
+   * React.js
+   * Node.js
+1.5 Overview
+This document is partitioned into seven primary sections. Section 2 describes the high-level perspective of FundBridge, including the target environment, operating assumptions, and general characteristics. Section 3 lists the complete functional and non-functional requirements. Section 4 describes the technology stack and Model-View-Controller backend structure. Section 5 details the 9-week Agile sprint roadmap, followed by Section 6 (Acceptance Criteria) and Section 7 (Conclusion).
+2. Overall Description
+2.1 Product Perspective
+FundBridge is designed as an independent, responsive, multi-tier web application built on the MERN stack. It decouples the visual user interfaces from the data collection schemas, querying MongoDB through secure API requests routed via Node.js and Express.js
+2.2 Product Features
+1. Custom Dynamic Dashboards: Split views customized for the distinct structural needs of Business Owners (campaign updates, application logs) and Investors (watchlists, comparative evaluation interfaces).
+2. Business Vetting System: File integration platform allowing student founders to upload academic credentials and registration documents for verification.
+3. Multi-Parameter Discovery Engine: Search tools equipped with responsive categories, target metrics, and local geography variables.
+4. Direct Negotiation Portal: Synchronous, API-supported instant text messaging framework that lets investors and student business owners discuss legal equity configurations directly.
+5. Administrative Moderation System: Complete backend verification portal with operational options to accept or reject campaigns and block reported startup profiles.
+6. AI-Powered Optimization Suite: Artificial intelligence tools helping founders draft business summaries, optimize campaign wording, and provide matching suggestions to active investors.
+7. Internal Notification System: Automated visual notifications triggered by active campaign status changes and newly submitted investment agreements.
+2.3 User Classes and Characteristics
+1. Business Owners: Student entrepreneurs and campus innovators who require an intuitive, guided workspace to present their concepts, state structural milestones, and manage ongoing campaign metrics without complex legal overhead.
+2. Investors: Alumni and angel venture capitalists who seek structured, vetted business ideas. They expect dynamic searching capabilities, watchlist groupings, and comparison tools to evaluate multiple startups.
+3. Administrators: Internal system moderators managing platform hygiene, checking licensing papers, auditing campaigns, and resolving fraudulent account disputes.
+2.4 Operating Environment
+* Client Interface Compatibility: Optimized for modern web browsers (Chrome, Firefox, Safari, Edge) running responsive templates using Tailwind CSS.
+* Back-End Infrastructure: Node.js v20+ environment executing an Express.js router module.
+* Database Management System: Cloud-hosted MongoDB Atlas cluster handling JSON documents with built-in validation rules.
+2.5 Constraints
+* Time Limitation: Strict engineering timeline of exactly 9 weeks as structured by the CSE470 course curriculum.
+* Team Capacity: Constrained to a four-person development team.
+* No Hardware Integrations: The platform relies completely on existing browser and cloud standards; no custom hardware configurations are required.
+2.6 Assumptions and Dependencies
+* Users are assumed to have a consistent internet connection to run real-time chat modules and dynamic list filtering.
+* AI modules are dependent on standard external generative API endpoints or local rule processing models.
+3. System Requirements
+3.1 Functional Requirements
+3.1.1 Authentication & Authorization
+* FR-1 (Secure Registration): The system shall allow users to register with distinct designations as either a "Business Owner" or "Investor."
+* FR-2 (Role Access Enforcement): The platform shall restrict access to administrative routing pathways unless the requesting token belongs to an authorized Admin profile.
+3.1.2 Business Owner Core Workflows
+* FR-3 (Profile Management): Business owners shall be able to create, update, and manage their business profile details, listing historical development summaries and executive descriptions.
+* FR-4 (Vetting Verification): Business owners shall be able to upload legal identification, academic credentials, and licensing files in PDF or image formats for administrative review.
+* FR-5 (Campaign Management): Business owners shall be able to create, edit, and cancel fundraising campaigns, specifying target metrics, equity models, and funding milestones.
+* FR-6 (Investment Proposal Tracking): Business owners shall have the tools to view, accept, or reject incoming investment requests sent by active investors.
+* FR-7 (Direct Real-Time Chat API): Business owners shall be able to initiate and maintain instant messaging chats with active investors to discuss deal structures.
+* FR-8 (Progress Logging): Business owners shall be able to publish text announcements, milestone achievements, and platform status logs directly onto their active campaign page.
+* FR-9 (Transaction Tracking): Business owners shall be provided with structured analytical panels to monitor their cumulative funding progress and transaction histories.
+3.1.3 Investor Core Workflows
+* FR-10 (Marketplace Discovery): Investors shall be able to browse all published and admin-approved fundraising campaigns on the active platform directory.
+* FR-11 (Granular Search Engine): Investors shall be able to filter the business directory using a combination of category, target funding scale, development stage, and geographical location.
+* FR-12 (Detailed Profile Auditing): Investors shall be able to view comprehensive company descriptions, founder backgrounds, active campaign metrics, and historical milestones.
+* FR-13 (Investment Proposal Submission): Investors shall be able to submit funding requests and partnership terms to prospective businesses.
+* FR-14 (Personal History Tracking): Investors shall have access to a secure log tracking their active investments, historical transaction details, and current proposal statuses.
+* FR-15 (Watchlist Pins): Investors shall be able to save specific startups to their monitoring watchlist for quick access.
+* FR-16 (Comparative Assessment Tool): The platform shall allow investors to select up to three startups and render a head-to-head comparison matrix showing funding goals, equity, industry sectors, and milestones.
+3.1.4 Administrative & Moderation Workflows
+* FR-17 (Vetting Moderation): Administrators shall have access to a verification panel to review uploaded legal documents and either "Approve" or "Reject" startup verification states.
+* FR-18 (Campaign Auditing Queue): Administrators must review and approve all proposed fundraising campaigns before they are published to the public investor directory.
+* FR-19 (User Operations Management): Administrators shall be able to look up accounts, inspect submitted transaction reports, and monitor system activities.
+* FR-20 (Account Suspensions): Administrators shall have the authority to freeze reported profiles and suspend fraudulent campaigns immediately.
+3.1.5 Platform Smart Capabilities
+* FR-21 (AI Optimization Engine): The platform shall provide an AI-powered assistant to help founders generate professional profile descriptions, suggest target campaign slogans, summarize business models, and provide matching recommendations to active investors.
+* FR-22 (Automated Notifications): The system shall generate in-app and email notifications to keep users updated on new investment requests, campaign status edits, and admin verification decisions.
+3.2 Non-Functional Requirements
+3.2.1 Performance Requirements
+* NFR-1 (Directory Render Latency): The campaign catalog and search filters must complete list renders in less than 2.0 seconds under typical network conditions.
+* NFR-2 (Chat Delivery Synchronization): Real-time text deliveries between chat participants must be synchronized within  less than 300ms.
+3.2.2 Security Requirements
+* NFR-3 (Secure Communications): All data transfers between the client client and backend endpoints must run over HTTPS (SSL/TLS) protocols.
+* NFR-4 (Hash Encryption): Sensitive system data (such as user credentials, password blocks, and authorization tokens) must be stored using cryptographically secure algorithms (e.g., Bcrypt with a standard salting factor greater than 10).
+3.2.3 Reliability & Availability
+* NFR-5 (Target System Uptime): The system shall target a 99.9% uptime, excluding scheduled architectural maintenance windows.
+* NFR-6 (State Backup Scheduling): The platform database shall take daily automated backups to preserve historical files and state snapshots.
+3.2.4 Maintainability
+* NFR-7 (MVC Clean Code Guidelines): The software source files must align with standardized Model-View-Controller styling to support future scalability and system audits.
+3.2.5 Scalability
+* NFR-8 (Modular Backend Growth): The backend route architecture must be structured logically, allowing system administrators to scale resources for heavy search operations independently.
+3.3 External Interface Requirements
+3.3.1 User Interfaces
+* UI-1 (Responsive Layouts): A responsive interface built on React.js and styled with Tailwind CSS to ensure fluid navigation on desktop, tablet, and mobile displays.
+* UI-2 (Distinct Control Panels): Dedicated role-based workspaces tailored for Business Owners, Investors, and Admins.
+3.3.2 Hardware Interfaces
+* HI-1 (Standard Devices): The system has no specialized hardware dependencies and runs on standard, internet-connected client machines.
+3.3.3 Software Interfaces
+* SI-1 (Automated Mail Services): Secure connections to SMTP protocols or cloud email APIs to dispatch real-time system notices.
+* SI-2 (AI Endpoint Integrations): Secure communication interfaces connecting to large language models or helper utilities to run bio generation features.
+3.3.4 Communication Interfaces
+* CI-1 (RESTful Communication Protocols): Communication between the React.js client interface and Node.js backend must run via asynchronous REST APIs exchanging JSON payloads.
+
+
+
+
+
+
+4. Technology Stack & Architectural Overview
+4.1 MERN Stack Components
+1. MongoDB: Document-based database engine used to store system users, active profiles, campaign objects, and conversation records.
+2. Express.js: Lightweight server-side routing utility running controllers to enforce role-based access rules.
+3. React.js: Component-focused interface generator handling input validations and active view states.
+4. Node.js: Fast runtime environment managing background processing, DB interactions, and API call-outs.
+4.2 High-Level Architecture
+1. Presentation Layer (React.js Client-Side):
+   1. Responsible for rendering the dynamic user interfaces, capturing inputs, routing internal pathways, and dispatching async HTTP request methods.
+   2. Incorporates custom dashboard frameworks matching the specific operational needs of Business Owners (campaign managers, application tracking tools), Investors (interactive startup catalog, matching trackers, and comparison matrices), and System Administrators (verification channels and system moderation setups).
+2. Application & Business Logic Layer (Express.js & Node.js Server-Side Backend):
+   1. Acts as the core transactional processing unit, routing HTTP endpoints, validating incoming tokens, checking dynamic parameter strings, and executing system calculations.
+   2. Follows clean MVC backend controller separations:
+      1. ProfileController: Manages dynamic business listings, registration records, and developer background files.
+      2. CampaignController: Handles active crowdfunding requests, scale parameters, and investment targets.
+      3. AdminController: Facilitates moderation controls, credential validation workflows, and profile holds.
+      4. ChatAPIController: Synchronizes text exchanges, delivery statuses, and historical conversation retrievals.
+3. Data Storage Layer (MongoDB Cluster / Database Tier):
+   1. Responsible for housing all static data and session files under dynamic BSON schemas validated through Mongoose object-document models.
+   2. Contains isolated database collection sets:
+      1. Users Collection: Stores passwords, role tokens (Owner/Investor/Admin), dynamic credentials, and verification values.
+      2. Campaigns Collection: Keeps track of funding targets, sector parameters, active commitments, and campaign history lines.
+      3. Communications Collection: Houses messages, timestamp histories, and transaction status summaries.
+4. Tier-to-Tier Communication Bridges:
+   1. Web-to-Server Connection: Runs secure API requests transferring serialized JSON payloads over HTTPS encryption standards.
+   2. Server-to-Database Connection: Executes data read/write commands and structured aggregation pipelines using native Mongoose querying interfaces.
+5. Tentative Development Plan (Agile Methodology)
+Sprint 1 (Weeks 1–2): Core Setup, DB Models & Authentication
+* Key Deliverables: Set up development infrastructure, construct MongoDB schema configurations, and implement core registration features.
+* Milestones: Create role-based routing controls; build base collection models for users, business campaigns, and communications.
+Sprint 2 (Weeks 3–4): Profile Management & Business Verification Uploads
+* Key Deliverables: Deploy functional user workspace panels.
+* Milestones: Build business profile forms for Entrepreneurs; complete multi-step file upload channels for academic and licensing documents.
+Sprint 3 (Weeks 5–6): Campaign Creation, Vetting, & Multi-Parameter Discovery
+* Key Deliverables: Launch the marketplace interface and active campaign builders.
+* Milestones: Build campaign configuration flows for founders; construct the main investor directory with search categories, stages, and location filters.
+Sprint 4 (Week 7): Investment Request Processing, Watchlists & Multi-Startup Comparison
+* Key Deliverables: Introduce financial negotiation models and evaluation features.
+* Milestones: Implement the investor proposal submission portal; finalize custom watchlists and launch the head-to-head startup comparison matrix.
+Sprint 5 (Weeks 8–9): Real-Time Chat, Notifications, AI Assistant & Administrative Control
+* Key Deliverables: Deliver system utility services, moderator features, and final deployment.
+* Milestones: Deploy API-driven instant text messaging; configure automated system notifications; integrate the AI description assistant; release the administrative moderation dashboard.
+6. Acceptance Criteria
+Criteria ID
+	Target Workflow Component
+	Acceptance Testing Standard
+	AC-01
+	Account Permissions
+	Attempting to execute admin controls or edit active profiles without valid permission headers must return a standardized 403 Forbidden error.
+	AC-02
+	Vetting Controls
+	Documents uploaded by founders must remain unalterable on the database; editing a verification application must trigger a status reset to "Pending Review."
+	AC-03
+	Directory Searches
+	Entering specific filter criteria (e.g., "AI", "Dhaka") must dynamically adjust matching results in less than 2 seconds without a full page reload.
+	AC-04
+	Communication Sync
+	Real-time chat messages must render on the recipient's viewport within less than 300ms on standard network connections.
+	AC-05
+	Administrative Vetting
+	Freezing a reported campaign from the admin dashboard must immediately hide that startup from the investor search directory.
+	AC-06
+	Platform Smart Utilities
+	Requesting AI bio optimization must return text matching the founder's initial inputs in less than 5.0 seconds.
+	7. Conclusion
+This Software Requirements Specification document provides the operational framework for building FundBridge, a specialized investment and campaign management application for student entrepreneurs.
+By detailing distinct workspaces, multi-parameter search engines, direct chat capabilities, verification workflows, and AI optimization utilities, this document aligns the engineering process with the requirements of the CSE470 course. Adhering to this 9-week Agile development roadmap ensures a secure, reliable, and functional application that meets all academic standards.
