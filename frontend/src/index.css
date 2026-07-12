@@ -1,0 +1,83 @@
+@import "./assets/fonts/stylesheet.css";
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Helvetica Now Display", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Helvetica Now Display", "Helvetica Neue", Arial, sans-serif;
+
+  --color-sky-primary: #2A82E4;
+  --color-sky-light: #7EC1FA;
+  --color-obsidian-base: #000000;
+  --color-obsidian-dark: #0A0A0C;
+  --color-pine-deep: #0D3D1F;
+  --color-pine-medium: #1D5A34;
+  --color-neon-mint: #00E575;
+  --color-text-charcoal: #2D3748;
+  --color-text-muted: #94A3B8;
+  --color-surface-clean: #FFFFFF;
+  --color-surface-cool: #F3F4F6;
+  --color-border-default: #E5E7EB;
+  --color-border-strong: #2A303a;
+
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-7: 32px;
+  --spacing-8: 48px;
+
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 9999px;
+
+  --shadow-soft: 0px 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-surface-clean);
+    color: var(--color-text-charcoal);
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  h1, h2, h3, h4, h5, h6, strong, b {
+    letter-spacing: -0.02em;
+    font-weight: 500;
+  }
+}
+
+/* Custom styles for high-fidelity overlays and glassmorphism */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+.glass-panel-dark {
+  background: rgba(10, 10, 12, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-strong);
+}
+
+/* Custom scrollbars for capacities list */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-sky-primary);
+  border-radius: 9999px;
+}

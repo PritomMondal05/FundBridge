@@ -1,0 +1,16 @@
+{
+  "name": "fundbridge-root",
+  "version": "1.0.0",
+  "description": "Root workspace workspace for FundBridge project running React and Express backend concurrently",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend",
+    "frontend": "npm run dev --prefix frontend",
+    "backend": "npm run dev --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "start": "concurrently \"npm run frontend\" \"npm run backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
