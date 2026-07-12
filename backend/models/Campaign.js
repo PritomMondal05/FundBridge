@@ -11,7 +11,7 @@ const MilestoneSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['done', 'active', 'locked'],
+    enum: ['done', 'active', 'pending', 'locked'],
     default: 'locked'
   }
 });

@@ -19,12 +19,18 @@ import {
   XCircle,
   Database,
   TrendingUp,
-  LogOut
+  LogOut,
+  Info
 } from 'lucide-react';
 import logoUrl from './assets/images/FundBridge Logo Black.svg';
 import logoWhiteUrl from './assets/images/FundBridge Logo White.svg';
 import landingImage from './assets/images/landing_image.webp';
 import footerImage from './assets/images/footer_image.webp';
+
+// Portal Dashboards Imports
+import FounderDashboard from './components/FounderDashboard';
+import InvestorDashboard from './components/InvestorDashboard';
+import AdminDashboard from './components/AdminDashboard';
 
 const TESTIMONIALS = [
   {
@@ -86,16 +92,50 @@ const STATS = [
 ];
 
 export default function App() {
+  // API Dynamic Base URL
+  const API_BASE_URL = import.meta.env.VITE_API_URL || (
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:5000'
+      : window.location.origin
+  );
+
+  // Authentication & Session State
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('fundbridge_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem('fundbridge_token') || null;
+  });
+
   // Navigation & Modals State
   const [activeModal, setActiveModal] = useState(null); // 'login' | 'register' | null
   const [registerRole, setRegisterRole] = useState('founder'); // 'founder' | 'investor'
-  const [loginRole, setLoginRole] = useState('user'); // 'user' | 'admin'
   const [currentView, setCurrentView] = useState(() => {
+    const saved = localStorage.getItem('fundbridge_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      return u.role; // 'admin', 'founder', or 'investor'
+    }
     if (window.location.hostname.startsWith('admin') || window.location.pathname.startsWith('/admin') || window.location.hash === '#admin') {
       return 'admin';
     }
     return 'landing';
   });
+
+  // Registration Form States
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regMfsNumber, setRegMfsNumber] = useState('');
+  const [regUniversity, setRegUniversity] = useState('');
+  const [regNid, setRegNid] = useState('');
+  const [regInstitution, setRegInstitution] = useState('');
+  const [regDesignation, setRegDesignation] = useState('');
+
+  // Login Form States
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   
   // Sandbox state inside Hero dashboard frame overlay
   const [sandboxTab, setSandboxTab] = useState('Campaign'); // 'Overview' | 'Campaign' | 'Investors' | 'Negotiate' | 'Milestones'
@@ -197,8 +237,102 @@ export default function App() {
     triggerAlert(`Proposal ${action === 'accept' ? 'Accepted' : 'Rejected'}! Dynamic Safety Deposit is required via bKash/Nagad gateway to unlock the escrow tranche.`);
   };
 
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    if (!loginEmail || !loginPassword) {
+      triggerAlert('Email and password are required.');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+
+      localStorage.setItem('fundbridge_user', JSON.stringify(data.user));
+      localStorage.setItem('fundbridge_token', data.token);
+      setCurrentUser(data.user);
+      setToken(data.token);
+      setCurrentView(data.user.role);
+      setActiveModal(null);
+      
+      // Clear forms
+      setLoginEmail('');
+      setLoginPassword('');
+      triggerAlert(`Login Successful! Entering ${data.user.role} workspace...`);
+    } catch (err) {
+      triggerAlert(err.message || 'Authentication credentials failed.');
+    }
+  };
+
+  const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    if (!regName || !regEmail || !regPassword || !regMfsNumber) {
+      triggerAlert('Name, email, password, and MFS number are required.');
+      return;
+    }
+
+    try {
+      const payload = {
+        name: regName,
+        email: regEmail,
+        password: regPassword,
+        role: registerRole,
+        mfsNumber: regMfsNumber,
+        university: registerRole === 'founder' ? regUniversity : undefined,
+        nid: registerRole === 'founder' ? regNid : undefined,
+        institution: registerRole === 'investor' ? regInstitution : undefined,
+        designation: registerRole === 'investor' ? regDesignation : undefined
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/users/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+
+      triggerAlert('Registration Successful! Trust profile queued. Please login.');
+      setActiveModal('login');
+      
+      // Reset forms
+      setRegName('');
+      setRegEmail('');
+      setRegPassword('');
+      setRegMfsNumber('');
+      setRegUniversity('');
+      setRegNid('');
+      setRegInstitution('');
+      setRegDesignation('');
+    } catch (err) {
+      triggerAlert(err.message || 'Registration failed.');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('fundbridge_user');
+    localStorage.removeItem('fundbridge_token');
+    setCurrentUser(null);
+    setToken(null);
+    setCurrentView('landing');
+    triggerAlert('Logged out of workspace session.');
+  };
+
   if (currentView === 'admin') {
-    return <AdminDashboard setCurrentView={setCurrentView} triggerAlert={triggerAlert} />;
+    return <AdminDashboard onLogout={handleLogout} API_BASE_URL={API_BASE_URL} triggerAlert={triggerAlert} />;
+  }
+
+  if (currentView === 'founder') {
+    return <FounderDashboard currentUser={currentUser} onLogout={handleLogout} API_BASE_URL={API_BASE_URL} triggerAlert={triggerAlert} />;
+  }
+
+  if (currentView === 'investor') {
+    return <InvestorDashboard currentUser={currentUser} onLogout={handleLogout} API_BASE_URL={API_BASE_URL} triggerAlert={triggerAlert} />;
   }
 
   return (
@@ -230,18 +364,37 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setActiveModal('login')}
-              className="px-5 py-2 border border-obsidian-base rounded-sm hover:bg-surface-cool text-obsidian-base font-medium text-sm cursor-pointer transition-all duration-150"
-            >
-              Login
-            </button>
-            <button 
-              onClick={() => setActiveModal('register')}
-              className="px-5 py-2 bg-obsidian-base text-white font-medium rounded-sm hover:bg-obsidian-dark text-sm cursor-pointer transition-all duration-150 shadow-soft"
-            >
-              Register
-            </button>
+            {currentUser ? (
+              <>
+                <button 
+                  onClick={() => setCurrentView(currentUser.role)}
+                  className="px-5 py-2 bg-sky-primary text-white font-medium rounded-sm hover:bg-sky-primary/90 text-sm cursor-pointer transition-all duration-150 shadow-soft"
+                >
+                  Dashboard
+                </button>
+                <button 
+                  onClick={handleLogout}
+                  className="px-5 py-2 border border-obsidian-base rounded-sm hover:bg-surface-cool text-obsidian-base font-medium text-sm cursor-pointer transition-all duration-150"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => setActiveModal('login')}
+                  className="px-5 py-2 border border-obsidian-base rounded-sm hover:bg-surface-cool text-obsidian-base font-medium text-sm cursor-pointer transition-all duration-150"
+                >
+                  Login
+                </button>
+                <button 
+                  onClick={() => setActiveModal('register')}
+                  className="px-5 py-2 bg-obsidian-base text-white font-medium rounded-sm hover:bg-obsidian-dark text-sm cursor-pointer transition-all duration-150 shadow-soft"
+                >
+                  Register
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -1028,10 +1181,10 @@ export default function App() {
 
             {/* Login Modal Content */}
             {activeModal === 'login' && (
-              <div className="p-8 space-y-6">
+              <form onSubmit={handleLoginSubmit} className="p-8 space-y-6">
                 <div>
                   <h3 className="text-2xl font-medium text-obsidian-base font-display">Welcome back to FundBridge</h3>
-                  <p className="text-xs text-text-muted mt-1">Select your workspace designation to authenticate.</p>
+                  <p className="text-xs text-text-muted mt-1">Provide your workspace credentials to authenticate.</p>
                 </div>
 
                 <div className="space-y-4">
@@ -1039,7 +1192,10 @@ export default function App() {
                     <label className="text-xs font-medium text-text-charcoal block mb-2">Registered Email Address</label>
                     <input 
                       type="email" 
+                      required
                       placeholder="student@univ.edu.bd or investor@firm.com"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
                       className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                     />
                   </div>
@@ -1048,27 +1204,27 @@ export default function App() {
                     <label className="text-xs font-medium text-text-charcoal block mb-2">Account Password</label>
                     <input 
                       type="password" 
+                      required
                       placeholder="••••••••••••"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
                       className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                     />
                   </div>
                 </div>
 
                 <button 
-                  onClick={() => {
-                    setActiveModal(null);
-                    triggerAlert("Login Successful! Redirecting to customized role dashboard...");
-                  }}
+                  type="submit"
                   className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <span>Authenticate Session</span>
                 </button>
-              </div>
+              </form>
             )}
 
             {/* Register Modal Content */}
             {activeModal === 'register' && (
-              <div className="p-8 space-y-5">
+              <form onSubmit={handleRegisterSubmit} className="p-8 space-y-5">
                 <div>
                   <h3 className="text-2xl font-medium text-obsidian-base font-display">Create your Trust Profile</h3>
                   <p className="text-xs text-text-muted mt-1">Complete enrollment validation before starting negotiation lines.</p>
@@ -1077,6 +1233,7 @@ export default function App() {
                 {/* Role Switcher */}
                 <div className="grid grid-cols-2 gap-2 bg-surface-cool p-1 rounded-lg border border-border-default/80">
                   <button 
+                    type="button"
                     onClick={() => setRegisterRole('founder')}
                     className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${
                       registerRole === 'founder' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
@@ -1085,6 +1242,7 @@ export default function App() {
                     🚀 Student Founder
                   </button>
                   <button 
+                    type="button"
                     onClick={() => setRegisterRole('investor')}
                     className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${
                       registerRole === 'investor' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
@@ -1100,7 +1258,10 @@ export default function App() {
                       <label className="text-xs font-medium text-text-charcoal block mb-2">Full Name</label>
                       <input 
                         type="text" 
+                        required
                         placeholder="e.g. Pritom Mondal"
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
                         className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                       />
                     </div>
@@ -1108,7 +1269,10 @@ export default function App() {
                       <label className="text-xs font-medium text-text-charcoal block mb-2">MFS Account Num (৳)</label>
                       <input 
                         type="text" 
+                        required
                         placeholder="017XXXXXXXX"
+                        value={regMfsNumber}
+                        onChange={(e) => setRegMfsNumber(e.target.value)}
                         className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                       />
                     </div>
@@ -1121,7 +1285,10 @@ export default function App() {
                           <label className="text-xs font-medium text-text-charcoal block mb-2">University / Campus</label>
                           <input 
                             type="text" 
+                            required={registerRole === 'founder'}
                             placeholder="e.g. BRAC University"
+                            value={regUniversity}
+                            onChange={(e) => setRegUniversity(e.target.value)}
                             className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                           />
                         </div>
@@ -1129,62 +1296,77 @@ export default function App() {
                           <label className="text-xs font-medium text-text-charcoal block mb-2">National ID (NID)</label>
                           <input 
                             type="text" 
+                            required={registerRole === 'founder'}
                             placeholder="13-digit NID number"
+                            value={regNid}
+                            onChange={(e) => setRegNid(e.target.value)}
                             className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                           />
-                        </div>
-                      </div>
-
-                      {/* File uploads */}
-                      <div className="border border-dashed border-border-default rounded-lg p-3 text-center bg-surface-cool/40">
-                        <span className="text-[11px] font-medium text-text-charcoal block mb-1">Scanned University Student ID & NID</span>
-                        <div className="flex gap-2 items-center justify-center">
-                          <Upload className="w-4 h-4 text-text-muted" />
-                          <span className="text-[10px] text-sky-primary font-medium hover:underline cursor-pointer">Browse validation PDF</span>
                         </div>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div>
-                        <label className="text-xs font-medium text-text-charcoal block mb-2">Institution / Corporate Firm</label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. Vantage Ventures Dhaka"
-                          className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-text-charcoal block mb-2">Investor Designation</label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. Syndicate Lead / Alumni Angel Backer"
-                          className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-2">Institution / Firm</label>
+                          <input 
+                            type="text" 
+                            required={registerRole === 'investor'}
+                            placeholder="e.g. Vantage Ventures"
+                            value={regInstitution}
+                            onChange={(e) => setRegInstitution(e.target.value)}
+                            className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-2">Investor Designation</label>
+                          <input 
+                            type="text" 
+                            required={registerRole === 'investor'}
+                            placeholder="e.g. Syndicate Lead"
+                            value={regDesignation}
+                            onChange={(e) => setRegDesignation(e.target.value)}
+                            className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                          />
+                        </div>
                       </div>
                     </>
                   )}
 
-                  <div>
-                    <label className="text-xs font-medium text-text-charcoal block mb-2">Account Email Address</label>
-                    <input 
-                      type="email" 
-                      placeholder="name@domain.com"
-                      className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-text-charcoal block mb-2">Account Email Address</label>
+                      <input 
+                        type="email" 
+                        required
+                        placeholder="name@domain.com"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-text-charcoal block mb-2">Security Password</label>
+                      <input 
+                        type="password" 
+                        required
+                        placeholder="••••••••••••"
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <button 
-                  onClick={() => {
-                    setActiveModal(null);
-                    triggerAlert("Registration Data Buffered! Admin review pipeline initiated.");
-                  }}
+                  type="submit"
                   className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <span>Submit Application</span>
                 </button>
-              </div>
+              </form>
             )}
           </div>
         </div>
@@ -1194,413 +1376,4 @@ export default function App() {
   );
 }
 
-function AdminDashboard({ setCurrentView, triggerAlert }) {
-  const [adminTab, setAdminTab] = useState('vetting'); // 'vetting' | 'escrow' | 'system'
-  
-  // Session Authentication State
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-
-  // Pending verification queue state
-  const [vettingQueue, setVettingQueue] = useState([]);
-  const [loadingVetting, setLoadingVetting] = useState(true);
-
-  // Pending milestone release state
-  const [escrowQueue, setEscrowQueue] = useState([
-    { id: 'eb1', campaign: 'CampusBites', milestone: 'MVP Launch', amount: '৳1,50,000', gateway: 'bKash Gateway', status: 'Pending Review' },
-    { id: 'eb2', campaign: 'DhakaCourier Express', milestone: 'Hub Setup in Banani', amount: '৳2,50,000', gateway: 'Nagad Gateway', status: 'Pending Review' }
-  ]);
-
-  const API_BASE_URL = import.meta.env.VITE_API_URL || (
-    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:5000'
-      : window.location.origin
-  );
-
-  // Fetch pending applicants from backend database on load
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/api/vetting/applicants`)
-      .then(res => {
-        if (!res.ok) throw new Error('Error loading vetting queue');
-        return res.json();
-      })
-      .then(data => {
-        setVettingQueue(data);
-        setLoadingVetting(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoadingVetting(false);
-      });
-  }, []);
-
-  const handleAdminLogin = (e) => {
-    e.preventDefault();
-    if (!adminEmail || !adminPassword) {
-      triggerAlert('Please enter both email and password.');
-      return;
-    }
-
-    // Call the dynamic backend auth API
-    fetch(`${API_BASE_URL}/api/admin/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: adminEmail, password: adminPassword })
-    })
-    .then(res => {
-      if (!res.ok) throw new Error('Invalid credentials');
-      return res.json();
-    })
-    .then(data => {
-      setIsAdminAuthenticated(true);
-      triggerAlert('Admin session authorized successfully.');
-    })
-    .catch(err => {
-      triggerAlert('Authentication failed. Check your administrator credentials.');
-    });
-  };
-
-  const handleApproveVetting = (id, name) => {
-    fetch(`${API_BASE_URL}/api/vetting/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: id, status: 'verified' })
-    })
-    .then(res => {
-      if (!res.ok) throw new Error('Failed to update status');
-      return res.json();
-    })
-    .then(() => {
-      setVettingQueue(prev => prev.filter(item => item._id !== id));
-      triggerAlert(`Approved validation credentials for ${name}! Trust profile set to Verified.`);
-    })
-    .catch(err => {
-      triggerAlert('Failed to update status on server.');
-    });
-  };
-
-  const handleRejectVetting = (id, name) => {
-    fetch(`${API_BASE_URL}/api/vetting/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: id, status: 'rejected' })
-    })
-    .then(res => {
-      if (!res.ok) throw new Error('Failed to update status');
-      return res.json();
-    })
-    .then(() => {
-      setVettingQueue(prev => prev.filter(item => item._id !== id));
-      triggerAlert(`Rejected validation request for ${name}. Verification failed.`);
-    })
-    .catch(err => {
-      triggerAlert('Failed to update status on server.');
-    });
-  };
-
-  const handleApproveEscrow = (id, campaign, milestone) => {
-    setEscrowQueue(prev => prev.filter(item => item.id !== id));
-    triggerAlert(`Approved tranche release for ${campaign} (${milestone})! Escrow tranches dispatched.`);
-  };
-
-  if (!isAdminAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#080C14] text-white flex flex-col justify-center items-center font-sans px-4 relative overflow-hidden">
-        {/* Glowing backdrop circle */}
-        <div className="absolute w-[500px] h-[500px] bg-sky-primary/10 rounded-full blur-[120px] pointer-events-none select-none"></div>
-
-        <div className="max-w-md w-full bg-[#0B101E] border border-border-strong rounded-xl p-8 space-y-6 relative z-10 shadow-2xl">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded bg-sky-primary flex items-center justify-center font-display font-medium text-white text-lg mx-auto shadow-md">
-              FB
-            </div>
-            <h2 className="text-xl font-medium tracking-tight font-display">FundBridge Admin Console</h2>
-            <p className="text-xs text-text-muted">Enter administrative credentials to authenticate active session.</p>
-          </div>
-
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div>
-              <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1.5">Administrator Email</label>
-              <input 
-                type="email" 
-                required
-                placeholder="admin@fundbridge.com"
-                value={adminEmail}
-                onChange={(e) => setAdminEmail(e.target.value)}
-                className="w-full bg-white/5 border border-border-strong rounded px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-sky-primary focus:border-sky-primary placeholder-white/30"
-              />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1.5">Secret Key Password</label>
-              <input 
-                type="password" 
-                required
-                placeholder="••••••••"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                className="w-full bg-white/5 border border-border-strong rounded px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-sky-primary focus:border-sky-primary placeholder-white/30"
-              />
-            </div>
-
-            <button 
-              type="submit"
-              className="w-full py-3 bg-sky-primary hover:bg-sky-primary/90 text-white text-xs font-medium rounded transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md mt-2 text-center"
-            >
-              <Shield className="w-4 h-4 text-neon-mint" />
-              <span>Authenticate Admin Session</span>
-            </button>
-          </form>
-
-          <div className="pt-4 border-t border-white/10 text-center">
-            <button 
-              onClick={() => {
-                setCurrentView('landing');
-                window.history.pushState({}, '', '/');
-              }}
-              className="text-xs text-text-muted hover:text-white transition-colors cursor-pointer inline-flex items-center gap-1.5"
-            >
-              <ArrowRight className="w-3.5 h-3.5 rotate-180 text-sky-primary" />
-              <span>Return to Marketplace</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[#080C14] text-white flex flex-col font-sans">
-      {/* Admin Header */}
-      <header className="border-b border-border-strong bg-[#0B101E] px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-sky-primary flex items-center justify-center font-display font-medium text-white text-md">
-            FB
-          </div>
-          <div>
-            <h1 className="text-md font-medium tracking-tight">FundBridge</h1>
-            <span className="text-[10px] text-neon-mint tracking-wider block uppercase font-medium">Platform Administration</span>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <span className="text-xs bg-white/5 border border-white/10 px-3 py-1 rounded text-white/70 font-medium">
-            Active: Mainnet 🇧🇩
-          </span>
-          <button 
-            onClick={() => {
-              setCurrentView('landing');
-              window.history.pushState({}, '', '/');
-            }}
-            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-white transition-colors border border-border-strong rounded px-3 py-1.5 cursor-pointer bg-white/5"
-          >
-            <LogOut className="w-3.5 h-3.5 text-sky-primary" />
-            <span>Exit Dashboard</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Admin Panel Layout */}
-      <div className="flex-1 flex flex-col md:flex-row">
-        
-        {/* Sidebar Nav */}
-        <aside className="w-full md:w-64 border-r border-border-strong bg-[#090D18] p-6 space-y-2">
-          <span className="text-[9px] font-medium tracking-widest text-text-muted uppercase block mb-4">Operations Vault</span>
-          
-          <button 
-            onClick={() => setAdminTab('vetting')}
-            className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
-              adminTab === 'vetting' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Verification Queue ({vettingQueue.length})</span>
-          </button>
-          
-          <button 
-            onClick={() => setAdminTab('escrow')}
-            className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
-              adminTab === 'escrow' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <Shield className="w-4 h-4" />
-            <span>Escrow Tranche Releases ({escrowQueue.length})</span>
-          </button>
-
-          <button 
-            onClick={() => setAdminTab('system')}
-            className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
-              adminTab === 'system' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <Database className="w-4 h-4" />
-            <span>System Data Diagnostics</span>
-          </button>
-        </aside>
-
-        {/* Workspace panel content */}
-        <main className="flex-1 p-8 bg-[#080C14] text-left">
-          
-          {adminTab === 'vetting' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-medium tracking-tight font-display">User Verification & Vetting</h2>
-                <p className="text-xs text-text-muted mt-1">Review student enrollment proof and NID scanned documents to enable transaction access.</p>
-              </div>
-
-              {vettingQueue.length === 0 ? (
-                <div className="border border-dashed border-border-strong rounded-xl p-12 text-center text-text-muted space-y-3">
-                  <CheckCircle className="w-8 h-8 text-neon-mint mx-auto opacity-70" />
-                  <p className="text-xs font-medium">All student founder vetting applications have been audited.</p>
-                </div>
-              ) : (
-                <div className="border border-border-strong rounded-xl overflow-hidden bg-[#0A0F1E]">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="bg-white/5 border-b border-border-strong text-text-muted font-medium">
-                        <th className="p-4">Applicant Profile</th>
-                        <th className="p-4">Designation</th>
-                        <th className="p-4">Identity Details</th>
-                        <th className="p-4">MFS Gateway Account</th>
-                        <th className="p-4 text-center">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-strong">
-                      {vettingQueue.map(item => (
-                        <tr key={item._id} className="hover:bg-white/5 transition-colors">
-                          <td className="p-4 font-medium text-white">{item.name}</td>
-                          <td className="p-4">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${
-                              item.role === 'founder' ? 'bg-sky-primary/10 text-sky-light' : 'bg-neon-mint/10 text-neon-mint'
-                            }`}>
-                              {item.role}
-                            </span>
-                          </td>
-                          <td className="p-4 text-text-muted">
-                            {item.university ? `${item.university} · NID: ${item.nid || 'N/A'}` : `${item.institution || 'N/A'}`}
-                          </td>
-                          <td className="p-4 text-text-muted">{item.mfsNumber || 'N/A'}</td>
-                          <td className="p-4">
-                            <div className="flex gap-2 justify-center">
-                              <button 
-                                onClick={() => handleApproveVetting(item._id, item.name)}
-                                className="px-3 py-1.5 bg-neon-mint hover:bg-neon-mint/80 text-obsidian-dark font-medium rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                                <span>Approve</span>
-                              </button>
-                              <button 
-                                onClick={() => handleRejectVetting(item._id, item.name)}
-                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white font-medium rounded border border-border-strong text-[11px] transition-colors cursor-pointer flex items-center gap-1"
-                              >
-                                <X className="w-3.5 h-3.5 text-red-400" />
-                                <span>Reject</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {adminTab === 'escrow' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-medium tracking-tight font-display">Escrow Tranche Release Queue</h2>
-                <p className="text-xs text-text-muted mt-1">Audit verification documents submitted by student founders to trigger escrow milestone disbursements.</p>
-              </div>
-
-              {escrowQueue.length === 0 ? (
-                <div className="border border-dashed border-border-strong rounded-xl p-12 text-center text-text-muted space-y-3">
-                  <CheckCircle className="w-8 h-8 text-neon-mint mx-auto opacity-70" />
-                  <p className="text-xs font-medium">All milestone tranches have been successfully processed.</p>
-                </div>
-              ) : (
-                <div className="border border-border-strong rounded-xl overflow-hidden bg-[#0A0F1E]">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="bg-white/5 border-b border-border-strong text-text-muted font-medium">
-                        <th className="p-4">Campaign Name</th>
-                        <th className="p-4">Milestone Target</th>
-                        <th className="p-4">Tranche Amount</th>
-                        <th className="p-4">Settlement Method</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 text-center">Escrow Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-strong">
-                      {escrowQueue.map(item => (
-                        <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                          <td className="p-4 font-medium text-white">{item.campaign}</td>
-                          <td className="p-4 text-white/90">{item.milestone}</td>
-                          <td className="p-4 font-medium text-neon-mint">{item.amount}</td>
-                          <td className="p-4 text-text-muted">{item.gateway}</td>
-                          <td className="p-4">
-                            <span className="inline-flex items-center gap-1.5 text-text-muted">
-                              <span className="w-1.5 h-1.5 rounded-full bg-sky-primary animate-pulse"></span>
-                              <span>{item.status}</span>
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex justify-center">
-                              <button 
-                                onClick={() => handleApproveEscrow(item.id, item.campaign, item.milestone)}
-                                className="px-4 py-1.5 bg-sky-primary hover:bg-sky-primary/80 text-white font-medium rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
-                              >
-                                <Shield className="w-3.5 h-3.5" />
-                                <span>Release Escrow Tranche</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {adminTab === 'system' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-medium tracking-tight font-display">System Diagnostics</h2>
-                <p className="text-xs text-text-muted mt-1">Platform connection status and database diagnostic logs.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="border border-border-strong rounded-xl p-5 bg-[#0A0F1E] space-y-2">
-                  <span className="text-[10px] text-text-muted uppercase block font-medium">Server API Status</span>
-                  <div className="text-lg font-medium text-neon-mint flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-neon-mint animate-pulse"></span>
-                    <span>ONLINE (200 OK)</span>
-                  </div>
-                </div>
-
-                <div className="border border-border-strong rounded-xl p-5 bg-[#0A0F1E] space-y-2">
-                  <span className="text-[10px] text-text-muted uppercase block font-medium">MongoDB Cluster Connection</span>
-                  <div className="text-lg font-medium text-text-muted">
-                    Fallback Mode (In-Memory)
-                  </div>
-                </div>
-
-                <div className="border border-border-strong rounded-xl p-5 bg-[#0A0F1E] space-y-2">
-                  <span className="text-[10px] text-text-muted uppercase block font-medium">Active Socket Channels</span>
-                  <div className="text-lg font-medium text-white">
-                    4 Negotiation Lines
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </main>
-      </div>
-    </div>
-  );
-}
+// Obsolete AdminDashboard component removed. Managed in ./components/AdminDashboard.jsx

@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import User from './models/User.js';
 import Campaign from './models/Campaign.js';
+import Proposal from './models/Proposal.js';
+import bcrypt from 'bcryptjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,11 +23,14 @@ async function seedDatabase() {
 
     await User.deleteMany({});
     await Campaign.deleteMany({});
+    await Proposal.deleteMany({});
 
     console.log('Creating seed Founder User account...');
+    const hashedFounderPassword = await bcrypt.hash('founderpassword', 10);
     const seedFounder = await User.create({
       name: 'Pritom Mondal',
       email: 'student@univ.edu.bd',
+      password: hashedFounderPassword,
       role: 'founder',
       vettingStatus: 'verified',
       mfsNumber: '01712345678',
@@ -34,13 +39,27 @@ async function seedDatabase() {
     });
 
     console.log('Creating seed Admin User account...');
+    const hashedAdminPassword = await bcrypt.hash('adminpassword', 10);
     await User.create({
       name: 'Admin User',
       email: 'admin@fundbridge.com',
-      password: 'adminpassword',
+      password: hashedAdminPassword,
       role: 'admin',
       vettingStatus: 'verified',
       mfsNumber: '01799999999'
+    });
+
+    console.log('Creating seed Investor User account...');
+    const hashedInvestorPassword = await bcrypt.hash('investorpassword', 10);
+    await User.create({
+      name: 'Angel Backer Zaman',
+      email: 'investor@firm.com',
+      password: hashedInvestorPassword,
+      role: 'investor',
+      vettingStatus: 'verified',
+      mfsNumber: '01711111111',
+      institution: 'Vantage Ventures Dhaka',
+      designation: 'Syndicate Lead'
     });
 
     console.log('Seeding Campaigns collection...');
