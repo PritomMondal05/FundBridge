@@ -1212,7 +1212,11 @@ function AdminDashboard({ setCurrentView, triggerAlert }) {
     { id: 'eb2', campaign: 'DhakaCourier Express', milestone: 'Hub Setup in Banani', amount: '৳2,50,000', gateway: 'Nagad Gateway', status: 'Pending Review' }
   ]);
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || (
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:5000'
+      : window.location.origin
+  );
 
   // Fetch pending applicants from backend database on load
   useEffect(() => {
