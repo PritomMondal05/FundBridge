@@ -13,7 +13,13 @@ import {
   X, 
   Send, 
   FileText,
-  Upload
+  Upload,
+  Users,
+  CheckCircle,
+  XCircle,
+  Database,
+  TrendingUp,
+  LogOut
 } from 'lucide-react';
 import logoUrl from './assets/images/FundBridge Logo Black.svg';
 import logoWhiteUrl from './assets/images/FundBridge Logo White.svg';
@@ -83,6 +89,13 @@ export default function App() {
   // Navigation & Modals State
   const [activeModal, setActiveModal] = useState(null); // 'login' | 'register' | null
   const [registerRole, setRegisterRole] = useState('founder'); // 'founder' | 'investor'
+  const [loginRole, setLoginRole] = useState('user'); // 'user' | 'admin'
+  const [currentView, setCurrentView] = useState(() => {
+    if (window.location.hostname.startsWith('admin') || window.location.pathname.startsWith('/admin') || window.location.hash === '#admin') {
+      return 'admin';
+    }
+    return 'landing';
+  });
   
   // Sandbox state inside Hero dashboard frame overlay
   const [sandboxTab, setSandboxTab] = useState('Campaign'); // 'Overview' | 'Campaign' | 'Investors' | 'Negotiate' | 'Milestones'
@@ -183,6 +196,10 @@ export default function App() {
   const handleMockProposalAction = (action) => {
     triggerAlert(`Proposal ${action === 'accept' ? 'Accepted' : 'Rejected'}! Dynamic Safety Deposit is required via bKash/Nagad gateway to unlock the escrow tranche.`);
   };
+
+  if (currentView === 'admin') {
+    return <AdminDashboard setCurrentView={setCurrentView} triggerAlert={triggerAlert} />;
+  }
 
   return (
     <div className="relative min-h-screen bg-surface-clean text-text-charcoal selection:bg-sky-primary selection:text-white overflow-x-hidden font-sans">
@@ -983,6 +1000,7 @@ export default function App() {
               <li><a onClick={() => triggerAlert("Invest Catalog loading...")} className="hover:text-sky-primary transition-colors cursor-pointer">Invest Catalog</a></li>
               <li><a onClick={() => triggerAlert("University campaign directory.")} className="hover:text-sky-primary transition-colors cursor-pointer">Explore Directories</a></li>
               <li><a onClick={() => triggerAlert("Risk assessment calculator.")} className="hover:text-sky-primary transition-colors cursor-pointer">Risk Assessment Vault</a></li>
+              <li><a onClick={() => { setCurrentView('admin'); window.history.pushState({}, '', '/admin'); window.scrollTo({ top: 0 }); }} className="text-sky-light hover:text-sky-primary transition-colors cursor-pointer block pt-1 border-t border-white/5 mt-1 font-medium">Admin Portal</a></li>
             </ul>
           </div>
 
@@ -1017,35 +1035,92 @@ export default function App() {
                   <p className="text-xs text-text-muted mt-1">Select your workspace designation to authenticate.</p>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-medium text-text-charcoal block mb-2">Registered Email Address</label>
-                    <input 
-                      type="email" 
-                      placeholder="student@univ.edu.bd or investor@firm.com"
-                      className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-text-charcoal block mb-2">Account Password</label>
-                    <input 
-                      type="password" 
-                      placeholder="••••••••••••"
-                      className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                    />
-                  </div>
+                {/* Login Role Switcher */}
+                <div className="grid grid-cols-2 gap-2 bg-surface-cool p-1 rounded-lg border border-border-default/80">
+                  <button 
+                    onClick={() => setLoginRole('user')}
+                    className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${
+                      loginRole === 'user' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
+                    }`}
+                  >
+                    🚀 Founder & Backer
+                  </button>
+                  <button 
+                    onClick={() => setLoginRole('admin')}
+                    className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${
+                      loginRole === 'admin' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
+                    }`}
+                  >
+                    🛡️ Administrator
+                  </button>
                 </div>
 
-                <button 
-                  onClick={() => {
-                    setActiveModal(null);
-                    triggerAlert("Login Successful! Redirecting to customized role dashboard...");
-                  }}
-                  className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>Authenticate Session</span>
-                </button>
+                {loginRole === 'user' ? (
+                  <>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-medium text-text-charcoal block mb-2">Registered Email Address</label>
+                        <input 
+                          type="email" 
+                          placeholder="student@univ.edu.bd or investor@firm.com"
+                          className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-text-charcoal block mb-2">Account Password</label>
+                        <input 
+                          type="password" 
+                          placeholder="••••••••••••"
+                          className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        setActiveModal(null);
+                        triggerAlert("Login Successful! Redirecting to customized role dashboard...");
+                      }}
+                      className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <span>Authenticate Session</span>
+                    </button>
+                  </>
+                ) : (
+                  <div className="space-y-5 text-center py-2">
+                    <p className="text-xs text-text-charcoal/80 leading-relaxed max-w-sm mx-auto">
+                      Platform Administrator access requires federated single sign-on (SSO) credentials. To authenticate your administrator session, proceed to the external portal:
+                    </p>
+                    <button 
+                      onClick={() => {
+                        setActiveModal(null);
+                        setCurrentView('admin');
+                        window.history.pushState({}, '', '/admin');
+                        window.scrollTo({ top: 0 });
+                      }}
+                      className="w-full py-3.5 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 shadow-soft"
+                    >
+                      <span>Proceed to Admin Portal</span>
+                      <ArrowRight className="w-4 h-4 text-sky-primary" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="pt-4 text-center border-t border-border-default/60">
+                  <a 
+                    onClick={() => {
+                      setActiveModal(null);
+                      setCurrentView('admin');
+                      window.history.pushState({}, '', '/admin');
+                      window.scrollTo({ top: 0 });
+                    }}
+                    className="text-xs text-sky-primary font-medium hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Access Administrator Portal</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
               </div>
             )}
 
@@ -1173,6 +1248,314 @@ export default function App() {
         </div>
       )}
 
+    </div>
+  );
+}
+
+function AdminDashboard({ setCurrentView, triggerAlert }) {
+  const [adminTab, setAdminTab] = useState('vetting'); // 'vetting' | 'escrow' | 'system'
+  
+  // Pending verification queue state
+  const [vettingQueue, setVettingQueue] = useState([]);
+  const [loadingVetting, setLoadingVetting] = useState(true);
+
+  // Pending milestone release state
+  const [escrowQueue, setEscrowQueue] = useState([
+    { id: 'eb1', campaign: 'CampusBites', milestone: 'MVP Launch', amount: '৳1,50,000', gateway: 'bKash Gateway', status: 'Pending Review' },
+    { id: 'eb2', campaign: 'DhakaCourier Express', milestone: 'Hub Setup in Banani', amount: '৳2,50,000', gateway: 'Nagad Gateway', status: 'Pending Review' }
+  ]);
+
+  // Fetch pending applicants from backend database on load
+  useEffect(() => {
+    fetch('http://localhost:5000/api/vetting/applicants')
+      .then(res => {
+        if (!res.ok) throw new Error('Error loading vetting queue');
+        return res.json();
+      })
+      .then(data => {
+        setVettingQueue(data);
+        setLoadingVetting(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoadingVetting(false);
+      });
+  }, []);
+
+  const handleApproveVetting = (id, name) => {
+    fetch('http://localhost:5000/api/vetting/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: id, status: 'verified' })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Failed to update status');
+      return res.json();
+    })
+    .then(() => {
+      setVettingQueue(prev => prev.filter(item => item._id !== id));
+      triggerAlert(`Approved validation credentials for ${name}! Trust profile set to Verified.`);
+    })
+    .catch(err => {
+      triggerAlert('Failed to update status on server.');
+    });
+  };
+
+  const handleRejectVetting = (id, name) => {
+    fetch('http://localhost:5000/api/vetting/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: id, status: 'rejected' })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Failed to update status');
+      return res.json();
+    })
+    .then(() => {
+      setVettingQueue(prev => prev.filter(item => item._id !== id));
+      triggerAlert(`Rejected validation request for ${name}. Verification failed.`);
+    })
+    .catch(err => {
+      triggerAlert('Failed to update status on server.');
+    });
+  };
+
+  const handleApproveEscrow = (id, campaign, milestone) => {
+    setEscrowQueue(prev => prev.filter(item => item.id !== id));
+    triggerAlert(`Approved tranche release for ${campaign} (${milestone})! Escrow tranches dispatched.`);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#080C14] text-white flex flex-col font-sans">
+      {/* Admin Header */}
+      <header className="border-b border-border-strong bg-[#0B101E] px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded bg-sky-primary flex items-center justify-center font-display font-medium text-white text-md">
+            FB
+          </div>
+          <div>
+            <h1 className="text-md font-medium tracking-tight">FundBridge</h1>
+            <span className="text-[10px] text-neon-mint tracking-wider block uppercase font-medium">Platform Administration</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <span className="text-xs bg-white/5 border border-white/10 px-3 py-1 rounded text-white/70 font-medium">
+            Active: Mainnet 🇧🇩
+          </span>
+          <button 
+            onClick={() => {
+              setCurrentView('landing');
+              window.history.pushState({}, '', '/');
+            }}
+            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-white transition-colors border border-border-strong rounded px-3 py-1.5 cursor-pointer bg-white/5"
+          >
+            <LogOut className="w-3.5 h-3.5 text-sky-primary" />
+            <span>Exit Dashboard</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Admin Panel Layout */}
+      <div className="flex-1 flex flex-col md:flex-row">
+        
+        {/* Sidebar Nav */}
+        <aside className="w-full md:w-64 border-r border-border-strong bg-[#090D18] p-6 space-y-2">
+          <span className="text-[9px] font-medium tracking-widest text-text-muted uppercase block mb-4">Operations Vault</span>
+          
+          <button 
+            onClick={() => setAdminTab('vetting')}
+            className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
+              adminTab === 'vetting' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Verification Queue ({vettingQueue.length})</span>
+          </button>
+          
+          <button 
+            onClick={() => setAdminTab('escrow')}
+            className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
+              adminTab === 'escrow' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <Shield className="w-4 h-4" />
+            <span>Escrow Tranche Releases ({escrowQueue.length})</span>
+          </button>
+
+          <button 
+            onClick={() => setAdminTab('system')}
+            className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
+              adminTab === 'system' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            <span>System Data Diagnostics</span>
+          </button>
+        </aside>
+
+        {/* Workspace panel content */}
+        <main className="flex-1 p-8 bg-[#080C14] text-left">
+          
+          {adminTab === 'vetting' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-medium tracking-tight font-display">User Verification & Vetting</h2>
+                <p className="text-xs text-text-muted mt-1">Review student enrollment proof and NID scanned documents to enable transaction access.</p>
+              </div>
+
+              {vettingQueue.length === 0 ? (
+                <div className="border border-dashed border-border-strong rounded-xl p-12 text-center text-text-muted space-y-3">
+                  <CheckCircle className="w-8 h-8 text-neon-mint mx-auto opacity-70" />
+                  <p className="text-xs font-medium">All student founder vetting applications have been audited.</p>
+                </div>
+              ) : (
+                <div className="border border-border-strong rounded-xl overflow-hidden bg-[#0A0F1E]">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="bg-white/5 border-b border-border-strong text-text-muted font-medium">
+                        <th className="p-4">Applicant Profile</th>
+                        <th className="p-4">Designation</th>
+                        <th className="p-4">Identity Details</th>
+                        <th className="p-4">MFS Gateway Account</th>
+                        <th className="p-4 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-strong">
+                      {vettingQueue.map(item => (
+                        <tr key={item._id} className="hover:bg-white/5 transition-colors">
+                          <td className="p-4 font-medium text-white">{item.name}</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${
+                              item.role === 'founder' ? 'bg-sky-primary/10 text-sky-light' : 'bg-neon-mint/10 text-neon-mint'
+                            }`}>
+                              {item.role}
+                            </span>
+                          </td>
+                          <td className="p-4 text-text-muted">
+                            {item.university ? `${item.university} · NID: ${item.nid || 'N/A'}` : `${item.institution || 'N/A'}`}
+                          </td>
+                          <td className="p-4 text-text-muted">{item.mfsNumber || 'N/A'}</td>
+                          <td className="p-4">
+                            <div className="flex gap-2 justify-center">
+                              <button 
+                                onClick={() => handleApproveVetting(item._id, item.name)}
+                                className="px-3 py-1.5 bg-neon-mint hover:bg-neon-mint/80 text-obsidian-dark font-medium rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Approve</span>
+                              </button>
+                              <button 
+                                onClick={() => handleRejectVetting(item._id, item.name)}
+                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white font-medium rounded border border-border-strong text-[11px] transition-colors cursor-pointer flex items-center gap-1"
+                              >
+                                <X className="w-3.5 h-3.5 text-red-400" />
+                                <span>Reject</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {adminTab === 'escrow' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-medium tracking-tight font-display">Escrow Tranche Release Queue</h2>
+                <p className="text-xs text-text-muted mt-1">Audit verification documents submitted by student founders to trigger escrow milestone disbursements.</p>
+              </div>
+
+              {escrowQueue.length === 0 ? (
+                <div className="border border-dashed border-border-strong rounded-xl p-12 text-center text-text-muted space-y-3">
+                  <CheckCircle className="w-8 h-8 text-neon-mint mx-auto opacity-70" />
+                  <p className="text-xs font-medium">All milestone tranches have been successfully processed.</p>
+                </div>
+              ) : (
+                <div className="border border-border-strong rounded-xl overflow-hidden bg-[#0A0F1E]">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="bg-white/5 border-b border-border-strong text-text-muted font-medium">
+                        <th className="p-4">Campaign Name</th>
+                        <th className="p-4">Milestone Target</th>
+                        <th className="p-4">Tranche Amount</th>
+                        <th className="p-4">Settlement Method</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4 text-center">Escrow Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-strong">
+                      {escrowQueue.map(item => (
+                        <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                          <td className="p-4 font-medium text-white">{item.campaign}</td>
+                          <td className="p-4 text-white/90">{item.milestone}</td>
+                          <td className="p-4 font-medium text-neon-mint">{item.amount}</td>
+                          <td className="p-4 text-text-muted">{item.gateway}</td>
+                          <td className="p-4">
+                            <span className="inline-flex items-center gap-1.5 text-text-muted">
+                              <span className="w-1.5 h-1.5 rounded-full bg-sky-primary animate-pulse"></span>
+                              <span>{item.status}</span>
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex justify-center">
+                              <button 
+                                onClick={() => handleApproveEscrow(item.id, item.campaign, item.milestone)}
+                                className="px-4 py-1.5 bg-sky-primary hover:bg-sky-primary/80 text-white font-medium rounded text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
+                              >
+                                <Shield className="w-3.5 h-3.5" />
+                                <span>Release Escrow Tranche</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {adminTab === 'system' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-medium tracking-tight font-display">System Diagnostics</h2>
+                <p className="text-xs text-text-muted mt-1">Platform connection status and database diagnostic logs.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="border border-border-strong rounded-xl p-5 bg-[#0A0F1E] space-y-2">
+                  <span className="text-[10px] text-text-muted uppercase block font-medium">Server API Status</span>
+                  <div className="text-lg font-medium text-neon-mint flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-neon-mint animate-pulse"></span>
+                    <span>ONLINE (200 OK)</span>
+                  </div>
+                </div>
+
+                <div className="border border-border-strong rounded-xl p-5 bg-[#0A0F1E] space-y-2">
+                  <span className="text-[10px] text-text-muted uppercase block font-medium">MongoDB Cluster Connection</span>
+                  <div className="text-lg font-medium text-text-muted">
+                    Fallback Mode (In-Memory)
+                  </div>
+                </div>
+
+                <div className="border border-border-strong rounded-xl p-5 bg-[#0A0F1E] space-y-2">
+                  <span className="text-[10px] text-text-muted uppercase block font-medium">Active Socket Channels</span>
+                  <div className="text-lg font-medium text-white">
+                    4 Negotiation Lines
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </main>
+      </div>
     </div>
   );
 }

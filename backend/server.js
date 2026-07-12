@@ -30,46 +30,6 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-// In-Memory fallback data when MongoDB is not connected
-const MOCK_CAMPAIGNS = [
-  {
-    id: 'campusbites',
-    title: 'CampusBites',
-    university: 'BRAC University',
-    location: 'Dhanmondi, Dhaka',
-    category: 'F&B',
-    stage: 'MVP',
-    goal: 500000,
-    raised: 300000,
-    equityOffer: '8% Revenue Share',
-    milestones: [
-      { title: 'MVP Launch', target: 'Month 1', status: 'done' },
-      { title: 'First 100 Users', target: 'Month 2', status: 'active' },
-      { title: 'Revenue ৳50K', target: 'Month 4', status: 'locked' }
-    ],
-    verified: true,
-    description: 'Providing premium healthy meal delivery boxes inside campus parameters on a subscription basis.'
-  },
-  {
-    id: 'dhakacourier',
-    title: 'DhakaCourier Express',
-    university: 'NSU',
-    location: 'Banani, Dhaka',
-    category: 'Logistics',
-    stage: 'Early Traction',
-    goal: 800000,
-    raised: 520000,
-    equityOffer: '10% Equity',
-    milestones: [
-      { title: 'Hub Setup in Banani', target: 'Month 1', status: 'done' },
-      { title: 'First 500 Deliveries', target: 'Month 2', status: 'done' },
-      { title: 'Automated Routing App', target: 'Month 3', status: 'active' }
-    ],
-    verified: true,
-    description: 'Hyperlocal delivery network using student electric bikes for zero-emission parcels.'
-  }
-];
-
 // Base API endpoints
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'healthy', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
@@ -78,13 +38,10 @@ app.get('/api/health', (req, res) => {
 // Campaign fetch API
 app.get('/api/campaigns', async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(200).json(MOCK_CAMPAIGNS);
-    }
     const campaigns = await Campaign.find({}).populate('founder', 'name email university');
     res.status(200).json(campaigns);
   } catch (err) {
-    res.status(200).json(MOCK_CAMPAIGNS);
+    res.status(500).json({ error: 'Error fetching campaigns from database.' });
   }
 });
 
@@ -95,14 +52,6 @@ app.post('/api/vetting/apply', async (req, res) => {
     
     if (!name || !mfsNumber) {
       return res.status(400).json({ error: 'Full Name and MFS number are required for verification registry.' });
-    }
-
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(201).json({
-        message: 'Identity data registered in vetting queue (offline fallback).',
-        status: 'pending',
-        timestamp: new Date()
-      });
     }
 
     const userEmail = email || `${name.toLowerCase().replace(/\s+/g, '')}@univ.edu.bd`;
@@ -132,17 +81,71 @@ app.post('/api/vetting/apply', async (req, res) => {
   }
 });
 
+// Retrieve pending vetting applications
+app.get('/api/vetting/applicants', async (req, res) => {
+  try {
+    const applicants = await User.find({ vettingStatus: 'pending' });
+    res.status(200).json(applicants);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching vetting applicants.' });
+  }
+});
+
+// Approve or reject vetting status
+app.post('/api/vetting/status', async (req, res) => {
+  try {
+    const { userId, status } = req.body; // status: 'verified' or 'rejected'
+    if (!userId || !status) {
+      return res.status(400).json({ error: 'User ID and status are required.' });
+    }
+
+    const user = await User.findByIdAndUpdate(userId, { vettingStatus: status }, { new: true });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    res.status(200).json({ message: `Vetting status updated to ${status}.`, user });
+  } catch (err) {
+    res.status(500).json({ error: 'Error updating vetting status.' });
+  }
+});
+
+// Admin authentication API endpoint
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    const user = await User.findOne({ email, role: 'admin' });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid administrator credentials or access denied.' });
+    }
+
+    if (user.password && user.password !== password) {
+      return res.status(401).json({ error: 'Invalid administrator credentials.' });
+    }
+
+    res.status(200).json({
+      message: 'Admin authentication successful.',
+      token: 'jwt-admin-token-db-active',
+      user: {
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error during administrator login.' });
+  }
+});
+
 // Escrow Milestone status check
 app.get('/api/milestones/:campaignId', async (req, res) => {
   try {
     const { campaignId } = req.params;
-    if (mongoose.connection.readyState !== 1) {
-      const campaign = MOCK_CAMPAIGNS.find(c => c.id === campaignId);
-      if (!campaign) {
-        return res.status(404).json({ error: 'Campaign profile not found.' });
-      }
-      return res.status(200).json(campaign.milestones);
-    }
     const campaign = await Campaign.findOne({ id: campaignId });
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign profile not found.' });
@@ -198,14 +201,10 @@ io.on('connection', (socket) => {
 });
 
 // Database connection logic helper
-const MONGO_URI = process.env.MONGO_URI;
-if (MONGO_URI) {
-  mongoose.connect(MONGO_URI)
-    .then(() => console.log('MongoDB cluster connection established successfully.'))
-    .catch(err => console.error('MongoDB initial connection failure:', err));
-} else {
-  console.log('⚠️ Environment MONGO_URI variable is absent. Operating with mock in-memory collections.');
-}
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/fundbridge';
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('MongoDB cluster connection established successfully.'))
+  .catch(err => console.error('MongoDB initial connection failure:', err));
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {

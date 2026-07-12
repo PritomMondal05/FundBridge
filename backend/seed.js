@@ -33,6 +33,16 @@ async function seedDatabase() {
       nid: '1234567890123'
     });
 
+    console.log('Creating seed Admin User account...');
+    await User.create({
+      name: 'Admin User',
+      email: 'admin@fundbridge.com',
+      password: 'adminpassword',
+      role: 'admin',
+      vettingStatus: 'verified',
+      mfsNumber: '01799999999'
+    });
+
     console.log('Seeding Campaigns collection...');
     const seedCampaigns = [
       {
