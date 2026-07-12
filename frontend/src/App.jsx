@@ -1212,9 +1212,11 @@ function AdminDashboard({ setCurrentView, triggerAlert }) {
     { id: 'eb2', campaign: 'DhakaCourier Express', milestone: 'Hub Setup in Banani', amount: '৳2,50,000', gateway: 'Nagad Gateway', status: 'Pending Review' }
   ]);
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
   // Fetch pending applicants from backend database on load
   useEffect(() => {
-    fetch('http://localhost:5000/api/vetting/applicants')
+    fetch(`${API_BASE_URL}/api/vetting/applicants`)
       .then(res => {
         if (!res.ok) throw new Error('Error loading vetting queue');
         return res.json();
@@ -1237,7 +1239,7 @@ function AdminDashboard({ setCurrentView, triggerAlert }) {
     }
 
     // Call the dynamic backend auth API
-    fetch('http://localhost:5000/api/admin/login', {
+    fetch(`${API_BASE_URL}/api/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: adminEmail, password: adminPassword })
@@ -1256,7 +1258,7 @@ function AdminDashboard({ setCurrentView, triggerAlert }) {
   };
 
   const handleApproveVetting = (id, name) => {
-    fetch('http://localhost:5000/api/vetting/status', {
+    fetch(`${API_BASE_URL}/api/vetting/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: id, status: 'verified' })
@@ -1275,7 +1277,7 @@ function AdminDashboard({ setCurrentView, triggerAlert }) {
   };
 
   const handleRejectVetting = (id, name) => {
-    fetch('http://localhost:5000/api/vetting/status', {
+    fetch(`${API_BASE_URL}/api/vetting/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: id, status: 'rejected' })
