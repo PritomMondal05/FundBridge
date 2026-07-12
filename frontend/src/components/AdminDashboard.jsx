@@ -14,6 +14,18 @@ import {
 } from 'lucide-react';
 
 export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert }) {
+  // Session Authentication State
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
+    const saved = localStorage.getItem('fundbridge_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      return u.role === 'admin';
+    }
+    return false;
+  });
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+
   const [adminTab, setAdminTab] = useState('vetting'); // 'vetting' | 'campaigns' | 'escrow' | 'system'
   
   // Pending queues state
@@ -25,6 +37,36 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   // System diagnostics state
   const [dbStatus, setDbStatus] = useState('Checking...');
   const [healthStatus, setHealthStatus] = useState('Checking...');
+
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    if (!adminEmail || !adminPassword) {
+      triggerAlert('Please enter both email and password.');
+      return;
+    }
+
+    fetch(`${API_BASE_URL}/api/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: adminEmail, password: adminPassword })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Invalid credentials');
+      return res.json();
+    })
+    .then(data => {
+      if (data.user.role !== 'admin') {
+        throw new Error('Access denied. Administrator credentials required.');
+      }
+      localStorage.setItem('fundbridge_user', JSON.stringify(data.user));
+      localStorage.setItem('fundbridge_token', data.token);
+      setIsAdminAuthenticated(true);
+      triggerAlert('Admin session authorized successfully.');
+    })
+    .catch(err => {
+      triggerAlert(err.message || 'Authentication failed. Check your administrator credentials.');
+    });
+  };
 
   const loadData = async () => {
     try {
@@ -71,8 +113,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isAdminAuthenticated) {
+      loadData();
+    }
+  }, [isAdminAuthenticated]);
 
   const handleApproveVetting = async (id, name) => {
     try {
@@ -143,6 +187,69 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       triggerAlert('Failed to release escrow tranche on server.');
     }
   };
+
+  if (!isAdminAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#080C14] text-white flex flex-col justify-center items-center font-sans px-4 relative overflow-hidden">
+        {/* Glowing backdrop circle */}
+        <div className="absolute w-[500px] h-[500px] bg-sky-primary/10 rounded-full blur-[120px] pointer-events-none select-none"></div>
+
+        <div className="max-w-md w-full bg-[#0B101E] border border-border-strong rounded-xl p-8 space-y-6 relative z-10 shadow-2xl">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 rounded bg-sky-primary flex items-center justify-center font-display font-medium text-white text-lg mx-auto shadow-md">
+              FB
+            </div>
+            <h2 className="text-xl font-medium tracking-tight font-display">FundBridge Admin Console</h2>
+            <p className="text-xs text-text-muted">Enter administrative credentials to authenticate active session.</p>
+          </div>
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div>
+              <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1.5">Administrator Email</label>
+              <input 
+                type="email" 
+                required
+                placeholder="admin@fundbridge.com"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                className="w-full bg-white/5 border border-border-strong rounded px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-sky-primary focus:border-sky-primary placeholder-white/30"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1.5">Secret Key Password</label>
+              <input 
+                type="password" 
+                required
+                placeholder="••••••••"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                className="w-full bg-white/5 border border-border-strong rounded px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-sky-primary focus:border-sky-primary placeholder-white/30"
+              />
+            </div>
+
+            <button 
+              type="submit"
+              className="w-full py-3 bg-sky-primary hover:bg-sky-primary/90 text-white text-xs font-medium rounded transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md mt-2 text-center"
+            >
+              <Shield className="w-4 h-4 text-neon-mint" />
+              <span>Authenticate Admin Session</span>
+            </button>
+          </form>
+
+          <div className="pt-4 border-t border-white/10 text-center">
+            <button 
+              onClick={onLogout}
+              className="text-xs text-text-muted hover:text-white transition-colors cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <ArrowRight className="w-3.5 h-3.5 rotate-180 text-sky-primary" />
+              <span>Return to Marketplace</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
