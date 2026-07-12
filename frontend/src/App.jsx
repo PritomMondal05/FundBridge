@@ -1000,7 +1000,6 @@ export default function App() {
               <li><a onClick={() => triggerAlert("Invest Catalog loading...")} className="hover:text-sky-primary transition-colors cursor-pointer">Invest Catalog</a></li>
               <li><a onClick={() => triggerAlert("University campaign directory.")} className="hover:text-sky-primary transition-colors cursor-pointer">Explore Directories</a></li>
               <li><a onClick={() => triggerAlert("Risk assessment calculator.")} className="hover:text-sky-primary transition-colors cursor-pointer">Risk Assessment Vault</a></li>
-              <li><a onClick={() => { setCurrentView('admin'); window.history.pushState({}, '', '/admin'); window.scrollTo({ top: 0 }); }} className="text-sky-light hover:text-sky-primary transition-colors cursor-pointer block pt-1 border-t border-white/5 mt-1 font-medium">Admin Portal</a></li>
             </ul>
           </div>
 
@@ -1035,92 +1034,35 @@ export default function App() {
                   <p className="text-xs text-text-muted mt-1">Select your workspace designation to authenticate.</p>
                 </div>
 
-                {/* Login Role Switcher */}
-                <div className="grid grid-cols-2 gap-2 bg-surface-cool p-1 rounded-lg border border-border-default/80">
-                  <button 
-                    onClick={() => setLoginRole('user')}
-                    className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${
-                      loginRole === 'user' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
-                    }`}
-                  >
-                    🚀 Founder & Backer
-                  </button>
-                  <button 
-                    onClick={() => setLoginRole('admin')}
-                    className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${
-                      loginRole === 'admin' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
-                    }`}
-                  >
-                    🛡️ Administrator
-                  </button>
-                </div>
-
-                {loginRole === 'user' ? (
-                  <>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-xs font-medium text-text-charcoal block mb-2">Registered Email Address</label>
-                        <input 
-                          type="email" 
-                          placeholder="student@univ.edu.bd or investor@firm.com"
-                          className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-medium text-text-charcoal block mb-2">Account Password</label>
-                        <input 
-                          type="password" 
-                          placeholder="••••••••••••"
-                          className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                        />
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => {
-                        setActiveModal(null);
-                        triggerAlert("Login Successful! Redirecting to customized role dashboard...");
-                      }}
-                      className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <span>Authenticate Session</span>
-                    </button>
-                  </>
-                ) : (
-                  <div className="space-y-5 text-center py-2">
-                    <p className="text-xs text-text-charcoal/80 leading-relaxed max-w-sm mx-auto">
-                      Platform Administrator access requires federated single sign-on (SSO) credentials. To authenticate your administrator session, proceed to the external portal:
-                    </p>
-                    <button 
-                      onClick={() => {
-                        setActiveModal(null);
-                        setCurrentView('admin');
-                        window.history.pushState({}, '', '/admin');
-                        window.scrollTo({ top: 0 });
-                      }}
-                      className="w-full py-3.5 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 shadow-soft"
-                    >
-                      <span>Proceed to Admin Portal</span>
-                      <ArrowRight className="w-4 h-4 text-sky-primary" />
-                    </button>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-text-charcoal block mb-2">Registered Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="student@univ.edu.bd or investor@firm.com"
+                      className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                    />
                   </div>
-                )}
 
-                <div className="pt-4 text-center border-t border-border-default/60">
-                  <a 
-                    onClick={() => {
-                      setActiveModal(null);
-                      setCurrentView('admin');
-                      window.history.pushState({}, '', '/admin');
-                      window.scrollTo({ top: 0 });
-                    }}
-                    className="text-xs text-sky-primary font-medium hover:underline inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Access Administrator Portal</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </a>
+                  <div>
+                    <label className="text-xs font-medium text-text-charcoal block mb-2">Account Password</label>
+                    <input 
+                      type="password" 
+                      placeholder="••••••••••••"
+                      className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                    />
+                  </div>
                 </div>
+
+                <button 
+                  onClick={() => {
+                    setActiveModal(null);
+                    triggerAlert("Login Successful! Redirecting to customized role dashboard...");
+                  }}
+                  className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>Authenticate Session</span>
+                </button>
               </div>
             )}
 
