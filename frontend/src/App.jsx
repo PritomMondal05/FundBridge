@@ -271,9 +271,16 @@ export default function App() {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    if (!regName || !regEmail || !regPassword || !regMfsNumber) {
-      triggerAlert('Name, email, password, and MFS number are required.');
-      return;
+    if (registerRole === 'founder') {
+      if (!regName || !regEmail || !regPassword || !regMfsNumber || !regUniversity || !regNid) {
+        triggerAlert('All student founder fields (including University and NID) are required to build your Trust Profile.');
+        return;
+      }
+    } else {
+      if (!regName || !regEmail || !regPassword || !regMfsNumber || !regInstitution || !regDesignation) {
+        triggerAlert('All angel backer fields (including Institution and Designation) are required to build your Trust Profile.');
+        return;
+      }
     }
 
     try {

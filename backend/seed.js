@@ -25,23 +25,10 @@ async function seedDatabase() {
     await Campaign.deleteMany({});
     await Proposal.deleteMany({});
 
-    console.log('Creating seed Founder User account...');
-    const hashedFounderPassword = await bcrypt.hash('founderpassword', 10);
-    const seedFounder = await User.create({
-      name: 'Pritom Mondal',
-      email: 'student@univ.edu.bd',
-      password: hashedFounderPassword,
-      role: 'founder',
-      vettingStatus: 'verified',
-      mfsNumber: '01712345678',
-      university: 'BRAC University',
-      nid: '1234567890123'
-    });
-
-    console.log('Creating seed Admin User account...');
-    const hashedAdminPassword = await bcrypt.hash('adminpassword', 10);
-    await User.create({
-      name: 'Admin User',
+    console.log('Seeding administrative and investor users...');
+    const hashedAdminPassword = await bcrypt.hash('admin123', 10);
+    const adminUser = await User.create({
+      name: 'ADMIN_PRITOM',
       email: 'admin@fundbridge.com',
       password: hashedAdminPassword,
       role: 'admin',
@@ -49,9 +36,8 @@ async function seedDatabase() {
       mfsNumber: '01799999999'
     });
 
-    console.log('Creating seed Investor User account...');
     const hashedInvestorPassword = await bcrypt.hash('investorpassword', 10);
-    await User.create({
+    const seedInvestor = await User.create({
       name: 'Angel Backer Zaman',
       email: 'investor@firm.com',
       password: hashedInvestorPassword,
@@ -62,12 +48,50 @@ async function seedDatabase() {
       designation: 'Syndicate Lead'
     });
 
+    console.log('Seeding pending Vetting Applicants...');
+    // Anika Rahman (ID: FB-2023-9981) - Student Founder (Pending)
+    const hashedFounderPassword = await bcrypt.hash('founderpassword', 10);
+    const seedFounder1 = await User.create({
+      name: 'Anika Rahman',
+      email: 'anika@brac.edu.bd',
+      password: hashedFounderPassword,
+      role: 'founder',
+      vettingStatus: 'pending',
+      mfsNumber: '01712345678',
+      university: 'BRAC University',
+      nid: '554092183201' // Govt Smart NID Card representation
+    });
+
+    // Seed another pending founder
+    const seedFounder2 = await User.create({
+      name: 'Tariqul Islam',
+      email: 'tariqul@nsu.edu',
+      password: hashedFounderPassword,
+      role: 'founder',
+      vettingStatus: 'pending',
+      mfsNumber: '01811223344',
+      university: 'NSU',
+      nid: '443219082312'
+    });
+
+    // Seed a pending investor for Vetting (Alumni Backers tab)
+    await User.create({
+      name: 'Siddique Rahman',
+      email: 'siddique@ventures.com',
+      password: hashedInvestorPassword,
+      role: 'investor',
+      vettingStatus: 'pending',
+      mfsNumber: '01988776655',
+      institution: 'Dhaka Angel Syndicate',
+      designation: 'Managing Partner'
+    });
+
     console.log('Seeding Campaigns collection...');
     const seedCampaigns = [
       {
         id: 'campusbites',
         title: 'CampusBites',
-        founder: seedFounder._id,
+        founder: seedFounder1._id,
         university: 'BRAC University',
         location: 'Dhanmondi, Dhaka',
         category: 'F&B',
@@ -77,35 +101,56 @@ async function seedDatabase() {
         equityOffer: '8% Revenue Share',
         milestones: [
           { title: 'MVP Launch', target: 'Month 1', status: 'done' },
-          { title: 'First 100 Users', target: 'Month 2', status: 'active' },
+          { title: 'First 100 Users', target: 'Month 2', status: 'pending' }, // This triggers escrow release queue
           { title: 'Revenue ৳50K', target: 'Month 4', status: 'locked' }
         ],
         verified: true,
         description: 'Providing premium healthy meal delivery boxes inside campus parameters on a subscription basis.'
       },
       {
-        id: 'dhakacourier',
-        title: 'DhakaCourier Express',
-        founder: seedFounder._id,
-        university: 'NSU',
-        location: 'Banani, Dhaka',
-        category: 'Logistics',
-        stage: 'Early Traction',
-        goal: 800000,
-        raised: 520000,
+        id: 'solargrid',
+        title: 'SolarGrid AI',
+        founder: seedFounder1._id,
+        university: 'BRAC University',
+        location: 'Gulshan, Dhaka',
+        category: 'CleanTech',
+        stage: 'Venture Draft',
+        goal: 500000,
+        raised: 0,
         equityOffer: '10% Equity',
         milestones: [
-          { title: 'Hub Setup in Banani', target: 'Month 1', status: 'done' },
-          { title: 'First 500 Deliveries', target: 'Month 2', status: 'done' },
-          { title: 'Automated Routing App', target: 'Month 3', status: 'active' }
+          { title: 'Prototype', target: 'Month 1', status: 'done' },
+          { title: 'Pilot Run', target: 'Month 2', status: 'done' },
+          { title: 'Grid Link', target: 'Month 4', status: 'active' },
+          { title: 'Public Release', target: 'Month 6', status: 'locked' }
         ],
-        verified: true,
-        description: 'Hyperlocal delivery network using student electric bikes for zero-emission parcels.'
+        verified: false, // Pending Vetting Audit
+        description: 'Deploying smart clean energy systems using neural networks.'
+      },
+      {
+        id: 'aquaflow',
+        title: 'AquaFlow Decentral',
+        founder: seedFounder2._id,
+        university: 'NSU',
+        location: 'Banani, Dhaka',
+        category: 'WaterTech',
+        stage: 'Early Traction',
+        goal: 750000,
+        raised: 0,
+        equityOffer: '12% Equity',
+        milestones: [
+          { title: 'Design', target: 'Month 1', status: 'done' },
+          { title: 'Filter Test', target: 'Month 2', status: 'active' },
+          { title: 'Deployment', target: 'Month 4', status: 'locked' },
+          { title: 'Public Sale', target: 'Month 6', status: 'locked' }
+        ],
+        verified: false,
+        description: 'Decentralized water filtration system powered by blockchain-verified smart contracts.'
       }
     ];
 
     await Campaign.create(seedCampaigns);
-    console.log('Database successfully seeded with startup profiles!');
+    console.log('Database successfully seeded with real database entities!');
     
   } catch (error) {
     console.error('Seeding process failure:', error);

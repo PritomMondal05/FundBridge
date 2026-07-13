@@ -2,8 +2,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Helvetica Now Display", "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Helvetica Now Display", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Helvetica Now Display";
+  --font-display: "Helvetica Now Display";
+  --font-mono: "Helvetica Now Display";
 
   --color-sky-primary: #2A82E4;
   --color-sky-light: #7EC1FA;
@@ -18,6 +19,14 @@
   --color-surface-cool: #F3F4F6;
   --color-border-default: #E5E7EB;
   --color-border-strong: #2A303a;
+
+  --color-admin-bg: #0B0F0C;
+  --color-admin-sidebar: #050806;
+  --color-admin-card: #111613;
+  --color-admin-border: #1F2922;
+  --color-admin-primary: #00E676;
+  --color-admin-text: #E2E8F0;
+  --color-admin-muted: #8E9B93;
 
   --spacing-1: 4px;
   --spacing-2: 8px;
