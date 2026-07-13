@@ -79,7 +79,7 @@ const TESTIMONIALS = [
     text: "Community is the heart of gaming, and the milestone setup keeps everyone aligned around the same vision. Our early network continuously brings in new players, creators, and collab opportunities that push the game forward.",
     highlight: "keeps everyone aligned around the same vision",
     author: "Shaikh Sammo Al Aziz",
-    role: "Co-Founder of Swildle Street Game",
+    role: "Co-Founder of Swindle Street Game",
     avatar: "SA"
   }
 ];
@@ -431,7 +431,7 @@ export default function App() {
             <a href="#founders" className="text-text-charcoal hover:text-sky-primary transition-colors text-md">For Entrepreneurs</a>
             <a href="#investors" className="text-text-charcoal hover:text-sky-primary transition-colors text-md">For Investors</a>
             <a href="#trust" className="text-text-charcoal hover:text-sky-primary transition-colors text-md">Trust Center</a>
-            <a href="#capabilities" className="text-text-charcoal hover:text-sky-primary transition-colors text-md">Success Stories</a>
+            <a href="#TESTIMONIALS" className="text-text-charcoal hover:text-sky-primary transition-colors text-md">Success Stories</a>
           </nav>
 
           <div className="flex items-center gap-4">
@@ -492,7 +492,7 @@ export default function App() {
 
           {/* Heading */}
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-medium text-obsidian-base font-display max-w-5xl mx-auto leading-tight tracking-tight mb-6">
-            Bridging the Gap Between <span className="text-white">Brilliant Student Innovators</span> & Visionary Alumni Backers.
+            Bridging the Gap Between <span className="text-white">Brilliant Student Innovators</span> & Visionary Alumni Investors.
           </h1>
 
           {/* Subtext */}
