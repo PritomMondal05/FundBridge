@@ -24,7 +24,7 @@ const UserSchema = new mongoose.Schema({
   },
   vettingStatus: {
     type: String,
-    enum: ['pending', 'verified', 'rejected'],
+    enum: ['pending', 'verified', 'rejected', 'hold'],
     default: 'pending'
   },
   mfsNumber: {

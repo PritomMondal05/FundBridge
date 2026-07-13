@@ -315,7 +315,7 @@ app.get('/api/admin/stats', async (req, res) => {
 // Retrieve all verified student founders (Admins only)
 app.get('/api/admin/users/founders', async (req, res) => {
   try {
-    const founders = await User.find({ role: 'founder', vettingStatus: 'verified' });
+    const founders = await User.find({ role: 'founder', vettingStatus: { $in: ['verified', 'hold'] } });
     res.status(200).json(founders);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching student founders.' });
@@ -325,10 +325,55 @@ app.get('/api/admin/users/founders', async (req, res) => {
 // Retrieve all verified investors (Admins only)
 app.get('/api/admin/users/investors', async (req, res) => {
   try {
-    const investors = await User.find({ role: 'investor', vettingStatus: 'verified' });
+    const investors = await User.find({ role: 'investor', vettingStatus: { $in: ['verified', 'hold'] } });
     res.status(200).json(investors);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching investors.' });
+  }
+});
+
+// Administrative action: Update user profile (Admins only)
+app.put('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    const user = await User.findByIdAndUpdate(id, updateData, { new: true });
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    res.status(200).json({ message: 'User profile updated successfully.', user });
+  } catch (err) {
+    console.error('Error updating user profile:', err);
+    res.status(500).json({ error: 'Error updating user profile.' });
+  }
+});
+
+// Administrative action: Toggle Hold/Unhold vetting status (Admins only)
+app.post('/api/admin/users/:id/hold', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    
+    const newStatus = user.vettingStatus === 'hold' ? 'verified' : 'hold';
+    user.vettingStatus = newStatus;
+    await user.save();
+    
+    res.status(200).json({ message: `User vetting status changed to ${newStatus}.`, user });
+  } catch (err) {
+    console.error('Error toggling hold status:', err);
+    res.status(500).json({ error: 'Error toggling hold status.' });
+  }
+});
+
+// Administrative action: Remove user profile (Admins only)
+app.delete('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByIdAndDelete(id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    res.status(200).json({ message: 'User profile deleted successfully.' });
+  } catch (err) {
+    console.error('Error deleting user profile:', err);
+    res.status(500).json({ error: 'Error deleting user profile.' });
   }
 });
 

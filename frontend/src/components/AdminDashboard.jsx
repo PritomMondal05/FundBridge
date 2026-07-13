@@ -65,6 +65,24 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   const [verificationSubTab, setVerificationSubTab] = useState('pending'); // 'pending' | 'founders' | 'investors'
   const [verifiedFoundersList, setVerifiedFoundersList] = useState([]);
   const [verifiedInvestorsList, setVerifiedInvestorsList] = useState([]);
+
+  // Edit Profile States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editUniversity, setEditUniversity] = useState('');
+  const [editStudentId, setEditStudentId] = useState('');
+  const [editDepartment, setEditDepartment] = useState('');
+  const [editDob, setEditDob] = useState('');
+  const [editNid, setEditNid] = useState('');
+  const [editMfsNumber, setEditMfsNumber] = useState('');
+  const [editAffiliationStatus, setEditAffiliationStatus] = useState('');
+  const [editInstitution, setEditInstitution] = useState('');
+  const [editPassingYear, setEditPassingYear] = useState('');
+  const [editNidOrPassport, setEditNidOrPassport] = useState('');
+  const [editBankOrMfs, setEditBankOrMfs] = useState('');
+  const [editCredentialsLink, setEditCredentialsLink] = useState('');
   const [verificationChecklist, setVerificationChecklist] = useState({
     nameMatch: false,
     idValid: false,
@@ -415,6 +433,115 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       fetchDatabaseData();
     } catch (e) {
       addToast('Failed to reject vetting applicant in database.', 'error');
+    }
+  };
+
+  const handleToggleHold = async (userId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/hold`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error toggling hold status');
+      
+      addToast(data.message, 'success');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  const handleRemoveUser = async (userId, name) => {
+    if (!window.confirm(`Are you sure you want to permanently remove "${name}" from FundBridge? This action is irreversible.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error removing profile');
+      
+      addToast(`Profile "${name}" was successfully deleted from database.`, 'success');
+      
+      // Log this action
+      const newLog = {
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        actor: 'ADMIN_PRITOM',
+        initials: 'AP',
+        color: 'bg-red-900 text-red-200 border-red-500/30',
+        action: 'REMOVED USER',
+        target: `${name}`,
+        rationale: `Irreversible removal of account profile from DB.`,
+        hash: 'fb_' + Math.random().toString(36).substring(2, 6) + '...' + Math.random().toString(36).substring(2, 6)
+      };
+      setActivityLogs(prev => [newLog, ...prev]);
+
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  const handleOpenEditModal = (user) => {
+    setEditingUser(user);
+    setEditName(user.name || '');
+    setEditEmail(user.email || '');
+    setEditUniversity(user.university || '');
+    setEditStudentId(user.studentId || '');
+    setEditDepartment(user.department || '');
+    setEditDob(user.dob || '');
+    setEditNid(user.nid || '');
+    setEditMfsNumber(user.mfsNumber || '');
+    setEditAffiliationStatus(user.affiliationStatus || '');
+    setEditInstitution(user.institution || '');
+    setEditPassingYear(user.passingYear || '');
+    setEditNidOrPassport(user.nidOrPassport || '');
+    setEditBankOrMfs(user.bankOrMfs || '');
+    setEditCredentialsLink(user.credentialsLink || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    
+    try {
+      const payload = {
+        name: editName,
+        email: editEmail,
+        mfsNumber: editMfsNumber
+      };
+      
+      if (editingUser.role === 'founder') {
+        payload.university = editUniversity;
+        payload.studentId = editStudentId;
+        payload.department = editDepartment;
+        payload.dob = editDob;
+        payload.nid = editNid;
+      } else {
+        payload.affiliationStatus = editAffiliationStatus;
+        payload.institution = editInstitution;
+        payload.passingYear = editPassingYear;
+        payload.nidOrPassport = editNidOrPassport;
+        payload.bankOrMfs = editBankOrMfs;
+        payload.credentialsLink = editCredentialsLink;
+      }
+      
+      const res = await fetch(`${API_BASE_URL}/api/admin/users/${editingUser._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error updating profile');
+      
+      addToast('Profile updated successfully!', 'success');
+      setIsEditModalOpen(false);
+      setEditingUser(null);
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
     }
   };
 
@@ -1384,15 +1511,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             </button>
                           </div>
 
-                          <div className="bg-[#0B0F0C] border border-[#1F2922] rounded p-5 space-y-3 font-mono text-xs">
-                            <div className="flex justify-between items-center">
-                              <span className="text-[#8E9B93]">Identity Confidence Score</span>
-                              <span className="text-[#00E676] font-medium">98.4%</span>
-                            </div>
-                            <div className="w-full h-1 bg-[#1F2922] rounded-full overflow-hidden">
-                              <div className="h-full bg-[#00E676] shadow-[0_0_8px_#00E676]" style={{ width: '98.4%' }}></div>
-                            </div>
-                          </div>
+
 
                           <div className="space-y-4 pt-2">
                             <div className="grid grid-cols-2 gap-4">
@@ -1436,13 +1555,25 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         <th className="p-4 font-semibold uppercase">Registered Email</th>
                         <th className="p-4 font-semibold uppercase">Active Campaigns</th>
                         <th className="p-4 font-semibold uppercase">Identity Verification Date</th>
+                        <th className="p-4 font-semibold uppercase text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1F2922] text-[#E2E8F0]">
                       {verifiedFoundersList.length > 0 ? (
                         verifiedFoundersList.map(founder => (
                           <tr key={founder._id} className="hover:bg-[#111613]/60 transition-colors">
-                            <td className="p-4 font-sans font-medium">{founder.name}</td>
+                            <td className="p-4 font-sans font-medium flex items-center gap-2">
+                              <span>{founder.name}</span>
+                              {founder.vettingStatus === 'hold' ? (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] border border-amber-500/30 bg-amber-500/10 text-amber-400 font-sans uppercase font-bold tracking-wide">
+                                  HOLD
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] border border-emerald-500/30 bg-emerald-500/10 text-[#00E676] font-sans uppercase font-bold tracking-wide">
+                                  VERIFIED
+                                </span>
+                              )}
+                            </td>
                             <td className="p-4">{founder.studentId || 'N/A'}</td>
                             <td className="p-4">{founder.department || 'N/A'}, {founder.university || 'N/A'}</td>
                             <td className="p-4">{founder.email}</td>
@@ -1455,11 +1586,35 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             <td className="p-4 text-[#8E9B93]">
                               {founder.vettingDate ? new Date(founder.vettingDate).toISOString().substring(0, 10) : 'N/A'}
                             </td>
+                            <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                              <button
+                                onClick={() => handleOpenEditModal(founder)}
+                                className="px-2 py-1 bg-sky-500/10 hover:bg-sky-500/25 border border-sky-500/30 text-sky-400 rounded text-[10px] cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleToggleHold(founder._id)}
+                                className={`px-2 py-1 border rounded text-[10px] cursor-pointer ${
+                                  founder.vettingStatus === 'hold'
+                                    ? 'bg-emerald-500/10 hover:bg-emerald-500/25 border-emerald-500/30 text-emerald-400'
+                                    : 'bg-amber-500/10 hover:bg-amber-500/25 border-amber-500/30 text-amber-400'
+                                }`}
+                              >
+                                {founder.vettingStatus === 'hold' ? 'Unhold' : 'Hold'}
+                              </button>
+                              <button
+                                onClick={() => handleRemoveUser(founder._id, founder.name)}
+                                className="px-2 py-1 bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-400 rounded text-[10px] cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-[#8E9B93]">
+                          <td colSpan={7} className="p-8 text-center text-[#8E9B93]">
                             No registered student founders found on mainnet.
                           </td>
                         </tr>
@@ -1481,13 +1636,25 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         <th className="p-4 font-semibold uppercase">Contact Email</th>
                         <th className="p-4 font-semibold uppercase">Active Portfolio Projects</th>
                         <th className="p-4 font-semibold uppercase">Platform Onboarding Date</th>
+                        <th className="p-4 font-semibold uppercase text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1F2922] text-[#E2E8F0]">
                       {verifiedInvestorsList.length > 0 ? (
                         verifiedInvestorsList.map(investor => (
                           <tr key={investor._id} className="hover:bg-[#111613]/60 transition-colors">
-                            <td className="p-4 font-sans font-medium">{investor.name}</td>
+                            <td className="p-4 font-sans font-medium flex items-center gap-2">
+                              <span>{investor.name}</span>
+                              {investor.vettingStatus === 'hold' ? (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] border border-amber-500/30 bg-amber-500/10 text-amber-400 font-sans uppercase font-bold tracking-wide">
+                                  HOLD
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] border border-emerald-500/30 bg-emerald-500/10 text-[#00E676] font-sans uppercase font-bold tracking-wide">
+                                  VERIFIED
+                                </span>
+                              )}
+                            </td>
                             <td className="p-4">
                               <span className="px-2 py-0.5 rounded text-[10px] border border-violet-500/30 bg-violet-500/10 text-violet-400 font-medium font-sans uppercase">
                                 {investor.affiliationStatus || 'Investor'}
@@ -1499,11 +1666,35 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             <td className="p-4 text-[#8E9B93]">
                               {investor.vettingDate ? new Date(investor.vettingDate).toISOString().substring(0, 10) : 'N/A'}
                             </td>
+                            <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                              <button
+                                onClick={() => handleOpenEditModal(investor)}
+                                className="px-2 py-1 bg-sky-500/10 hover:bg-sky-500/25 border border-sky-500/30 text-sky-400 rounded text-[10px] cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleToggleHold(investor._id)}
+                                className={`px-2 py-1 border rounded text-[10px] cursor-pointer ${
+                                  investor.vettingStatus === 'hold'
+                                    ? 'bg-emerald-500/10 hover:bg-emerald-500/25 border-emerald-500/30 text-emerald-400'
+                                    : 'bg-amber-500/10 hover:bg-amber-500/25 border-amber-500/30 text-amber-400'
+                                }`}
+                              >
+                                {investor.vettingStatus === 'hold' ? 'Unhold' : 'Hold'}
+                              </button>
+                              <button
+                                onClick={() => handleRemoveUser(investor._id, investor.name)}
+                                className="px-2 py-1 bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-400 rounded text-[10px] cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-[#8E9B93]">
+                          <td colSpan={7} className="p-8 text-center text-[#8E9B93]">
                             No registered investors found on mainnet.
                           </td>
                         </tr>
@@ -2156,6 +2347,230 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
         </main>
       </div>
+
+      {/* Administrative Edit Profile Modal */}
+      {isEditModalOpen && editingUser && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-[#111613] border border-[#1F2922] rounded-lg shadow-2xl max-w-lg w-full overflow-hidden text-left relative font-mono text-xs">
+            <button 
+              onClick={() => { setIsEditModalOpen(false); setEditingUser(null); }}
+              className="absolute right-4 top-4 text-[#8E9B93] hover:text-[#00E676] transition-colors cursor-pointer p-1.5"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <form onSubmit={handleSaveProfile} className="p-6 space-y-4">
+              <div>
+                <span className="text-[10px] text-[#00E676] tracking-widest uppercase block mb-1">
+                  ADMIN OVERRIDE CONSOLE
+                </span>
+                <h3 className="text-lg font-mono text-[#E2E8F0] font-medium">
+                  Edit {editingUser.role === 'founder' ? 'Student Founder' : 'Capital Backer'} Profile
+                </h3>
+              </div>
+
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                <div>
+                  <label className="text-[10px] text-[#8E9B93] block mb-1">Legal Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#8E9B93] block mb-1">Email Address</label>
+                  <input 
+                    type="email" 
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                  />
+                </div>
+
+                {editingUser.role === 'founder' ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-[#8E9B93] block mb-1">University Name</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={editUniversity}
+                          onChange={(e) => setEditUniversity(e.target.value)}
+                          className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#8E9B93] block mb-1">Student ID</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={editStudentId}
+                          onChange={(e) => setEditStudentId(e.target.value)}
+                          className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-[#8E9B93] block mb-1">Department</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={editDepartment}
+                          onChange={(e) => setEditDepartment(e.target.value)}
+                          className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#8E9B93] block mb-1">Date of Birth</label>
+                        <input 
+                          type="date" 
+                          required
+                          value={editDob}
+                          onChange={(e) => setEditDob(e.target.value)}
+                          className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-[#8E9B93] block mb-1">National ID (NID)</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={editNid}
+                          onChange={(e) => setEditNid(e.target.value)}
+                          className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#8E9B93] block mb-1">MFS Account Number</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={editMfsNumber}
+                          onChange={(e) => setEditMfsNumber(e.target.value)}
+                          className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-[#8E9B93] block mb-1">Affiliation Status</label>
+                        <select 
+                          required
+                          value={editAffiliationStatus}
+                          onChange={(e) => setEditAffiliationStatus(e.target.value)}
+                          className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                        >
+                          <option value="Alumni Backer">Alumni Backer</option>
+                          <option value="Venture Capitalist">Venture Capitalist</option>
+                          <option value="Angel Investor">Angel Investor</option>
+                          <option value="Corporate Partner">Corporate Partner</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#8E9B93] block mb-1">Associated Company/Uni</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={editInstitution}
+                          onChange={(e) => setEditInstitution(e.target.value)}
+                          className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {editAffiliationStatus === 'Alumni Backer' ? (
+                        <div>
+                          <label className="text-[10px] text-[#8E9B93] block mb-1">Passing Year</label>
+                          <input 
+                            type="text" 
+                            required={editAffiliationStatus === 'Alumni Backer'}
+                            value={editPassingYear}
+                            onChange={(e) => setEditPassingYear(e.target.value)}
+                            className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-[10px] text-[#8E9B93] block mb-1">Associated Designation</label>
+                          <input 
+                            type="text" 
+                            required
+                            value={editMfsNumber} // Note: utilizing editMfsNumber for investor designation or store bankOrMfs
+                            onChange={(e) => setEditMfsNumber(e.target.value)}
+                            className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-[10px] text-[#8E9B93] block mb-1">NID or Passport Num</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={editNidOrPassport}
+                          onChange={(e) => setEditNidOrPassport(e.target.value)}
+                          className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-[#8E9B93] block mb-1">Bank Account or Wallet Details</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={editBankOrMfs}
+                        onChange={(e) => setEditBankOrMfs(e.target.value)}
+                        className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-[#8E9B93] block mb-1">Credentials Link (LinkedIn)</label>
+                      <input 
+                        type="text" 
+                        value={editCredentialsLink}
+                        onChange={(e) => setEditCredentialsLink(e.target.value)}
+                        className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded px-3 py-2 text-[#E2E8F0] focus:outline-none focus:border-[#00E676]/50"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 pt-3">
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-[#00E676] hover:bg-[#00E575]/90 text-black font-mono font-medium rounded text-center cursor-pointer"
+                >
+                  Save Profile Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsEditModalOpen(false); setEditingUser(null); }}
+                  className="flex-1 py-2 bg-[#0B0F0C] hover:bg-[#111613] text-[#E2E8F0] border border-[#1F2922] font-mono text-center cursor-pointer"
+                >
+                  Cancel Override
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <footer className="border-t border-[#1F2922] bg-[#050806] py-3 text-center text-[10px] font-mono text-[#8E9B93] relative z-20">
         <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
