@@ -33,7 +33,19 @@ const UserSchema = new mongoose.Schema({
     trim: true
   },
   // Fields specific to student founders
+  dob: {
+    type: String,
+    trim: true
+  },
   university: {
+    type: String,
+    trim: true
+  },
+  studentId: {
+    type: String,
+    trim: true
+  },
+  department: {
     type: String,
     trim: true
   },
@@ -41,14 +53,50 @@ const UserSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  studentIdCardImage: {
+    type: String,
+    trim: true
+  },
+  nidCardImage: {
+    type: String,
+    trim: true
+  },
   // Fields specific to corporate/alumni investors
+  affiliationStatus: {
+    type: String,
+    enum: ['Alumni Backer', 'Venture Capitalist', 'Angel Investor', 'Corporate Partner', ''],
+    default: ''
+  },
   institution: {
     type: String,
     trim: true
   },
-  designation: {
+  passingYear: {
     type: String,
     trim: true
+  },
+  nidOrPassport: {
+    type: String,
+    trim: true
+  },
+  bankOrMfs: {
+    type: String,
+    trim: true
+  },
+  nidOrPassportImage: {
+    type: String,
+    trim: true
+  },
+  credentialsImage: {
+    type: String,
+    trim: true
+  },
+  credentialsLink: {
+    type: String,
+    trim: true
+  },
+  vettingDate: {
+    type: Date
   },
   createdAt: {
     type: Date,

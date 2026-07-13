@@ -127,11 +127,28 @@ export default function App() {
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [regMfsNumber, setRegMfsNumber] = useState('');
   const [regUniversity, setRegUniversity] = useState('');
   const [regNid, setRegNid] = useState('');
   const [regInstitution, setRegInstitution] = useState('');
   const [regDesignation, setRegDesignation] = useState('');
+
+  // Student Founder Specific States
+  const [regDob, setRegDob] = useState('');
+  const [regStudentId, setRegStudentId] = useState('');
+  const [regDepartment, setRegDepartment] = useState('');
+  const [studentIdCardImageFile, setStudentIdCardImageFile] = useState(null);
+  const [nidCardImageFile, setNidCardImageFile] = useState(null);
+
+  // Investor Specific States
+  const [regAffiliationStatus, setRegAffiliationStatus] = useState('Alumni Backer');
+  const [regPassingYear, setRegPassingYear] = useState('');
+  const [regNidOrPassport, setRegNidOrPassport] = useState('');
+  const [regBankOrMfs, setRegBankOrMfs] = useState('');
+  const [nidOrPassportImageFile, setNidOrPassportImageFile] = useState(null);
+  const [credentialsImageFile, setCredentialsImageFile] = useState(null);
+  const [regCredentialsLink, setRegCredentialsLink] = useState('');
 
   // Login Form States
   const [loginEmail, setLoginEmail] = useState('');
@@ -271,51 +288,98 @@ export default function App() {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check Password matching
+    if (regPassword !== regConfirmPassword) {
+      triggerAlert('Passwords do not match.');
+      return;
+    }
+
+    // Role-specific validation
     if (registerRole === 'founder') {
-      if (!regName || !regEmail || !regPassword || !regMfsNumber || !regUniversity || !regNid) {
-        triggerAlert('All student founder fields (including University and NID) are required to build your Trust Profile.');
+      if (!regName || !regEmail || !regPassword || !regMfsNumber || !regUniversity || !regNid || !regDob || !regStudentId || !regDepartment) {
+        triggerAlert('All student founder fields are mandatory.');
+        return;
+      }
+      if (!studentIdCardImageFile || !nidCardImageFile) {
+        triggerAlert('Please upload both your Student ID Card scan and NID scan.');
         return;
       }
     } else {
-      if (!regName || !regEmail || !regPassword || !regMfsNumber || !regInstitution || !regDesignation) {
-        triggerAlert('All angel backer fields (including Institution and Designation) are required to build your Trust Profile.');
+      if (!regName || !regEmail || !regPassword || !regAffiliationStatus || !regInstitution || !regNidOrPassport || !regBankOrMfs) {
+        triggerAlert('All investor fields are mandatory.');
+        return;
+      }
+      if (!nidOrPassportImageFile) {
+        triggerAlert('Please upload your NID or Passport image.');
+        return;
+      }
+      if (!credentialsImageFile && !regCredentialsLink) {
+        triggerAlert('Please upload your professional credentials scan or provide a LinkedIn link.');
         return;
       }
     }
 
     try {
-      const payload = {
-        name: regName,
-        email: regEmail,
-        password: regPassword,
-        role: registerRole,
-        mfsNumber: regMfsNumber,
-        university: registerRole === 'founder' ? regUniversity : undefined,
-        nid: registerRole === 'founder' ? regNid : undefined,
-        institution: registerRole === 'investor' ? regInstitution : undefined,
-        designation: registerRole === 'investor' ? regDesignation : undefined
-      };
+      const formData = new FormData();
+      formData.append('name', regName);
+      formData.append('email', regEmail);
+      formData.append('password', regPassword);
+      formData.append('role', registerRole);
+
+      if (registerRole === 'founder') {
+        formData.append('mfsNumber', regMfsNumber);
+        formData.append('dob', regDob);
+        formData.append('university', regUniversity);
+        formData.append('studentId', regStudentId);
+        formData.append('department', regDepartment);
+        formData.append('nid', regNid);
+        formData.append('studentIdCardImage', studentIdCardImageFile);
+        formData.append('nidCardImage', nidCardImageFile);
+      } else {
+        formData.append('affiliationStatus', regAffiliationStatus);
+        formData.append('institution', regInstitution);
+        formData.append('passingYear', regPassingYear);
+        formData.append('nidOrPassport', regNidOrPassport);
+        formData.append('bankOrMfs', regBankOrMfs);
+        formData.append('nidOrPassportImage', nidOrPassportImageFile);
+        if (credentialsImageFile) {
+          formData.append('credentialsImage', credentialsImageFile);
+        }
+        formData.append('credentialsLink', regCredentialsLink);
+      }
 
       const res = await fetch(`${API_BASE_URL}/api/users/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: formData
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed');
 
-      triggerAlert('Registration Successful! Trust profile queued. Please login.');
+      triggerAlert('Registration Successful! Trust profile queued for Admin vetting. Please login once approved.');
       setActiveModal('login');
       
       // Reset forms
       setRegName('');
       setRegEmail('');
       setRegPassword('');
+      setRegConfirmPassword('');
       setRegMfsNumber('');
       setRegUniversity('');
       setRegNid('');
       setRegInstitution('');
       setRegDesignation('');
+      setRegDob('');
+      setRegStudentId('');
+      setRegDepartment('');
+      setStudentIdCardImageFile(null);
+      setNidCardImageFile(null);
+      setRegPassingYear('');
+      setRegNidOrPassport('');
+      setRegBankOrMfs('');
+      setNidOrPassportImageFile(null);
+      setCredentialsImageFile(null);
+      setRegCredentialsLink('');
     } catch (err) {
       triggerAlert(err.message || 'Registration failed.');
     }
@@ -1178,7 +1242,7 @@ export default function App() {
       {/* REGISTER/LOGIN MODALS */}
       {activeModal && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-border-default max-w-lg w-full overflow-hidden text-left relative">
+          <div className="bg-white rounded-xl shadow-2xl border border-border-default max-w-lg w-full max-h-[90vh] overflow-y-auto text-left relative">
             <button 
               onClick={() => setActiveModal(null)}
               className="absolute right-4 top-4 text-text-charcoal hover:text-sky-primary transition-colors cursor-pointer p-1.5"
@@ -1260,39 +1324,52 @@ export default function App() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-text-charcoal block mb-2">Full Name</label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="e.g. Pritom Mondal"
-                        value={regName}
-                        onChange={(e) => setRegName(e.target.value)}
-                        className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-text-charcoal block mb-2">MFS Account Num (৳)</label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="017XXXXXXXX"
-                        value={regMfsNumber}
-                        onChange={(e) => setRegMfsNumber(e.target.value)}
-                        className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                      />
-                    </div>
+                  {/* Common: Full Name */}
+                  <div>
+                    <label className="text-xs font-medium text-text-charcoal block mb-1">Full Name (Legal Identity)</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Enter legal name exactly as shown on ID"
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                    />
                   </div>
 
                   {registerRole === 'founder' ? (
                     <>
+                      {/* Student Founder Fields */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="text-xs font-medium text-text-charcoal block mb-2">University / Campus</label>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">Date of Birth (DOB)</label>
+                          <input 
+                            type="date" 
+                            required
+                            value={regDob}
+                            onChange={(e) => setRegDob(e.target.value)}
+                            className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">Student ID Number</label>
                           <input 
                             type="text" 
-                            required={registerRole === 'founder'}
+                            required
+                            placeholder="e.g. 21101402"
+                            value={regStudentId}
+                            onChange={(e) => setRegStudentId(e.target.value)}
+                            className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">University Name</label>
+                          <input 
+                            type="text" 
+                            required
                             placeholder="e.g. BRAC University"
                             value={regUniversity}
                             onChange={(e) => setRegUniversity(e.target.value)}
@@ -1300,68 +1377,219 @@ export default function App() {
                           />
                         </div>
                         <div>
-                          <label className="text-xs font-medium text-text-charcoal block mb-2">National ID (NID)</label>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">Department</label>
                           <input 
                             type="text" 
-                            required={registerRole === 'founder'}
-                            placeholder="13-digit NID number"
+                            required
+                            placeholder="e.g. CSE or BBA"
+                            value={regDepartment}
+                            onChange={(e) => setRegDepartment(e.target.value)}
+                            className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">National ID (NID) Number</label>
+                          <input 
+                            type="text" 
+                            required
+                            placeholder="10 or 17-digit NID"
                             value={regNid}
                             onChange={(e) => setRegNid(e.target.value)}
                             className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">MFS Account Number</label>
+                          <input 
+                            type="text" 
+                            required
+                            placeholder="bKash, Nagad or Rocket"
+                            value={regMfsNumber}
+                            onChange={(e) => setRegMfsNumber(e.target.value)}
+                            className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                          />
+                        </div>
+                      </div>
+
+                      {/* File Uploads for Student ID and NID */}
+                      <div className="grid grid-cols-2 gap-4 border-t border-border-default/40 pt-3">
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">Student ID Image (Max 5MB)</label>
+                          <input 
+                            type="file" 
+                            required
+                            accept=".png, .jpg, .jpeg"
+                            onChange={(e) => setStudentIdCardImageFile(e.target.files[0])}
+                            className="w-full text-xs text-text-muted file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-surface-cool file:text-obsidian-base hover:file:bg-border-default cursor-pointer"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">NID Image Scan (Max 5MB)</label>
+                          <input 
+                            type="file" 
+                            required
+                            accept=".png, .jpg, .jpeg"
+                            onChange={(e) => setNidCardImageFile(e.target.files[0])}
+                            className="w-full text-xs text-text-muted file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-surface-cool file:text-obsidian-base hover:file:bg-border-default cursor-pointer"
                           />
                         </div>
                       </div>
                     </>
                   ) : (
                     <>
+                      {/* Investor Fields */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="text-xs font-medium text-text-charcoal block mb-2">Institution / Firm</label>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">Affiliation Status</label>
+                          <select 
+                            required
+                            value={regAffiliationStatus}
+                            onChange={(e) => setRegAffiliationStatus(e.target.value)}
+                            className="w-full bg-surface-cool border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                          >
+                            <option value="Alumni Backer">Alumni Backer</option>
+                            <option value="Venture Capitalist">Venture Capitalist</option>
+                            <option value="Angel Investor">Angel Investor</option>
+                            <option value="Corporate Partner">Corporate Partner</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">Associated Institution/Company</label>
                           <input 
                             type="text" 
-                            required={registerRole === 'investor'}
-                            placeholder="e.g. Vantage Ventures"
+                            required
+                            placeholder="Firm name or University graduated"
                             value={regInstitution}
                             onChange={(e) => setRegInstitution(e.target.value)}
                             className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                           />
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        {regAffiliationStatus === 'Alumni Backer' ? (
+                          <div>
+                            <label className="text-xs font-medium text-text-charcoal block mb-1">Passing Year</label>
+                            <input 
+                              type="text" 
+                              required={regAffiliationStatus === 'Alumni Backer'}
+                              placeholder="e.g. 2018"
+                              value={regPassingYear}
+                              onChange={(e) => setRegPassingYear(e.target.value)}
+                              className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="text-xs font-medium text-text-charcoal block mb-1">Associated Designation</label>
+                            <input 
+                              type="text" 
+                              required
+                              placeholder="e.g. Syndicate Lead"
+                              value={regDesignation}
+                              onChange={(e) => setRegDesignation(e.target.value)}
+                              className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                            />
+                          </div>
+                        )}
                         <div>
-                          <label className="text-xs font-medium text-text-charcoal block mb-2">Investor Designation</label>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">NID or Passport Number</label>
                           <input 
                             type="text" 
-                            required={registerRole === 'investor'}
-                            placeholder="e.g. Syndicate Lead"
-                            value={regDesignation}
-                            onChange={(e) => setRegDesignation(e.target.value)}
+                            required
+                            placeholder="Identity number"
+                            value={regNidOrPassport}
+                            onChange={(e) => setRegNidOrPassport(e.target.value)}
                             className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                           />
                         </div>
                       </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-text-charcoal block mb-1">Bank Account or MFS Details</label>
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="e.g. Bank Account Num or bKash / Nagad Wallet"
+                          value={regBankOrMfs}
+                          onChange={(e) => setRegBankOrMfs(e.target.value)}
+                          className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                        />
+                      </div>
+
+                      {/* File Uploads for NID / Credentials */}
+                      <div className="grid grid-cols-2 gap-4 border-t border-border-default/40 pt-3">
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">NID/Passport Scan (Max 5MB)</label>
+                          <input 
+                            type="file" 
+                            required
+                            accept=".png, .jpg, .jpeg, .pdf"
+                            onChange={(e) => setNidOrPassportImageFile(e.target.files[0])}
+                            className="w-full text-xs text-text-muted file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-surface-cool file:text-obsidian-base hover:file:bg-border-default cursor-pointer"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">Alumni/Professional ID File</label>
+                          <input 
+                            type="file" 
+                            accept=".png, .jpg, .jpeg, .pdf"
+                            onChange={(e) => setCredentialsImageFile(e.target.files[0])}
+                            className="w-full text-xs text-text-muted file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-surface-cool file:text-obsidian-base hover:file:bg-border-default cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-text-charcoal block mb-1">Professional Network Link (LinkedIn, etc.)</label>
+                        <input 
+                          type="text" 
+                          placeholder="https://linkedin.com/in/username"
+                          value={regCredentialsLink}
+                          onChange={(e) => setRegCredentialsLink(e.target.value)}
+                          className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                        />
+                      </div>
                     </>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Common: Email & Passwords */}
+                  <div>
+                    <label className="text-xs font-medium text-text-charcoal block mb-1">Contact Email Address</label>
+                    <input 
+                      type="email" 
+                      required
+                      placeholder="institutional email preferred"
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-medium text-text-charcoal block mb-2">Account Email Address</label>
-                      <input 
-                        type="email" 
-                        required
-                        placeholder="name@domain.com"
-                        value={regEmail}
-                        onChange={(e) => setRegEmail(e.target.value)}
-                        className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-text-charcoal block mb-2">Security Password</label>
+                      <label className="text-xs font-medium text-text-charcoal block mb-1">Password</label>
                       <input 
                         type="password" 
                         required
                         placeholder="••••••••••••"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
-                        className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                        className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-text-charcoal block mb-1">Confirm Password</label>
+                      <input 
+                        type="password" 
+                        required
+                        placeholder="••••••••••••"
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                        className="w-full bg-surface-cool/60 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                       />
                     </div>
                   </div>
@@ -1371,7 +1599,7 @@ export default function App() {
                   type="submit"
                   className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>Submit Application</span>
+                  <span>Submit Onboarding Application</span>
                 </button>
               </form>
             )}

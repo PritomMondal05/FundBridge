@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
+import fs from 'fs';
 
 // Mongoose Models
 import User from './models/User.js';
@@ -32,6 +34,53 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Serve uploaded documents statically
+app.use('/uploads', express.static(uploadDir));
+
+// Multer Storage Configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+// Multer file filter (accept jpeg, jpg, png, pdf)
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|pdf/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
+  
+  if (extname && mimetype) {
+    return cb(null, true);
+  } else {
+    cb(new Error('Only JPEG, JPG, PNG, and PDF files are allowed!'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: fileFilter
+});
+
+// Configure upload fields middleware
+const cpUpload = upload.fields([
+  { name: 'studentIdCardImage', maxCount: 1 },
+  { name: 'nidCardImage', maxCount: 1 },
+  { name: 'nidOrPassportImage', maxCount: 1 },
+  { name: 'credentialsImage', maxCount: 1 }
+]);
+
 // Base API endpoints
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'healthy', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
@@ -41,51 +90,114 @@ app.get('/api/health', (req, res) => {
 // USER AUTHENTICATION & PORTAL APIS
 // ==========================================
 
-// Register a new user (Founder or Investor)
-app.post('/api/users/register', async (req, res) => {
-  try {
-    const { name, email, password, role, mfsNumber, university, nid, institution, designation } = req.body;
-
-    if (!name || !email || !password || !role || !mfsNumber) {
-      return res.status(400).json({ error: 'Name, email, password, role, and MFS number are required.' });
+// Register a new user (Founder or Investor) with document uploads
+app.post('/api/users/register', (req, res, next) => {
+  cpUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
     }
+    
+    try {
+      const { 
+        name, email, password, role, mfsNumber, 
+        dob, university, studentId, department, nid,
+        affiliationStatus, institution, passingYear, nidOrPassport, bankOrMfs, credentialsLink
+      } = req.body;
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists with this email address.' });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role,
-      vettingStatus: 'pending', // Starts as pending admin vetting
-      mfsNumber,
-      university,
-      nid,
-      institution,
-      designation
-    });
-
-    res.status(201).json({
-      message: 'Account registered successfully. Vetting process initiated.',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        vettingStatus: user.vettingStatus
+      if (!name || !email || !password || !role) {
+        return res.status(400).json({ error: 'Name, email, password, and role are required.' });
       }
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error during user registration.' });
-  }
+
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ error: 'User already exists with this email address.' });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Collect uploaded file paths
+      let studentIdCardImagePath = '';
+      let nidCardImagePath = '';
+      let nidOrPassportImagePath = '';
+      let credentialsImagePath = '';
+
+      if (req.files) {
+        if (req.files.studentIdCardImage) {
+          studentIdCardImagePath = `/uploads/${req.files.studentIdCardImage[0].filename}`;
+        }
+        if (req.files.nidCardImage) {
+          nidCardImagePath = `/uploads/${req.files.nidCardImage[0].filename}`;
+        }
+        if (req.files.nidOrPassportImage) {
+          nidOrPassportImagePath = `/uploads/${req.files.nidOrPassportImage[0].filename}`;
+        }
+        if (req.files.credentialsImage) {
+          credentialsImagePath = `/uploads/${req.files.credentialsImage[0].filename}`;
+        }
+      }
+
+      // Validate uploads based on role
+      if (role === 'founder') {
+        if (!mfsNumber || !university || !studentId || !department || !nid || !dob) {
+          return res.status(400).json({ error: 'All student founder text fields are mandatory.' });
+        }
+        if (!studentIdCardImagePath || !nidCardImagePath) {
+          return res.status(400).json({ error: 'Student ID card scan and NID scan images are required.' });
+        }
+      } else if (role === 'investor') {
+        if (!affiliationStatus || !institution || !nidOrPassport || !bankOrMfs) {
+          return res.status(400).json({ error: 'All investor fields (Affiliation, Company, NID/Passport, Bank/MFS) are mandatory.' });
+        }
+        if (!nidOrPassportImagePath) {
+          return res.status(400).json({ error: 'NID or Passport scan image is required.' });
+        }
+        if (!credentialsImagePath && !credentialsLink) {
+          return res.status(400).json({ error: 'Professional credentials (scan file or verified link) are required.' });
+        }
+      }
+
+      const user = await User.create({
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        vettingStatus: 'pending',
+        mfsNumber: role === 'founder' ? mfsNumber : bankOrMfs,
+        dob,
+        university,
+        studentId,
+        department,
+        nid,
+        studentIdCardImage: studentIdCardImagePath,
+        nidCardImage: nidCardImagePath,
+        affiliationStatus,
+        institution,
+        passingYear,
+        nidOrPassport,
+        bankOrMfs,
+        nidOrPassportImage: nidOrPassportImagePath,
+        credentialsImage: credentialsImagePath,
+        credentialsLink
+      });
+
+      res.status(201).json({
+        message: 'Account registered successfully. Vetting process initiated.',
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          vettingStatus: user.vettingStatus
+        }
+      });
+    } catch (dbErr) {
+      console.error(dbErr);
+      res.status(500).json({ error: 'Server error during user registration.' });
+    }
+  });
 });
+
 
 // Log in user (Admin, Founder, or Investor)
 app.post('/api/users/login', async (req, res) => {
@@ -188,6 +300,39 @@ app.get('/api/vetting/applicants', async (req, res) => {
   }
 });
 
+// Retrieve system counts (Founders and Investors)
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const totalFounders = await User.countDocuments({ role: 'founder' });
+    const totalInvestors = await User.countDocuments({ role: 'investor' });
+    res.status(200).json({ totalFounders, totalInvestors });
+  } catch (err) {
+    console.error('Error fetching admin counts:', err);
+    res.status(500).json({ error: 'Error fetching statistics.' });
+  }
+});
+
+// Retrieve all verified student founders (Admins only)
+app.get('/api/admin/users/founders', async (req, res) => {
+  try {
+    const founders = await User.find({ role: 'founder', vettingStatus: 'verified' });
+    res.status(200).json(founders);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching student founders.' });
+  }
+});
+
+// Retrieve all verified investors (Admins only)
+app.get('/api/admin/users/investors', async (req, res) => {
+  try {
+    const investors = await User.find({ role: 'investor', vettingStatus: 'verified' });
+    res.status(200).json(investors);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching investors.' });
+  }
+});
+
+
 // Approve or reject vetting status
 app.post('/api/vetting/status', async (req, res) => {
   try {
@@ -195,7 +340,11 @@ app.post('/api/vetting/status', async (req, res) => {
     if (!userId || !status) {
       return res.status(400).json({ error: 'User ID and status are required.' });
     }
-    const user = await User.findByIdAndUpdate(userId, { vettingStatus: status }, { new: true });
+    const updateFields = { vettingStatus: status };
+    if (status === 'verified') {
+      updateFields.vettingDate = new Date();
+    }
+    const user = await User.findByIdAndUpdate(userId, updateFields, { new: true });
     if (!user) return res.status(404).json({ error: 'User not found.' });
     res.status(200).json({ message: `Vetting status updated to ${status}.`, user });
   } catch (err) {

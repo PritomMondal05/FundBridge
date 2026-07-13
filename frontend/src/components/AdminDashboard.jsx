@@ -1,25 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Shield, 
-  Users, 
-  TrendingUp, 
-  LogOut, 
-  Check, 
-  X, 
+import {
+  Shield,
+  Users,
+  TrendingUp,
+  LogOut,
+  Check,
+  X,
   ArrowRight,
-  Clock, 
-  Lock, 
+  Clock,
+  Lock,
   Unlock,
   AlertTriangle,
-  FileText, 
-  Terminal, 
-  MapPin, 
-  Search, 
-  Download, 
-  Eye, 
-  EyeOff, 
-  Bell, 
-  MessageSquare, 
+  FileText,
+  Terminal,
+  MapPin,
+  Search,
+  Download,
+  Eye,
+  EyeOff,
+  Bell,
+  MessageSquare,
   Activity,
   CheckSquare,
   Square,
@@ -40,13 +40,17 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }
     return false;
   });
-  
+
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // Navigation State Point: overview, verification, audits, disputes, logs
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Registered totals from database stats
+  const [totalFounders, setTotalFounders] = useState(0);
+  const [totalInvestors, setTotalInvestors] = useState(0);
 
   // Database-backed queues state
   const [vettingQueue, setVettingQueue] = useState([]);
@@ -58,7 +62,9 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
   // Vetting sub-state
   const [selectedApplicantId, setSelectedApplicantId] = useState(null);
-  const [verificationSubTab, setVerificationSubTab] = useState('student'); // 'student' | 'alumni'
+  const [verificationSubTab, setVerificationSubTab] = useState('pending'); // 'pending' | 'founders' | 'investors'
+  const [verifiedFoundersList, setVerifiedFoundersList] = useState([]);
+  const [verifiedInvestorsList, setVerifiedInvestorsList] = useState([]);
   const [verificationChecklist, setVerificationChecklist] = useState({
     nameMatch: false,
     idValid: false,
@@ -113,11 +119,29 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }));
   };
 
+  const fetchVerifiedUsers = async () => {
+    try {
+      const foundersRes = await fetch(`${API_BASE_URL}/api/admin/users/founders`);
+      if (foundersRes.ok) {
+        const foundersData = await foundersRes.json();
+        setVerifiedFoundersList(foundersData);
+      }
+      const investorsRes = await fetch(`${API_BASE_URL}/api/admin/users/investors`);
+      if (investorsRes.ok) {
+        const investorsData = await investorsRes.json();
+        setVerifiedInvestorsList(investorsData);
+      }
+    } catch (err) {
+      console.error('Error fetching verified users lists:', err);
+    }
+  };
+
   // Fetch all databases entities from the server APIs
   const fetchDatabaseData = async () => {
     try {
       setDbLoading(true);
-      
+      await fetchVerifiedUsers();
+
       // 1. Fetch vetting applicants
       const vetRes = await fetch(`${API_BASE_URL}/api/vetting/applicants`);
       if (vetRes.ok) {
@@ -136,7 +160,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       if (campRes.ok) {
         const campData = await campRes.json();
         setCampaignsList(campData);
-        
+
         // Auto-select first pending campaign dynamically
         if (campData.length > 0) {
           setSelectedCampaignId(campData[0].id);
@@ -159,7 +183,15 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
         setEscrowQueue(escData);
       }
 
-      // 5. Check system diagnostics health
+      // 5. Fetch registered database user counts (Founders and Investors)
+      const statsRes = await fetch(`${API_BASE_URL}/api/admin/stats`);
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setTotalFounders(statsData.totalFounders || 0);
+        setTotalInvestors(statsData.totalInvestors || 0);
+      }
+
+      // 6. Check system diagnostics health
       const healthRes = await fetch(`${API_BASE_URL}/api/health`);
       if (healthRes.ok) {
         const healthData = await healthRes.json();
@@ -210,7 +242,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   // Tab 6: Activity Log state
   const [activitySearch, setActivitySearch] = useState('');
   const [activityFilter, setActivityFilter] = useState('ALL');
-  
+
   const initialActivityLogs = [
     {
       timestamp: '2023-10-27 14:22:10',
@@ -271,7 +303,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
         body: JSON.stringify({ email: adminEmail, password: adminPassword })
       });
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.error || 'Authentication credentials failed.');
       }
@@ -305,7 +337,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       idValid: false,
       mfsMatch: false
     });
-    
+
     const anika = vettingQueue.find(u => u.name === 'Anika Rahman');
     if (anika) {
       setSelectedApplicantId(anika._id);
@@ -333,7 +365,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       if (!res.ok) throw new Error(data.error || 'Database write error');
 
       addToast(`Applicant "${applicant.name}" approved. Trust profile updated in database.`, 'success');
-      
+
       const newLog = {
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         actor: 'ADMIN_PRITOM',
@@ -438,7 +470,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       if (!res.ok) throw new Error(data.error || 'Database release error');
 
       addToast(`Tranche payment approved and released for ${campaignTitle} - "${milestoneTitle}".`, 'success');
-      
+
       const newLog = {
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         actor: 'ADMIN_PRITOM',
@@ -462,7 +494,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     setGlobalFreezeActive(prev => !prev);
     if (!globalFreezeActive) {
       addToast('ALERT: GLOBAL ESCROW PAYMENT FREEZE ENGAGED.', 'error');
-      
+
       const newLog = {
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         actor: 'ADMIN_PRITOM',
@@ -483,7 +515,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     setTokensRevoked(prev => !prev);
     if (!tokensRevoked) {
       addToast('ALERT: ACTIVE USER ACCESS TOKENS SUSPENDED.', 'error');
-      
+
       const newLog = {
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         actor: 'ADMIN_PRITOM',
@@ -513,7 +545,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   // Render Login page if not authenticated
   if (!isAdminAuthenticated) {
     return (
-      <div 
+      <div
         className="min-h-screen text-[#E2E8F0] flex flex-col justify-between font-sans relative overflow-hidden bg-cover bg-center"
         style={{ backgroundImage: `url(${landingImage})` }}
       >
@@ -559,8 +591,8 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   <label className="font-mono text-xs font-medium text-slate-600 uppercase tracking-wide">
                     Password
                   </label>
-                  <a 
-                    href="#forgot" 
+                  <a
+                    href="#forgot"
                     onClick={(e) => {
                       e.preventDefault();
                       addToast('Reset links are managed via local institution administrator protocols.', 'info');
@@ -613,10 +645,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   }
 
   // Active queues formatting and calculations (COMPUTED DYNAMICALLY FROM DATABASE - no dummy metrics)
-  const filteredApplicants = vettingQueue.filter(item => {
-    if (verificationSubTab === 'student') return item.role === 'founder';
-    return item.role === 'investor';
-  });
+  const filteredApplicants = vettingQueue;
 
   const selectedApplicant = vettingQueue.find(item => item._id === selectedApplicantId) || filteredApplicants[0];
   const selectedCampaign = campaignsList.find(c => c.id === selectedCampaignId) || campaignsList[0];
@@ -624,7 +653,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   // Dynamic calculations for real overview statistics (if its 0 then 0)
   const totalEscrowCapital = verifiedCampaigns.reduce((acc, c) => acc + (c.raised || 0), 0);
   const liveCampaignsCount = verifiedCampaigns.length;
-  
+
   // Calculate active founders from verified campaigns and pending vetting queue
   const uniqueFoundersSet = new Set();
   verifiedCampaigns.forEach(c => {
@@ -633,8 +662,8 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   const activeFoundersCount = uniqueFoundersSet.size;
 
   // Format Escrow Capital in BDT format (৳ 3,00,000)
-  const formattedEscrowCapital = totalEscrowCapital > 0 
-    ? `taka ${totalEscrowCapital.toLocaleString('en-IN')}` 
+  const formattedEscrowCapital = totalEscrowCapital > 0
+    ? `taka ${totalEscrowCapital.toLocaleString('en-IN')}`
     : 'taka 0';
 
   // Build Dynamic Timeline Entries based on actual database queue items
@@ -684,19 +713,18 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
   return (
     <div className="min-h-screen bg-[#0B0F0C] text-[#E2E8F0] flex flex-col font-sans relative">
-      
+
       {/* Toast Notification Container */}
       <div className="fixed top-6 right-6 z-[9999] flex flex-col gap-3">
         {toasts.map(toast => (
-          <div 
+          <div
             key={toast.id}
-            className={`flex items-center gap-3 px-5 py-4 rounded-sm border-l-4 shadow-xl animate-fadeIn ${
-              toast.type === 'success' 
-                ? 'bg-[#111613] text-[#E2E8F0] border-[#00E676]' 
-                : toast.type === 'error'
-                ? 'bg-red-950 text-red-100 border-red-500' 
+            className={`flex items-center gap-3 px-5 py-4 rounded-sm border-l-4 shadow-xl animate-fadeIn ${toast.type === 'success'
+              ? 'bg-[#111613] text-[#E2E8F0] border-[#00E676]'
+              : toast.type === 'error'
+                ? 'bg-red-950 text-red-100 border-red-500'
                 : 'bg-[#111613] text-[#E2E8F0] border-amber-500'
-            }`}
+              }`}
           >
             {toast.type === 'error' ? (
               <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
@@ -715,9 +743,9 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
           <span className="text-[#8E9B93]">/</span>
           <span className="text-[#00E676] uppercase tracking-wide font-medium">
             {activeTab === 'overview' ? 'dashboard_overview' :
-             activeTab === 'verification' ? 'identity_vetting' :
-             activeTab === 'audits' ? 'campaign_vault' :
-             activeTab === 'disputes' ? 'security_control' : 'immutable_ledger'}
+              activeTab === 'verification' ? 'identity_vetting' :
+                activeTab === 'audits' ? 'campaign_vault' :
+                  activeTab === 'disputes' ? 'security_control' : 'immutable_ledger'}
           </span>
         </div>
 
@@ -734,100 +762,94 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
             <div>SYNCED</div>
           </div>
 
-          <button 
+          <button
             onClick={handleAdminLogout}
             className="flex items-center gap-2 text-xs font-mono text-[#8E9B93] hover:text-[#E2E8F0] transition-colors border border-[#1F2922] bg-[#0B0F0C] rounded px-3 py-1.5 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 text-[#00E676]" />
-            <span>TERMINAL_EXIT</span>
+            <span>Log Out</span>
           </button>
         </div>
       </header>
 
       {/* Main Framework Grid */}
       <div className="flex-1 flex flex-col md:flex-row relative z-10">
-        
+
         {/* Sidebar Navigation */}
         <aside className="w-full md:w-72 bg-[#050806] border-r border-[#1F2922] p-6 flex flex-col justify-between text-left flex-shrink-0">
-          
+
           <div className="space-y-8">
-            {/* Brand Header: Logo size scaled larger to match UI */}
-            <div className="space-y-1">
-              <div className="flex items-center">
-                <img src={adminLogoUrl} alt="FundBridge Admin Logo" className="h-12 w-auto" />
-              </div>
-              <span className="text-[9px] text-[#00E676] tracking-widest block uppercase font-mono font-medium pl-1">
-                ADMIN_PORTAL
-              </span>
+            {/* Brand Header: Logo size scaled to fit sidebar */}
+            <div className="flex items-center">
+              <img src={adminLogoUrl} alt="FundBridge Admin Logo" className="h-20 w-auto object-contain" />
             </div>
 
             <nav className="space-y-1">
               <span className="text-[9px] font-mono tracking-widest text-[#8E9B93]/60 uppercase block mb-3 pl-2">NAVIGATION_STATE</span>
-              
-              <button 
+
+              <button
                 onClick={() => setActiveTab('overview')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${
-                  activeTab === 'overview' 
-                    ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]' 
-                    : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
-                }`}
+                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'overview'
+                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                  : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
+                  }`}
               >
                 <span>OVERVIEW</span>
-                <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">S[2]</span>
               </button>
 
-              <button 
+              <button
                 onClick={() => setActiveTab('verification')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${
-                  activeTab === 'verification' 
-                    ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]' 
-                    : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
-                }`}
+                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'verification'
+                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                  : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
+                  }`}
               >
                 <span>USER VERIFICATION</span>
-                <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">
-                  {vettingQueue.length > 0 ? `(${vettingQueue.length})` : 'S[3]'}
-                </span>
+                {vettingQueue.length > 0 && (
+                  <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">
+                    ({vettingQueue.length})
+                  </span>
+                )}
               </button>
 
-              <button 
+              <button
                 onClick={() => setActiveTab('audits')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${
-                  activeTab === 'audits' 
-                    ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]' 
-                    : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
-                }`}
+                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'audits'
+                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                  : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
+                  }`}
               >
                 <span>CAMPAIGN AUDITS</span>
-                <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">
-                  {campaignsList.length > 0 ? `(${campaignsList.length})` : 'S[5]'}
-                </span>
+                {campaignsList.length > 0 && (
+                  <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">
+                    ({campaignsList.length})
+                  </span>
+                )}
               </button>
 
-              <button 
+              <button
                 onClick={() => setActiveTab('disputes')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${
-                  activeTab === 'disputes' 
-                    ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]' 
-                    : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
-                }`}
+                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'disputes'
+                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                  : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
+                  }`}
               >
                 <span>DISPUTES & HOLDS</span>
-                <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">
-                  {disputesList.length > 0 ? `(${disputesList.length})` : 'S[4]'}
-                </span>
+                {disputesList.length > 0 && (
+                  <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">
+                    ({disputesList.length})
+                  </span>
+                )}
               </button>
 
-              <button 
+              <button
                 onClick={() => setActiveTab('logs')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${
-                  activeTab === 'logs' 
-                    ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]' 
-                    : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
-                }`}
+                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'logs'
+                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                  : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
+                  }`}
               >
                 <span>ACTIVITY LOG</span>
-                <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">S[6]</span>
               </button>
             </nav>
           </div>
@@ -848,7 +870,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
         {/* Main Workspace Viewport */}
         <main className="flex-1 p-6 md:p-8 bg-[#0B0F0C] overflow-y-auto max-w-7xl mx-auto w-full space-y-8">
-          
+
           {dbLoading && activeTab !== 'logs' && (
             <div className="py-2 px-4 rounded bg-[#111613] border border-[#1F2922] flex items-center justify-between font-mono text-xs text-[#8E9B93]">
               <span className="flex items-center gap-2">
@@ -866,14 +888,15 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   DASHBOARD OVERVIEW
                 </span>
                 <h2 className="text-2xl font-mono text-[#E2E8F0] tracking-tight font-medium">
-                  Welcome back, Platform Administrator
+                  Welcome back, Admin!
                 </h2>
               </div>
 
               {/* Metrics Row */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-[#00E676]/30 transition-colors">
-                  <span className="font-mono text-xs text-[#8E9B93] tracking-wider uppercase block">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* 1. Total Capital in Escrow (Spans 2 columns on desktop) */}
+                <div className="border border-emerald-500/20 bg-emerald-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] lg:col-span-2 sm:col-span-2 hover:border-[#00E676]/30 transition-colors">
+                  <span className="font-mono text-xs text-emerald-400 tracking-wider uppercase block">
                     Total Capital in Escrow
                   </span>
                   <div className="flex items-baseline justify-between mt-4">
@@ -881,13 +904,14 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       {formattedEscrowCapital}
                     </span>
                     <span className="text-[10px] font-sans font-medium px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                      Live Database Sync
+                      Live Escrow Vault
                     </span>
                   </div>
                 </div>
 
-                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-[#00E676]/30 transition-colors">
-                  <span className="font-mono text-xs text-[#8E9B93] tracking-wider uppercase block">
+                {/* 2. Pending Verifications */}
+                <div className="border border-amber-500/20 bg-amber-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-amber-500/40 transition-colors">
+                  <span className="font-mono text-xs text-amber-400 tracking-wider uppercase block">
                     Pending Verifications
                   </span>
                   <div className="flex items-baseline justify-between mt-4">
@@ -895,13 +919,14 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       {vettingQueue.length}
                     </span>
                     <span className="font-sans text-[11px] text-[#8E9B93]">
-                      Average turnaround: 4.2 hours
+                      Awaiting Vetting
                     </span>
                   </div>
                 </div>
 
-                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-[#00E676]/30 transition-colors">
-                  <span className="font-mono text-xs text-[#8E9B93] tracking-wider uppercase block">
+                {/* 3. Active Disputes */}
+                <div className="border border-red-500/20 bg-red-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-red-500/40 transition-colors">
+                  <span className="font-mono text-xs text-red-400 tracking-wider uppercase block">
                     Active Disputes
                   </span>
                   <div className="flex items-baseline justify-between mt-4">
@@ -910,7 +935,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                     </span>
                     {disputesList.length > 0 ? (
                       <span className="font-mono text-[11px] text-red-400 animate-pulse font-medium tracking-wide">
-                        Requires Immediate Action
+                        Action Needed
                       </span>
                     ) : (
                       <span className="font-sans text-[11px] text-emerald-400 font-medium">
@@ -919,30 +944,71 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                     )}
                   </div>
                 </div>
+
+                {/* 4. Total Founders */}
+                <div className="border border-blue-500/20 bg-blue-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-blue-500/40 transition-colors">
+                  <span className="font-mono text-xs text-blue-400 tracking-wider uppercase block">
+                    Total Founders
+                  </span>
+                  <div className="flex items-baseline justify-between mt-4">
+                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
+                      {totalFounders}
+                    </span>
+                    <span className="font-sans text-[11px] text-[#8E9B93]">
+                      Registered
+                    </span>
+                  </div>
+                </div>
+
+                {/* 5. Total Investors */}
+                <div className="border border-violet-500/20 bg-violet-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-violet-500/40 transition-colors">
+                  <span className="font-mono text-xs text-violet-400 tracking-wider uppercase block">
+                    Total Investors
+                  </span>
+                  <div className="flex items-baseline justify-between mt-4">
+                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
+                      {totalInvestors}
+                    </span>
+                    <span className="font-sans text-[11px] text-[#8E9B93]">
+                      Registered
+                    </span>
+                  </div>
+                </div>
+
+                {/* 6. Active Founders */}
+                <div className="border border-cyan-500/20 bg-cyan-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-cyan-500/40 transition-colors">
+                  <span className="font-mono text-xs text-cyan-400 tracking-wider uppercase block">
+                    Active Founders
+                  </span>
+                  <div className="flex items-baseline justify-between mt-4">
+                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
+                      {activeFoundersCount}
+                    </span>
+                    <span className="font-sans text-[11px] text-[#8E9B93]">
+                      With Live Projects
+                    </span>
+                  </div>
+                </div>
+
+                {/* 7. Live Campaigns */}
+                <div className="border border-teal-500/20 bg-teal-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-teal-500/40 transition-colors">
+                  <span className="font-mono text-xs text-teal-400 tracking-wider uppercase block">
+                    Live Campaigns
+                  </span>
+                  <div className="flex items-baseline justify-between mt-4">
+                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
+                      {liveCampaignsCount}
+                    </span>
+                    <span className="font-sans text-[11px] text-[#8E9B93]">
+                      Active Projects
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Split layout */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="border border-blue-500/20 bg-blue-950/10 rounded p-6 flex flex-col justify-between hover:border-blue-500/40 transition-colors">
-                      <span className="font-mono text-xs text-blue-400 tracking-wider uppercase block">
-                        Active Founders
-                      </span>
-                      <span className="font-mono text-3xl font-medium text-blue-200 mt-4">
-                        {activeFoundersCount}
-                      </span>
-                    </div>
-
-                    <div className="border border-amber-500/20 bg-amber-950/10 rounded p-6 flex flex-col justify-between hover:border-amber-500/40 transition-colors">
-                      <span className="font-mono text-xs text-amber-400 tracking-wider uppercase block">
-                        Live Campaigns
-                      </span>
-                      <span className="font-mono text-3xl font-medium text-amber-200 mt-4">
-                        {liveCampaignsCount}
-                      </span>
-                    </div>
-                  </div>
 
                   <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-4">
                     <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
@@ -958,12 +1024,12 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         <div>
                           <span className="text-[#E2E8F0] block">{vettingQueue[0].name}</span>
                           <span className="text-[#8E9B93] text-[10px]">
-                            {vettingQueue[0].role === 'founder' 
+                            {vettingQueue[0].role === 'founder'
                               ? `${vettingQueue[0].university} · NID: ${vettingQueue[0].nid || 'N/A'}`
                               : `${vettingQueue[0].institution || 'Angel Backing'}`}
                           </span>
                         </div>
-                        <button 
+                        <button
                           onClick={navigateToVerification}
                           className="px-3.5 py-1.5 bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/45 text-[#00E676] rounded transition-colors cursor-pointer"
                         >
@@ -994,7 +1060,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-[#00E676] font-medium">৳ {req.amount.toLocaleString()}</span>
-                              <button 
+                              <button
                                 onClick={() => handleApproveEscrowRelease(req.campaignObjId, req.milestoneId, req.campaignTitle, req.milestoneTitle)}
                                 className="px-2.5 py-1 bg-[#00E676] hover:bg-[#00E575]/90 text-black rounded text-[10px] font-medium transition-colors"
                               >
@@ -1020,9 +1086,8 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       {dynamicTimelineEntries.length > 0 ? (
                         dynamicTimelineEntries.map(entry => (
                           <div key={entry.id} className="flex items-start gap-4 relative">
-                            <div className={`w-7 h-7 rounded-full bg-[#111613] border flex items-center justify-center z-10 flex-shrink-0 ${
-                              entry.type === 'REGISTRATION' ? 'border-[#00E676]' : entry.type === 'DISPUTE' ? 'border-red-500/50' : 'border-[#8E9B93]/50'
-                            }`}>
+                            <div className={`w-7 h-7 rounded-full bg-[#111613] border flex items-center justify-center z-10 flex-shrink-0 ${entry.type === 'REGISTRATION' ? 'border-[#00E676]' : entry.type === 'DISPUTE' ? 'border-red-500/50' : 'border-[#8E9B93]/50'
+                              }`}>
                               {entry.type === 'REGISTRATION' ? (
                                 <Users className="w-3.5 h-3.5 text-[#00E676]" />
                               ) : entry.type === 'DISPUTE' ? (
@@ -1040,8 +1105,8 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                 {entry.title}
                               </p>
                               {entry.file && (
-                                <a 
-                                  href="#download" 
+                                <a
+                                  href="#download"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     addToast(`Downloading compliance file: ${entry.file}`, 'info');
@@ -1053,7 +1118,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                 </a>
                               )}
                               {entry.actionable && (
-                                <button 
+                                <button
                                   onClick={entry.onClick}
                                   className="px-2.5 py-1 border border-[#00E676]/50 bg-[#00E676]/10 text-[#00E676] hover:bg-[#00E676]/25 transition-colors rounded text-[10px] cursor-pointer"
                                 >
@@ -1077,207 +1142,374 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
           {activeTab === 'verification' && (
             <div className="space-y-8 animate-fadeIn text-left">
               <div className="border border-[#1F2922] bg-[#111613] rounded p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                {selectedApplicant ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <h2 className="text-xl font-mono text-[#E2E8F0] font-medium">{selectedApplicant.name}</h2>
-                      <span className="text-[10px] font-mono text-[#8E9B93]">
-                        ID: {selectedApplicant._id.substring(selectedApplicant._id.length - 8)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#8E9B93] font-mono">
-                      {selectedApplicant.role === 'founder' ? 'Student Founder identity verification queue' : 'Alumni Backer workspace authorization'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <h2 className="text-xl font-mono text-[#E2E8F0] font-medium">No Pending Applicants</h2>
-                    <p className="text-xs text-[#8E9B93] font-mono">All identity validations cleared on mainnet.</p>
-                  </div>
-                )}
+                <div className="space-y-1">
+                  <h2 className="text-xl font-mono text-[#E2E8F0] font-medium">User Onboarding & Vetting Registry</h2>
+                  <p className="text-xs text-[#8E9B93] font-mono">
+                    {verificationSubTab === 'pending' ? 'Review active onboarding applications' :
+                     verificationSubTab === 'founders' ? 'Lookup table of verified student founders' :
+                     'Lookup table of vetted capital backers'}
+                  </p>
+                </div>
 
                 <div className="flex items-center gap-4">
                   <div className="flex bg-[#0B0F0C] border border-[#1F2922] p-1 rounded">
-                    <button 
-                      onClick={() => setVerificationSubTab('student')}
+                    <button
+                      onClick={() => setVerificationSubTab('pending')}
                       className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
-                        verificationSubTab === 'student' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                        verificationSubTab === 'pending' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
                       }`}
                     >
-                      Student Founders
+                      Pending Verification
                     </button>
-                    <button 
-                      onClick={() => setVerificationSubTab('alumni')}
+                    <button
+                      onClick={() => setVerificationSubTab('founders')}
                       className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
-                        verificationSubTab === 'alumni' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                        verificationSubTab === 'founders' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
                       }`}
                     >
-                      Alumni Backers
+                      Registered Founders
+                    </button>
+                    <button
+                      onClick={() => setVerificationSubTab('investors')}
+                      className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
+                        verificationSubTab === 'investors' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      Registered Investors
                     </button>
                   </div>
-
-                  {selectedApplicant && (
-                    <span className="text-[10px] font-sans font-medium px-2.5 py-1 rounded border text-amber-400 border-amber-500/30 bg-amber-500/10">
-                      PENDING_REVIEW
-                    </span>
-                  )}
                 </div>
               </div>
 
-              {selectedApplicant && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="space-y-3 font-mono text-xs">
-                    <span className="text-[9px] text-[#8E9B93] uppercase tracking-wider block mb-1">Pending queue list</span>
-                    {filteredApplicants.map(app => (
-                      <button 
-                        key={app._id}
-                        onClick={() => {
-                          setSelectedApplicantId(app._id);
-                          setVerificationChecklist({ nameMatch: false, idValid: false, mfsMatch: false });
-                        }}
-                        className={`w-full p-4 rounded bg-[#111613] border text-left transition-colors cursor-pointer ${
-                          app._id === selectedApplicantId ? 'border-[#00E676] bg-[#111613]/80' : 'border-[#1F2922] hover:border-[#8E9B93]/35'
-                        }`}
-                      >
-                        <div className="text-[#E2E8F0] font-medium">{app.name}</div>
-                        <div className="text-[10px] text-[#8E9B93] mt-1">
-                          {app.role === 'founder' ? (app.university || 'BRAC University') : (app.institution || 'Angels Hub')}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="space-y-4">
-                    <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase block mb-1">
-                      DOCUMENT_SCAN_VAULT (Dual Cards)
-                    </span>
-
-                    <div className="border border-[#1F2922] bg-[#111613] rounded p-5 space-y-3 font-mono text-xs">
-                      <div className="flex items-center justify-between border-b border-[#1F2922] pb-2 text-[10px] text-[#8E9B93]">
-                        <span>{selectedApplicant.role === 'founder' ? 'UNIVERSITY STUDENT CARD' : 'CORPORATE CREDENTIALS'}</span>
-                        <span className="text-[#00E676]">ACTIVE_STATUS</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3 pt-1">
-                        <div className="col-span-1 bg-[#0B0F0C] border border-[#1F2922] aspect-square rounded flex items-center justify-center text-[#8E9B93] text-[9px] text-center">
-                          PHOTO
-                        </div>
-                        <div className="col-span-2 space-y-1 text-[11px] text-[#8E9B93]">
-                          <div>NAME: <span className="text-[#E2E8F0]">{selectedApplicant.name}</span></div>
-                          {selectedApplicant.role === 'founder' ? (
-                            <>
-                              <div>ID: <span className="text-[#E2E8F0]">21101234</span></div>
-                              <div>DEPT: <span className="text-[#E2E8F0]">Computer Science & Eng.</span></div>
-                              <div>VALID: <span className="text-[#E2E8F0]">12/2026</span></div>
-                            </>
-                          ) : (
-                            <>
-                              <div>INST: <span className="text-[#E2E8F0]">{selectedApplicant.institution}</span></div>
-                              <div>TITLE: <span className="text-[#E2E8F0]">{selectedApplicant.designation}</span></div>
-                              <div>VERIFIED: <span className="text-[#E2E8F0]">DB Sync</span></div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border border-[#1F2922] bg-[#111613] rounded p-5 space-y-3 font-mono text-xs">
-                      <div className="flex items-center justify-between border-b border-[#1F2922] pb-2 text-[10px] text-[#8E9B93]">
-                        <span>GOVERNMENT SMART NID CARD</span>
-                        <span className="text-emerald-400">OCR_MATCHED</span>
-                      </div>
-                      <div className="space-y-1 text-[11px] text-[#8E9B93] pt-1">
-                        <div>LEGAL NAME: <span className="text-[#E2E8F0]">{selectedApplicant.name.toUpperCase()}</span></div>
-                        <div>NID HASH: <span className="text-[#E2E8F0]">{selectedApplicant.nid || '554092183201'}</span></div>
-                        <div>DATE OF BIRTH: <span className="text-[#E2E8F0]">14 FEB 2002</span></div>
-                        <div>ISSUING SYSTEM: <span className="text-[#E2E8F0]">E-REGISTRY GOV BD</span></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase block mb-1">
-                      COMPLIANCE_CHECKS & SCORING
-                    </span>
-
-                    <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6">
+              {/* View 1: Pending Verification Workspace */}
+              {verificationSubTab === 'pending' && (
+                <>
+                  {filteredApplicants.length > 0 && selectedApplicant ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      {/* Left: Pending queue list */}
                       <div className="space-y-3 font-mono text-xs">
-                        <button 
-                          onClick={() => setVerificationChecklist(prev => ({ ...prev, nameMatch: !prev.nameMatch }))}
-                          className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
-                        >
-                          {verificationChecklist.nameMatch ? (
-                            <CheckSquare className="w-4 h-4 text-[#00E676]" />
-                          ) : (
-                            <Square className="w-4 h-4 text-[#8E9B93]" />
-                          )}
-                          <div>
-                            <span className="text-[#E2E8F0] block">Name Match Verification</span>
-                            <span className="text-[10px] text-[#8E9B93]">OCR matches name with database.</span>
-                          </div>
-                        </button>
-
-                        <button 
-                          onClick={() => setVerificationChecklist(prev => ({ ...prev, idValid: !prev.idValid }))}
-                          className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
-                        >
-                          {verificationChecklist.idValid ? (
-                            <CheckSquare className="w-4 h-4 text-[#00E676]" />
-                          ) : (
-                            <Square className="w-4 h-4 text-[#8E9B93]" />
-                          )}
-                          <div>
-                            <span className="text-[#E2E8F0] block">Institution ID Check</span>
-                            <span className="text-[10px] text-[#8E9B93]">Database registrar status check matches.</span>
-                          </div>
-                        </button>
-
-                        <button 
-                          onClick={() => setVerificationChecklist(prev => ({ ...prev, mfsMatch: !prev.mfsMatch }))}
-                          className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
-                        >
-                          {verificationChecklist.mfsMatch ? (
-                            <CheckSquare className="w-4 h-4 text-[#00E676]" />
-                          ) : (
-                            <Square className="w-4 h-4 text-[#8E9B93]" />
-                          )}
-                          <div>
-                            <span className="text-[#E2E8F0] block">MFS Account NID Match</span>
-                            <span className="text-[10px] text-[#8E9B93]">Mobile account matches NID database.</span>
-                          </div>
-                        </button>
+                        <span className="text-[9px] text-[#8E9B93] uppercase tracking-wider block mb-1">Pending queue list</span>
+                        {filteredApplicants.map(app => (
+                          <button
+                            key={app._id}
+                            onClick={() => {
+                              setSelectedApplicantId(app._id);
+                              setVerificationChecklist({ nameMatch: false, idValid: false, mfsMatch: false });
+                            }}
+                            className={`w-full p-4 rounded bg-[#111613] border text-left transition-colors cursor-pointer ${
+                              app._id === selectedApplicantId ? 'border-[#00E676] bg-[#111613]/80' : 'border-[#1F2922] hover:border-[#8E9B93]/35'
+                            }`}
+                          >
+                            <div className="text-[#E2E8F0] font-medium">{app.name}</div>
+                            <div className="text-[10px] text-[#8E9B93] mt-1 flex items-center justify-between">
+                              <span>{app.role === 'founder' ? (app.university || 'BRAC University') : (app.institution || 'Angels Hub')}</span>
+                              <span className="px-1.5 py-0.5 rounded text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase font-sans font-semibold">
+                                {app.role}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
                       </div>
 
-                      <div className="bg-[#0B0F0C] border border-[#1F2922] rounded p-5 space-y-3 font-mono text-xs">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[#8E9B93]">Identity Confidence Score</span>
-                          <span className="text-[#00E676] font-medium">98.4%</span>
+                      {/* Middle & Right Workspace (spans 2 columns) */}
+                      <div className="lg:col-span-2 space-y-6">
+                        <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+                          <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
+                            DOCUMENT_SCAN_VAULT (Side-by-Side)
+                          </span>
+                          <span className="text-[10px] font-sans font-medium px-2.5 py-1 rounded border text-amber-400 border-amber-500/30 bg-amber-500/10">
+                            PENDING_REVIEW
+                          </span>
                         </div>
-                        <div className="w-full h-1 bg-[#1F2922] rounded-full overflow-hidden">
-                          <div className="h-full bg-[#00E676] shadow-[0_0_8px_#00E676]" style={{ width: '98.4%' }}></div>
-                        </div>
-                      </div>
 
-                      <div className="space-y-4 pt-2">
-                        <div className="grid grid-cols-2 gap-4">
-                          <button
-                            onClick={handleApproveApplicant}
-                            className="w-full py-2.5 bg-[#00E676] hover:bg-[#00E575]/90 text-black text-xs font-mono font-medium rounded transition-all cursor-pointer text-center"
-                          >
-                            Approve Identity
-                          </button>
-                          <button
-                            onClick={handleRejectApplicant}
-                            className="w-full py-2.5 border border-red-500/50 hover:bg-red-500/10 text-red-400 text-xs font-mono font-medium rounded transition-all cursor-pointer text-center"
-                          >
-                            Reject Application
-                          </button>
+                        {/* Side-by-Side Previews */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="border border-[#1F2922] bg-[#111613] rounded p-4 space-y-3 flex flex-col">
+                            <span className="font-mono text-[10px] text-[#8E9B93] block uppercase pb-1.5 border-b border-[#1F2922]">
+                              {selectedApplicant.role === 'founder' ? 'Student ID Card Scan' : 'NID / Passport Scan'}
+                            </span>
+                            <div className="flex-1 bg-[#0B0F0C] border border-[#1F2922] rounded overflow-hidden aspect-video relative flex items-center justify-center min-h-[160px]">
+                              {selectedApplicant.role === 'founder' ? (
+                                selectedApplicant.studentIdCardImage ? (
+                                  <img 
+                                    src={`${API_BASE_URL}${selectedApplicant.studentIdCardImage}`} 
+                                    alt="Student ID" 
+                                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 hover:scale-105"
+                                    onClick={() => window.open(`${API_BASE_URL}${selectedApplicant.studentIdCardImage}`, '_blank')}
+                                  />
+                                ) : (
+                                  <span className="text-[#8E9B93] text-xs">No Student ID uploaded</span>
+                                )
+                              ) : (
+                                selectedApplicant.nidOrPassportImage ? (
+                                  <img 
+                                    src={`${API_BASE_URL}${selectedApplicant.nidOrPassportImage}`} 
+                                    alt="NID or Passport" 
+                                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 hover:scale-105"
+                                    onClick={() => window.open(`${API_BASE_URL}${selectedApplicant.nidOrPassportImage}`, '_blank')}
+                                  />
+                                ) : (
+                                  <span className="text-[#8E9B93] text-xs">No NID/Passport uploaded</span>
+                                )
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="border border-[#1F2922] bg-[#111613] rounded p-4 space-y-3 flex flex-col">
+                            <span className="font-mono text-[10px] text-[#8E9B93] block uppercase pb-1.5 border-b border-[#1F2922]">
+                              {selectedApplicant.role === 'founder' ? 'National ID (NID) Scan' : 'Professional / Alumni Credentials'}
+                            </span>
+                            <div className="flex-1 bg-[#0B0F0C] border border-[#1F2922] rounded overflow-hidden aspect-video relative flex items-center justify-center min-h-[160px]">
+                              {selectedApplicant.role === 'founder' ? (
+                                selectedApplicant.nidCardImage ? (
+                                  <img 
+                                    src={`${API_BASE_URL}${selectedApplicant.nidCardImage}`} 
+                                    alt="NID Scan" 
+                                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 hover:scale-105"
+                                    onClick={() => window.open(`${API_BASE_URL}${selectedApplicant.nidCardImage}`, '_blank')}
+                                  />
+                                ) : (
+                                  <span className="text-[#8E9B93] text-xs">No NID scan uploaded</span>
+                                )
+                              ) : (
+                                selectedApplicant.credentialsImage ? (
+                                  <img 
+                                    src={`${API_BASE_URL}${selectedApplicant.credentialsImage}`} 
+                                    alt="Credentials File" 
+                                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 hover:scale-105"
+                                    onClick={() => window.open(`${API_BASE_URL}${selectedApplicant.credentialsImage}`, '_blank')}
+                                  />
+                                ) : selectedApplicant.credentialsLink ? (
+                                  <div className="p-4 text-center space-y-2">
+                                    <span className="text-[#8E9B93] text-[11px] block">Verified Network Link:</span>
+                                    <a 
+                                      href={selectedApplicant.credentialsLink} 
+                                      target="_blank" 
+                                      rel="noreferrer"
+                                      className="text-[#00E676] underline text-xs font-mono break-all hover:text-emerald-300 font-medium"
+                                    >
+                                      {selectedApplicant.credentialsLink}
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <span className="text-[#8E9B93] text-xs">No credentials uploaded</span>
+                                )
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <span className="text-[10px] font-mono text-[#8E9B93]/60 block text-center uppercase tracking-wide">
-                          Decisions are final and logged for audit purposes.
-                        </span>
+
+                        {/* Text Details Card */}
+                        <div className="border border-[#1F2922] bg-[#111613] rounded p-5 space-y-4 font-mono text-xs">
+                          <span className="text-[10px] text-[#8E9B93] tracking-widest uppercase block border-b border-[#1F2922] pb-2">
+                            APPLICATION DATA SPECIFICATIONS
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-[11px]">
+                            <div><span className="text-[#8E9B93]">Full Name:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.name}</span></div>
+                            <div><span className="text-[#8E9B93]">Email Address:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.email}</span></div>
+                            <div><span className="text-[#8E9B93]">Role Type:</span> <span className="text-[#00E676] block uppercase font-medium mt-0.5">{selectedApplicant.role === 'founder' ? 'Student Founder' : 'Investor'}</span></div>
+                            {selectedApplicant.role === 'founder' ? (
+                              <>
+                                <div><span className="text-[#8E9B93]">Student ID:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.studentId}</span></div>
+                                <div><span className="text-[#8E9B93]">University:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.university}</span></div>
+                                <div><span className="text-[#8E9B93]">Department:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.department}</span></div>
+                                <div><span className="text-[#8E9B93]">Date of Birth:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.dob}</span></div>
+                                <div><span className="text-[#8E9B93]">NID Number:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.nid}</span></div>
+                                <div><span className="text-[#8E9B93]">MFS Number:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.mfsNumber}</span></div>
+                              </>
+                            ) : (
+                              <>
+                                <div><span className="text-[#8E9B93]">Affiliation Status:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.affiliationStatus}</span></div>
+                                <div><span className="text-[#8E9B93]">Institution/Firm:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.institution}</span></div>
+                                {selectedApplicant.affiliationStatus === 'Alumni Backer' && (
+                                  <div><span className="text-[#8E9B93]">Passing Year:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.passingYear}</span></div>
+                                )}
+                                <div><span className="text-[#8E9B93]">NID / Passport:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.nidOrPassport}</span></div>
+                                <div><span className="text-[#8E9B93]">Bank/MFS Details:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.bankOrMfs}</span></div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Checklist & Approval Buttons */}
+                        <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6">
+                          <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase block border-b border-[#1F2922] pb-2">
+                            COMPLIANCE_CHECKS & SCORING
+                          </span>
+                          
+                          <div className="space-y-3 font-mono text-xs">
+                            <button
+                              onClick={() => setVerificationChecklist(prev => ({ ...prev, nameMatch: !prev.nameMatch }))}
+                              className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+                            >
+                              {verificationChecklist.nameMatch ? (
+                                <CheckSquare className="w-4 h-4 text-[#00E676]" />
+                              ) : (
+                                <Square className="w-4 h-4 text-[#8E9B93]" />
+                              )}
+                              <div>
+                                <span className="text-[#E2E8F0] block">Name Match Verification</span>
+                                <span className="text-[10px] text-[#8E9B93]">OCR matches name with database.</span>
+                              </div>
+                            </button>
+
+                            <button
+                              onClick={() => setVerificationChecklist(prev => ({ ...prev, idValid: !prev.idValid }))}
+                              className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+                            >
+                              {verificationChecklist.idValid ? (
+                                <CheckSquare className="w-4 h-4 text-[#00E676]" />
+                              ) : (
+                                <Square className="w-4 h-4 text-[#8E9B93]" />
+                              )}
+                              <div>
+                                <span className="text-[#E2E8F0] block">Institution ID Check</span>
+                                <span className="text-[10px] text-[#8E9B93]">Database registrar status check matches.</span>
+                              </div>
+                            </button>
+
+                            <button
+                              onClick={() => setVerificationChecklist(prev => ({ ...prev, mfsMatch: !prev.mfsMatch }))}
+                              className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+                            >
+                              {verificationChecklist.mfsMatch ? (
+                                <CheckSquare className="w-4 h-4 text-[#00E676]" />
+                              ) : (
+                                <Square className="w-4 h-4 text-[#8E9B93]" />
+                              )}
+                              <div>
+                                <span className="text-[#E2E8F0] block">MFS Account NID Match</span>
+                                <span className="text-[10px] text-[#8E9B93]">Mobile account matches NID database.</span>
+                              </div>
+                            </button>
+                          </div>
+
+                          <div className="bg-[#0B0F0C] border border-[#1F2922] rounded p-5 space-y-3 font-mono text-xs">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[#8E9B93]">Identity Confidence Score</span>
+                              <span className="text-[#00E676] font-medium">98.4%</span>
+                            </div>
+                            <div className="w-full h-1 bg-[#1F2922] rounded-full overflow-hidden">
+                              <div className="h-full bg-[#00E676] shadow-[0_0_8px_#00E676]" style={{ width: '98.4%' }}></div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4 pt-2">
+                            <div className="grid grid-cols-2 gap-4">
+                              <button
+                                onClick={handleApproveApplicant}
+                                className="w-full py-2.5 bg-[#00E676] hover:bg-[#00E575]/90 text-black text-xs font-mono font-medium rounded transition-all cursor-pointer text-center"
+                              >
+                                Approve Identity
+                              </button>
+                              <button
+                                onClick={handleRejectApplicant}
+                                className="w-full py-2.5 border border-red-500/50 hover:bg-red-500/10 text-red-400 text-xs font-mono font-medium rounded transition-all cursor-pointer text-center"
+                              >
+                                Reject Application
+                              </button>
+                            </div>
+                            <span className="text-[10px] font-mono text-[#8E9B93]/60 block text-center uppercase tracking-wide">
+                              Decisions are final and logged for audit purposes.
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="border border-[#1F2922] bg-[#111613] rounded p-12 text-center text-[#8E9B93] font-mono text-xs">
+                      All vetting queues are empty. No pending onboarding applications found.
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* View 2: Registered Student Founders Sheet */}
+              {verificationSubTab === 'founders' && (
+                <div className="overflow-x-auto border border-[#1F2922] bg-[#111613] rounded">
+                  <table className="w-full text-left font-mono text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#1F2922] bg-[#0B0F0C] text-[#8E9B93]">
+                        <th className="p-4 font-semibold uppercase">Student Name</th>
+                        <th className="p-4 font-semibold uppercase">University ID</th>
+                        <th className="p-4 font-semibold uppercase">Department & University</th>
+                        <th className="p-4 font-semibold uppercase">Registered Email</th>
+                        <th className="p-4 font-semibold uppercase">Active Campaigns</th>
+                        <th className="p-4 font-semibold uppercase">Identity Verification Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1F2922] text-[#E2E8F0]">
+                      {verifiedFoundersList.length > 0 ? (
+                        verifiedFoundersList.map(founder => (
+                          <tr key={founder._id} className="hover:bg-[#111613]/60 transition-colors">
+                            <td className="p-4 font-sans font-medium">{founder.name}</td>
+                            <td className="p-4">{founder.studentId || 'N/A'}</td>
+                            <td className="p-4">{founder.department || 'N/A'}, {founder.university || 'N/A'}</td>
+                            <td className="p-4">{founder.email}</td>
+                            <td className="p-4 text-[#00E676] font-semibold">
+                              {verifiedCampaigns.filter(c => {
+                                const fId = c.founder?._id || c.founder;
+                                return fId === founder._id;
+                              }).length}
+                            </td>
+                            <td className="p-4 text-[#8E9B93]">
+                              {founder.vettingDate ? new Date(founder.vettingDate).toISOString().substring(0, 10) : 'N/A'}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-[#8E9B93]">
+                            No registered student founders found on mainnet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* View 3: Registered Investors Sheet */}
+              {verificationSubTab === 'investors' && (
+                <div className="overflow-x-auto border border-[#1F2922] bg-[#111613] rounded">
+                  <table className="w-full text-left font-mono text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#1F2922] bg-[#0B0F0C] text-[#8E9B93]">
+                        <th className="p-4 font-semibold uppercase">Investor Name</th>
+                        <th className="p-4 font-semibold uppercase">Affiliation Tag</th>
+                        <th className="p-4 font-semibold uppercase">Associated Company/University</th>
+                        <th className="p-4 font-semibold uppercase">Contact Email</th>
+                        <th className="p-4 font-semibold uppercase">Active Portfolio Projects</th>
+                        <th className="p-4 font-semibold uppercase">Platform Onboarding Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1F2922] text-[#E2E8F0]">
+                      {verifiedInvestorsList.length > 0 ? (
+                        verifiedInvestorsList.map(investor => (
+                          <tr key={investor._id} className="hover:bg-[#111613]/60 transition-colors">
+                            <td className="p-4 font-sans font-medium">{investor.name}</td>
+                            <td className="p-4">
+                              <span className="px-2 py-0.5 rounded text-[10px] border border-violet-500/30 bg-violet-500/10 text-violet-400 font-medium font-sans uppercase">
+                                {investor.affiliationStatus || 'Investor'}
+                              </span>
+                            </td>
+                            <td className="p-4">{investor.institution || 'N/A'}</td>
+                            <td className="p-4">{investor.email}</td>
+                            <td className="p-4 text-sky-400 font-semibold">0</td>
+                            <td className="p-4 text-[#8E9B93]">
+                              {investor.vettingDate ? new Date(investor.vettingDate).toISOString().substring(0, 10) : 'N/A'}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-[#8E9B93]">
+                            No registered investors found on mainnet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -1336,13 +1568,12 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         <span className="text-[#E2E8F0] block">Freeze Escrow Payments</span>
                         <span className="text-[10px] text-[#8E9B93]">Force immediate hold on all disbursements.</span>
                       </div>
-                      <button 
+                      <button
                         onClick={handleExecuteGlobalFreeze}
-                        className={`px-4 py-2 text-xs font-mono font-medium rounded transition-all cursor-pointer flex items-center gap-2 ${
-                          globalFreezeActive 
-                            ? 'bg-red-500 text-white' 
-                            : 'border border-red-500/50 hover:bg-red-500/10 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
-                        }`}
+                        className={`px-4 py-2 text-xs font-mono font-medium rounded transition-all cursor-pointer flex items-center gap-2 ${globalFreezeActive
+                          ? 'bg-red-500 text-white'
+                          : 'border border-red-500/50 hover:bg-red-500/10 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
+                          }`}
                       >
                         <Lock className="w-3.5 h-3.5" />
                         <span>{globalFreezeActive ? 'DEACTIVATE FREEZE' : 'EXECUTE GLOBAL FREEZE'}</span>
@@ -1354,13 +1585,12 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         <span className="text-[#E2E8F0] block">Suspend Account Access</span>
                         <span className="text-[10px] text-[#8E9B93]">Revoke active authentication tokens.</span>
                       </div>
-                      <button 
+                      <button
                         onClick={handleRevokeTokens}
-                        className={`px-4 py-2 text-xs font-mono font-medium rounded transition-all cursor-pointer flex items-center gap-2 ${
-                          tokensRevoked 
-                            ? 'bg-amber-500 text-black' 
-                            : 'bg-[#0B0F0C] hover:bg-[#111613] text-[#E2E8F0] border border-[#1F2922]'
-                        }`}
+                        className={`px-4 py-2 text-xs font-mono font-medium rounded transition-all cursor-pointer flex items-center gap-2 ${tokensRevoked
+                          ? 'bg-amber-500 text-black'
+                          : 'bg-[#0B0F0C] hover:bg-[#111613] text-[#E2E8F0] border border-[#1F2922]'
+                          }`}
                       >
                         <Unlock className="w-3.5 h-3.5 text-[#00E676]" />
                         <span>{tokensRevoked ? 'RE-ENABLE ACCESS' : 'REVOKE ACCESS TOKENS'}</span>
@@ -1382,16 +1612,15 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         <span className="text-[#E2E8F0] block">DDoS Mitigation Network</span>
                         <span className="text-[10px] text-[#8E9B93]">Active sync buffers rate filtering.</span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           setDdosMitigation(!ddosMitigation);
                           addToast(`DDoS Mitigation set to ${!ddosMitigation ? 'ACTIVE' : 'INACTIVE'}.`, 'info');
                         }}
-                        className={`px-2.5 py-1 rounded text-[10px] border font-medium ${
-                          ddosMitigation 
-                            ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' 
-                            : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                        }`}
+                        className={`px-2.5 py-1 rounded text-[10px] border font-medium ${ddosMitigation
+                          ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                          : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                          }`}
                       >
                         {ddosMitigation ? 'ACTIVE' : 'SUSPENDED'}
                       </button>
@@ -1402,16 +1631,15 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         <span className="text-[#E2E8F0] block">Fraud Detection AI Daemon</span>
                         <span className="text-[10px] text-[#8E9B93]">OCR and database checks.</span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           setFraudDetectionAI(!fraudDetectionAI);
                           addToast(`Fraud AI set to ${!fraudDetectionAI ? 'ACTIVE' : 'INACTIVE'}.`, 'info');
                         }}
-                        className={`px-2.5 py-1 rounded text-[10px] border font-medium ${
-                          fraudDetectionAI 
-                            ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' 
-                            : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                        }`}
+                        className={`px-2.5 py-1 rounded text-[10px] border font-medium ${fraudDetectionAI
+                          ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                          : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                          }`}
                       >
                         {fraudDetectionAI ? 'ACTIVE' : 'OFFLINE'}
                       </button>
@@ -1422,16 +1650,15 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         <span className="text-[#E2E8F0] block">L3 Manual Review Queue</span>
                         <span className="text-[10px] text-[#8E9B93]">Supervisor intervention gates.</span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           setL3ManualReview(!l3ManualReview);
                           addToast(`L3 Manual Review Queue set to ${!l3ManualReview ? 'ACTIVE' : 'QUEUED'}.`, 'info');
                         }}
-                        className={`px-2.5 py-1 rounded text-[10px] border font-medium ${
-                          l3ManualReview 
-                            ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' 
-                            : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                        }`}
+                        className={`px-2.5 py-1 rounded text-[10px] border font-medium ${l3ManualReview
+                          ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                          : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                          }`}
                       >
                         {l3ManualReview ? 'ACTIVE' : 'QUEUED'}
                       </button>
@@ -1469,11 +1696,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             </td>
                             <td className="p-4 text-[#8E9B93]">{dispute.stakeholder}</td>
                             <td className="p-4">
-                              <span className={`px-2 py-0.5 rounded text-[10px] border font-medium ${
-                                dispute.severity === 'Critical' 
-                                  ? 'text-red-400 border-red-500/30 bg-red-500/10' 
-                                  : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                              }`}>
+                              <span className={`px-2 py-0.5 rounded text-[10px] border font-medium ${dispute.severity === 'Critical'
+                                ? 'text-red-400 border-red-500/30 bg-red-500/10'
+                                : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                                }`}>
                                 {dispute.severity.toUpperCase()}
                               </span>
                             </td>
@@ -1481,7 +1707,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                               <div className="flex items-center gap-3">
                                 <span className="text-[#E2E8F0]">{dispute.timeline}</span>
                                 <div className="w-20 h-1.5 bg-[#0B0F0C] rounded-full overflow-hidden border border-[#1F2922]">
-                                  <div 
+                                  <div
                                     className={`h-full rounded-full ${dispute.severity === 'Critical' ? 'bg-red-400' : 'bg-amber-400'}`}
                                     style={{ width: dispute.severity === 'Critical' ? '90%' : '50%' }}
                                   ></div>
@@ -1491,22 +1717,20 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             <td className="p-4">
                               <div className="flex justify-center">
                                 {dispute.severity === 'Critical' ? (
-                                  <button 
+                                  <button
                                     onClick={() => handleFreezeDisputeFunds(dispute.id, dispute.campaign)}
                                     disabled={dispute.actionTaken}
-                                    className={`px-3 py-1.5 text-[10px] font-mono font-medium rounded transition-colors cursor-pointer border border-red-500/50 text-red-400 hover:bg-red-500/10 ${
-                                      dispute.actionTaken && 'opacity-30 cursor-not-allowed'
-                                    }`}
+                                    className={`px-3 py-1.5 text-[10px] font-mono font-medium rounded transition-colors cursor-pointer border border-red-500/50 text-red-400 hover:bg-red-500/10 ${dispute.actionTaken && 'opacity-30 cursor-not-allowed'
+                                      }`}
                                   >
                                     {dispute.actionTaken ? 'FUNDS_FROZEN' : 'FREEZE FUNDS'}
                                   </button>
                                 ) : (
-                                  <button 
+                                  <button
                                     onClick={() => handleInvestigateDispute(dispute.id, dispute.campaign)}
                                     disabled={dispute.actionTaken}
-                                    className={`px-3 py-1.5 text-[10px] font-mono font-medium rounded transition-colors cursor-pointer border border-[#1F2922] text-[#E2E8F0] hover:bg-[#0B0F0C] ${
-                                      dispute.actionTaken && 'opacity-30 cursor-not-allowed'
-                                    }`}
+                                    className={`px-3 py-1.5 text-[10px] font-mono font-medium rounded transition-colors cursor-pointer border border-[#1F2922] text-[#E2E8F0] hover:bg-[#0B0F0C] ${dispute.actionTaken && 'opacity-30 cursor-not-allowed'
+                                      }`}
                                   >
                                     {dispute.actionTaken ? 'INVESTIGATING' : 'INVESTIGATE'}
                                   </button>
@@ -1525,7 +1749,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
               {/* Bottom Section Diagnostics */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
+
                 {/* Security Event Stream */}
                 <div className="lg:col-span-2 border border-[#1F2922] bg-[#111613] rounded p-6 space-y-4">
                   <div className="flex items-center gap-2 border-b border-[#1F2922] pb-3">
@@ -1534,7 +1758,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       Security Event Stream
                     </span>
                   </div>
-                  
+
                   <div className="bg-[#0B0F0C] border border-[#1F2922] rounded p-4 h-48 overflow-y-auto font-mono text-[10px] text-[#8E9B93] space-y-1.5 custom-scrollbar">
                     {securityLogs.map((log, index) => (
                       <div key={index} className="flex gap-2">
@@ -1558,7 +1782,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       <MapPin className="w-4 h-4 text-red-500 animate-bounce" />
                       <span>North America - Cluster A</span>
                     </div>
-                    
+
                     <div className="space-y-1.5 text-[10px] text-[#8E9B93]">
                       <div className="flex justify-between">
                         <span>Threat Density</span>
@@ -1574,7 +1798,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       </div>
                     </div>
 
-                    <button 
+                    <button
                       onClick={() => addToast('Threat map node updated. Local security relays synced.', 'info')}
                       className="w-full py-2 bg-[#111613] hover:bg-[#0B0F0C] text-[#E2E8F0] border border-[#1F2922] text-[10px] font-mono rounded transition-colors cursor-pointer"
                     >
@@ -1600,7 +1824,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
               {campaignsList.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  
+
                   {/* Left List Column: Pending Campaigns List */}
                   <div className="space-y-4">
                     <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase block mb-1">
@@ -1614,11 +1838,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                           <button
                             key={c._id}
                             onClick={() => setSelectedCampaignId(c.id)}
-                            className={`w-full p-4 rounded bg-[#111613] border text-left transition-colors cursor-pointer flex flex-col justify-between gap-3 ${
-                              isSelected 
-                                ? 'border-[#00E676] bg-[#111613]/85' 
-                                : 'border-[#1F2922] hover:border-[#8E9B93]/40'
-                            }`}
+                            className={`w-full p-4 rounded bg-[#111613] border text-left transition-colors cursor-pointer flex flex-col justify-between gap-3 ${isSelected
+                              ? 'border-[#00E676] bg-[#111613]/85'
+                              : 'border-[#1F2922] hover:border-[#8E9B93]/40'
+                              }`}
                           >
                             <div className="flex items-start justify-between w-full">
                               <div>
@@ -1647,7 +1870,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         <div className="relative h-32 bg-slate-900 flex items-end p-6 border-b border-[#1F2922]">
                           <div className="absolute inset-0 bg-[#0B0F0C]/70 mix-blend-multiply z-10"></div>
                           <div className="absolute inset-0 bg-gradient-to-r from-emerald-950 to-cyan-950 opacity-40 z-0"></div>
-                          
+
                           <div className="relative z-20 flex justify-between items-end w-full">
                             <div className="space-y-1 font-mono text-xs">
                               <span className="text-[#00E676] bg-[#00E676]/10 px-2 py-0.5 rounded border border-[#00E676]/30 uppercase text-[9px]">
@@ -1680,7 +1903,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         </div>
 
                         <div className="p-6 space-y-6">
-                          
+
                           {/* Description box */}
                           <div className="space-y-2 font-mono text-xs">
                             <span className="text-[#8E9B93] block uppercase text-[9px]">Description Overview</span>
@@ -1702,13 +1925,12 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                   const isActive = milestone.status === 'active' || milestone.status === 'pending';
                                   return (
                                     <div key={milestone._id || idx} className="relative z-10 flex flex-col items-center">
-                                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center mb-2 ${
-                                        isDone 
-                                          ? 'bg-[#00E676] text-black border-[#00E676]' 
-                                          : isActive 
+                                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center mb-2 ${isDone
+                                        ? 'bg-[#00E676] text-black border-[#00E676]'
+                                        : isActive
                                           ? 'bg-amber-500/10 text-amber-400 border-amber-500'
                                           : 'bg-[#0B0F0C] text-[#8E9B93] border-[#1F2922]'
-                                      }`}>
+                                        }`}>
                                         {isDone ? <Check className="w-3 h-3" /> : idx + 1}
                                       </div>
                                       <span className={isDone ? 'text-[#00E676] font-medium' : isActive ? 'text-amber-400 font-medium' : 'text-[#8E9B93]'}>
@@ -1737,11 +1959,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                   <span className="text-[#E2E8F0] block">Smart Contract Audit (Solidity V0.8.19)</span>
                                   <span className="text-[10px] text-[#8E9B93]">Validates compiled code bytecode logic safety parameters.</span>
                                 </div>
-                                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded border ${
-                                  compliance.smartContractAudit 
-                                    ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' 
-                                    : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                                }`}>
+                                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded border ${compliance.smartContractAudit
+                                  ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                                  : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                                  }`}>
                                   {compliance.smartContractAudit ? 'VERIFIED' : 'PENDING'}
                                 </span>
                               </button>
@@ -1755,11 +1976,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                   <span className="text-[#E2E8F0] block">Founder Identity Verification (KYC/KYB)</span>
                                   <span className="text-[10px] text-[#8E9B93]">Confirms registration databases enrollments match.</span>
                                 </div>
-                                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded border ${
-                                  compliance.founderIdentity 
-                                    ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' 
-                                    : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                                }`}>
+                                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded border ${compliance.founderIdentity
+                                  ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                                  : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                                  }`}>
                                   {compliance.founderIdentity ? 'VERIFIED' : 'PENDING'}
                                 </span>
                               </button>
@@ -1773,11 +1993,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                   <span className="text-[#E2E8F0] block">Regulatory Compliance Shield</span>
                                   <span className="text-[10px] text-[#8E9B93]">Awaiting final administrator supervisory verification.</span>
                                 </div>
-                                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded border ${
-                                  compliance.regulatoryCompliance 
-                                    ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' 
-                                    : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                                }`}>
+                                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded border ${compliance.regulatoryCompliance
+                                  ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                                  : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                                  }`}>
                                   {compliance.regulatoryCompliance ? 'VERIFIED' : 'PENDING'}
                                 </span>
                               </button>
@@ -1828,8 +2047,8 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#8E9B93]" />
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="Filter by Actor/Target..."
                       value={activitySearch}
                       onChange={(e) => setActivitySearch(e.target.value)}
@@ -1837,7 +2056,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                     />
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => {
                       setActivityFilter(prev => prev === 'ALL' ? 'CRITICAL' : 'ALL');
                       addToast(`Activity logs filtered: showing ${activityFilter === 'ALL' ? 'CRITICAL' : 'ALL'} updates.`, 'info');
@@ -1847,7 +2066,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                     FILTER LOGS
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => addToast('Exporting Activity Logs database trace buffer to local CSV format...', 'success')}
                     className="px-3 py-2 bg-[#0B0F0C] hover:bg-[#111613] text-[#E2E8F0] border border-[#1F2922] font-mono text-xs rounded transition-colors cursor-pointer"
                   >
@@ -1912,11 +2131,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                               </div>
                             </td>
                             <td className="p-4">
-                              <span className={`px-2 py-0.5 rounded text-[10px] border font-medium ${
-                                log.action.includes('APPROVED') ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' :
+                              <span className={`px-2 py-0.5 rounded text-[10px] border font-medium ${log.action.includes('APPROVED') ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' :
                                 log.action.includes('FRAUD') || log.action.includes('FREEZE') || log.action.includes('REVOCATION') || log.action.includes('REJECTED') ? 'text-red-400 border-red-500/30 bg-red-500/10' :
-                                'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                              }`}>
+                                  'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                                }`}>
                                 {log.action}
                               </span>
                             </td>
