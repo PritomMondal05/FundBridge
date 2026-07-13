@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
-import { 
-  ArrowRight, 
-  Play, 
-  Check, 
-  Clock, 
-  Lock, 
-  MessageSquare, 
-  Shield, 
-  ChevronLeft, 
-  ChevronRight, 
-  X, 
-  Send, 
+import {
+  ArrowRight,
+  Play,
+  Check,
+  Clock,
+  Lock,
+  MessageSquare,
+  Shield,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Send,
   FileText,
   Upload,
   Users,
@@ -153,7 +153,7 @@ export default function App() {
   // Login Form States
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  
+
   // Sandbox state inside Hero dashboard frame overlay
   const [sandboxTab, setSandboxTab] = useState('Campaign'); // 'Overview' | 'Campaign' | 'Investors' | 'Negotiate' | 'Milestones'
   const [chatMessages, setChatMessages] = useState([
@@ -276,7 +276,7 @@ export default function App() {
       setToken(data.token);
       setCurrentView(data.user.role);
       setActiveModal(null);
-      
+
       // Clear forms
       setLoginEmail('');
       setLoginPassword('');
@@ -288,7 +288,7 @@ export default function App() {
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Check Password matching
     if (regPassword !== regConfirmPassword) {
       triggerAlert('Passwords do not match.');
@@ -358,7 +358,7 @@ export default function App() {
 
       triggerAlert('Registration Successful! Trust profile queued for Admin vetting. Please login once approved.');
       setActiveModal('login');
-      
+
       // Reset forms
       setRegName('');
       setRegEmail('');
@@ -408,7 +408,7 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen bg-surface-clean text-text-charcoal selection:bg-sky-primary selection:text-white overflow-x-hidden font-sans">
-      
+
       {/* Toast Notification Alert */}
       {alertMessage && (
         <div className="fixed top-6 right-6 z-[9999] flex items-center gap-3 bg-obsidian-dark text-white px-5 py-4 rounded-sm border-l-4 border-neon-mint shadow-xl animate-bounce">
@@ -437,13 +437,13 @@ export default function App() {
           <div className="flex items-center gap-4">
             {currentUser ? (
               <>
-                <button 
+                <button
                   onClick={() => setCurrentView(currentUser.role)}
                   className="px-5 py-2 bg-sky-primary text-white font-medium rounded-sm hover:bg-sky-primary/90 text-sm cursor-pointer transition-all duration-150 shadow-soft"
                 >
                   Dashboard
                 </button>
-                <button 
+                <button
                   onClick={handleLogout}
                   className="px-5 py-2 border border-obsidian-base rounded-sm hover:bg-surface-cool text-obsidian-base font-medium text-sm cursor-pointer transition-all duration-150"
                 >
@@ -452,13 +452,13 @@ export default function App() {
               </>
             ) : (
               <>
-                <button 
+                <button
                   onClick={() => setActiveModal('login')}
                   className="px-5 py-2 border border-obsidian-base rounded-sm hover:bg-surface-cool text-obsidian-base font-medium text-sm cursor-pointer transition-all duration-150"
                 >
                   Login
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveModal('register')}
                   className="px-5 py-2 bg-obsidian-base text-white font-medium rounded-sm hover:bg-obsidian-dark text-sm cursor-pointer transition-all duration-150 shadow-soft"
                 >
@@ -472,18 +472,18 @@ export default function App() {
 
       {/* HERO SECTION B */}
       <section className="relative overflow-hidden pt-28 pb-32 bg-surface-clean">
-        
+
         {/* Generative AI Sky/Forest Background Canvas */}
         <div className="absolute inset-0 z-0 pointer-events-none opacity-100 select-none overflow-hidden">
-          <img 
-            src={landingImage} 
-            alt="Sky and Evergreen Forest Horizon" 
-            className="w-full h-full object-cover object-center" 
+          <img
+            src={landingImage}
+            alt="Sky and Evergreen Forest Horizon"
+            className="w-full h-full object-cover object-center"
           />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-20">
-          
+
           {/* Active Badge */}
           <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/50 text-text-charcoal font-medium text-xs shadow-soft mb-8">
             <span className="w-2.5 h-2.5 rounded-full bg-neon-mint animate-pulse"></span>
@@ -502,14 +502,14 @@ export default function App() {
 
           {/* Call to Actions */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-            <a 
+            <a
               href="#founders"
               className="w-full sm:w-auto px-8 py-4 bg-obsidian-base hover:bg-obsidian-dark text-white font-medium rounded-full text-md transition-all inline-flex items-center justify-center gap-3 shadow-lg"
             >
               <span>Launch Your Campaign</span>
               <ArrowRight className="w-5 h-5" />
             </a>
-            <a 
+            <a
               href="#investors"
               className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-surface-cool text-text-charcoal font-medium rounded-full text-md border border-border-default transition-all inline-flex items-center justify-center gap-3 shadow-soft"
             >
@@ -520,7 +520,7 @@ export default function App() {
 
           {/* INTERACTIVE WORKSPACE PREVIEW FRAME */}
           <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-2xl border border-border-default overflow-hidden relative group">
-            
+
             {/* Chrome Bar Style */}
             <div className="bg-surface-cool px-5 py-3 border-b border-border-default flex items-center justify-between">
               <div className="flex gap-2">
@@ -536,7 +536,7 @@ export default function App() {
 
             {/* Sidebar + Main Viewport Layout */}
             <div className="grid grid-cols-1 md:grid-cols-4 min-h-[440px]">
-              
+
               {/* Sidebar Component */}
               <div className="col-span-1 bg-surface-cool border-r border-border-default p-5 flex flex-col gap-2 text-left">
                 <div className="text-[10px] font-medium text-text-muted uppercase tracking-wider mb-3 px-2">
@@ -554,11 +554,10 @@ export default function App() {
                     <button
                       key={tab.name}
                       onClick={() => setSandboxTab(tab.name)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left cursor-pointer ${
-                        isActive 
-                          ? 'bg-obsidian-base text-white shadow-md' 
-                          : 'text-text-charcoal hover:bg-gray-200'
-                      }`}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left cursor-pointer ${isActive
+                        ? 'bg-obsidian-base text-white shadow-md'
+                        : 'text-text-charcoal hover:bg-gray-200'
+                        }`}
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-sky-primary' : 'bg-text-charcoal/40'}`}></span>
                       <span>{tab.name}</span>
@@ -572,7 +571,7 @@ export default function App() {
 
               {/* Viewport content based on active state */}
               <div className="col-span-3 p-6 sm:p-8 text-left bg-white flex flex-col justify-between">
-                
+
                 {/* 1. OVERVIEW TAB */}
                 {sandboxTab === 'Overview' && (
                   <div className="space-y-5 animate-fadeIn">
@@ -586,7 +585,7 @@ export default function App() {
                         <span>NID & Enrollment Verified</span>
                       </div>
                     </div>
-                    
+
                     <p className="text-sm text-text-charcoal leading-relaxed">
                       Providing premium, healthy meal delivery boxes inside campus parameters on a subscription basis for students and faculty. Highly automated booking app.
                     </p>
@@ -626,7 +625,7 @@ export default function App() {
                         <span className="text-text-charcoal text-xs font-medium">Funding Progress</span>
                         <span className="text-obsidian-base font-medium text-xs">৳ 3,00,000 / ৳ 5,00,000</span>
                       </div>
-                      
+
                       {/* Metric Line */}
                       <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-2">
                         <div className="h-full bg-sky-primary" style={{ width: '60%' }}></div>
@@ -653,12 +652,11 @@ export default function App() {
                               <td className="px-4 py-2.5 font-medium">{milestone.name}</td>
                               <td className="px-4 py-2.5 text-text-muted">{milestone.target}</td>
                               <td className="px-4 py-2.5">
-                                <span className={`px-2.5 py-0.5 rounded text-[11px] font-medium ${
-                                  milestone.status === 'Done' ? 'bg-green-100 text-green-800' :
+                                <span className={`px-2.5 py-0.5 rounded text-[11px] font-medium ${milestone.status === 'Done' ? 'bg-green-100 text-green-800' :
                                   milestone.status === 'Active' ? 'bg-amber-100 text-amber-800' :
-                                  milestone.status === 'Pending Review' ? 'bg-blue-100 text-blue-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
+                                    milestone.status === 'Pending Review' ? 'bg-blue-100 text-blue-800' :
+                                      'bg-gray-100 text-gray-800'
+                                  }`}>
                                   {milestone.status}
                                 </span>
                               </td>
@@ -729,11 +727,10 @@ export default function App() {
                       {chatMessages.map((msg, i) => (
                         <div key={i} className={`flex flex-col ${msg.sender.includes('You') ? 'items-end' : 'items-start'}`}>
                           <div className={`text-[10px] text-text-muted mb-0.5 px-1`}>{msg.sender} · {msg.time}</div>
-                          <div className={`p-3 rounded-lg max-w-[85%] text-xs ${
-                            msg.sender.includes('You') 
-                              ? 'bg-obsidian-base text-white rounded-tr-none' 
-                              : 'bg-white border border-border-default text-text-charcoal rounded-tl-none'
-                          }`}>
+                          <div className={`p-3 rounded-lg max-w-[85%] text-xs ${msg.sender.includes('You')
+                            ? 'bg-obsidian-base text-white rounded-tr-none'
+                            : 'bg-white border border-border-default text-text-charcoal rounded-tl-none'
+                            }`}>
                             {msg.text}
                           </div>
                         </div>
@@ -743,14 +740,14 @@ export default function App() {
 
                     {/* Chat Input form */}
                     <form onSubmit={handleSendChatMessage} className="flex gap-2">
-                      <input 
+                      <input
                         type="text"
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
                         placeholder="Discuss revenue payback or milestone targets..."
                         className="flex-1 border border-border-default rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-primary"
                       />
-                      <button 
+                      <button
                         type="submit"
                         className="bg-sky-primary hover:bg-sky-primary/90 text-white p-2 rounded-md transition-colors cursor-pointer"
                       >
@@ -785,9 +782,9 @@ export default function App() {
                       <Upload className="w-8 h-8 text-text-muted mb-2" />
                       <label className="text-xs font-medium text-sky-primary hover:underline cursor-pointer">
                         Click to select receipt PDF / Image
-                        <input 
-                          type="file" 
-                          className="hidden" 
+                        <input
+                          type="file"
+                          className="hidden"
                           onChange={handleReceiptUpload}
                         />
                       </label>
@@ -800,12 +797,11 @@ export default function App() {
                       )}
                     </div>
 
-                    <button 
+                    <button
                       onClick={submitReceiptForVerification}
                       disabled={!uploadedReceipt || uploadingState}
-                      className={`w-full py-2.5 bg-obsidian-base text-white text-xs font-medium rounded-lg hover:bg-obsidian-dark transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                        (!uploadedReceipt || uploadingState) && 'opacity-50 cursor-not-allowed'
-                      }`}
+                      className={`w-full py-2.5 bg-obsidian-base text-white text-xs font-medium rounded-lg hover:bg-obsidian-dark transition-all cursor-pointer flex items-center justify-center gap-2 ${(!uploadedReceipt || uploadingState) && 'opacity-50 cursor-not-allowed'
+                        }`}
                     >
                       {uploadingState ? 'Uploading File Buffers...' : 'Submit Proof to Admins'}
                     </button>
@@ -831,12 +827,12 @@ export default function App() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {STATS.map((stat, idx) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 className="glass-panel-dark p-6 rounded-lg border border-border-strong text-center flex flex-col justify-between hover:border-sky-primary/40 transition-all duration-300 group"
               >
                 <div className="text-[11px] font-medium text-sky-light tracking-widest uppercase mb-4">{stat.label}</div>
-                <div 
+                <div
                   ref={el => statsRefs.current[idx] = el}
                   className="text-3xl font-medium text-white font-display my-2 tracking-tight group-hover:scale-105 transition-transform"
                 >
@@ -852,7 +848,7 @@ export default function App() {
       {/* SECTION D: TWO LANES, ONE PLATFORM */}
       <section id="founders" className="py-20 bg-surface-cool/30 relative z-10 border-b border-border-default">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
+
           <div className="text-center mb-16">
             <span className="text-sky-primary text-xs font-medium tracking-widest uppercase">HOW IT WORKS</span>
             <h2 className="text-3xl sm:text-4xl font-medium text-obsidian-base font-display mt-2">Two Lanes, One Platform</h2>
@@ -860,16 +856,16 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 text-left">
-            
+
             {/* LEFT LANE: STUDENT FOUNDERS */}
             <div className="bg-white rounded-xl p-8 border border-border-default shadow-soft flex flex-col justify-between hover:shadow-lg transition-shadow">
               <div>
                 <div className="inline-flex items-center gap-2 bg-sky-primary/10 text-sky-primary px-3 py-1 rounded-full text-xs font-medium mb-6">
                   🚀 For Student Founders
                 </div>
-                
+
                 <h3 className="text-2xl font-medium text-obsidian-base font-display mb-6">Accelerate Without Legal Friction</h3>
-                
+
                 <div className="space-y-6 mb-8">
                   <div className="flex gap-4">
                     <div className="w-8 h-8 rounded-full bg-obsidian-base text-white font-medium flex items-center justify-center flex-shrink-0 text-sm font-display">01</div>
@@ -897,7 +893,7 @@ export default function App() {
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={() => {
                   setRegisterRole('founder');
                   setActiveModal('register');
@@ -915,9 +911,9 @@ export default function App() {
                 <div className="inline-flex items-center gap-2 bg-neon-mint/10 text-neon-mint px-3 py-1 rounded-full text-xs font-medium mb-6">
                   💼 For Angel Investors
                 </div>
-                
+
                 <h3 className="text-2xl font-medium text-white font-display mb-6">Vetted Ventures, Protected Assets</h3>
-                
+
                 <div className="space-y-6 mb-8 text-left">
                   <div className="flex gap-4">
                     <div className="w-8 h-8 rounded-full bg-neon-mint text-obsidian-base font-medium flex items-center justify-center flex-shrink-0 text-sm font-display">01</div>
@@ -945,7 +941,7 @@ export default function App() {
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={() => {
                   setRegisterRole('investor');
                   setActiveModal('register');
@@ -965,7 +961,7 @@ export default function App() {
       {/* SECTION E: CAPABILITIES CAROUSEL */}
       <section id="capabilities" className="py-24 bg-obsidian-dark text-white relative z-10 border-t border-border-strong">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
+
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
             <div className="text-left">
               <span className="text-sky-primary text-xs font-medium tracking-widest uppercase">CAPABILITIES</span>
@@ -975,21 +971,19 @@ export default function App() {
 
             {/* Navigation buttons */}
             <div className="flex gap-2 mt-4 md:mt-0">
-              <button 
+              <button
                 onClick={() => setCarouselIndex(prev => Math.max(0, prev - 1))}
                 disabled={carouselIndex === 0}
-                className={`p-2.5 border border-border-strong rounded-full cursor-pointer transition-colors ${
-                  carouselIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-border-strong text-white'
-                }`}
+                className={`p-2.5 border border-border-strong rounded-full cursor-pointer transition-colors ${carouselIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-border-strong text-white'
+                  }`}
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <button 
+              <button
                 onClick={() => setCarouselIndex(prev => Math.min(3, prev + 1))}
                 disabled={carouselIndex === 3}
-                className={`p-2.5 border border-border-strong rounded-full cursor-pointer transition-colors ${
-                  carouselIndex === 3 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-border-strong text-white'
-                }`}
+                className={`p-2.5 border border-border-strong rounded-full cursor-pointer transition-colors ${carouselIndex === 3 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-border-strong text-white'
+                  }`}
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -998,8 +992,8 @@ export default function App() {
 
           {/* Cards Carousel viewport */}
           <div className="overflow-hidden">
-            <div 
-              className="flex gap-6 transition-transform duration-500 ease-in-out" 
+            <div
+              className="flex gap-6 transition-transform duration-500 ease-in-out"
               style={{ transform: `translateX(-${carouselIndex * 280}px)` }}
             >
               {[
@@ -1024,8 +1018,8 @@ export default function App() {
                   details: 'Flexible safety deposit bonds keep operations reliable. Fully refunded progressively as milestones are successfully met.',
                 }
               ].map((cap, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className="min-w-[280px] w-[280px] sm:min-w-[340px] sm:w-[340px] bg-obsidian-base border border-border-strong rounded-xl p-6 flex flex-col justify-between min-h-[320px] hover:border-sky-primary transition-colors text-left"
                 >
                   <div>
@@ -1034,7 +1028,7 @@ export default function App() {
                     <p className="text-xs text-text-muted mt-3 font-normal leading-relaxed">{cap.details}</p>
                   </div>
 
-                  <a 
+                  <a
                     onClick={() => triggerAlert(`${cap.title} configuration details loaded.`)}
                     className="text-xs text-sky-primary hover:underline font-medium mt-6 inline-flex items-center gap-1.5 cursor-pointer"
                   >
@@ -1048,11 +1042,11 @@ export default function App() {
 
           {/* Scroll progress line */}
           <div className="w-full bg-border-strong h-0.5 rounded-full mt-10 overflow-hidden relative">
-            <div 
+            <div
               className="bg-sky-primary h-full transition-all duration-300 absolute"
-              style={{ 
+              style={{
                 left: `${(carouselIndex / 4) * 100}%`,
-                width: `25%` 
+                width: `25%`
               }}
             ></div>
           </div>
@@ -1063,7 +1057,7 @@ export default function App() {
       {/* SECTION F: TESTIMONIALS */}
       <section className="py-24 bg-obsidian-base text-white relative z-10 border-t border-border-strong">
         <div className="max-w-5xl mx-auto px-4 text-center">
-          
+
           {/* Large Quotes Icon */}
           <div className="text-sky-primary text-5xl font-serif mb-6 opacity-30 select-none">“</div>
 
@@ -1086,7 +1080,7 @@ export default function App() {
 
           {/* Profile centerpiece */}
           <div className="mt-8 flex items-center justify-center gap-6">
-            <button 
+            <button
               onClick={() => setTestimonialIndex(prev => (prev === 0 ? TESTIMONIALS.length - 1 : prev - 1))}
               className="p-2 border border-border-strong hover:bg-border-strong text-white rounded-full transition-colors cursor-pointer"
             >
@@ -1101,7 +1095,7 @@ export default function App() {
               <span className="text-xs text-text-muted">{TESTIMONIALS[testimonialIndex].role}</span>
             </div>
 
-            <button 
+            <button
               onClick={() => setTestimonialIndex(prev => (prev === TESTIMONIALS.length - 1 ? 0 : prev + 1))}
               className="p-2 border border-border-strong hover:bg-border-strong text-white rounded-full transition-colors cursor-pointer"
             >
@@ -1110,7 +1104,7 @@ export default function App() {
           </div>
 
           <div className="mt-12">
-            <a 
+            <a
               onClick={() => triggerAlert(`Loading detailed case study metrics for ${TESTIMONIALS[testimonialIndex].author}...`)}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-border-strong text-xs font-medium text-white hover:bg-border-strong cursor-pointer transition-colors"
             >
@@ -1124,13 +1118,13 @@ export default function App() {
 
       {/* SECTION G: MISSION BLOCK */}
       <section className="relative overflow-hidden py-24 bg-[#0A0F18] text-white border-t border-border-strong">
-        
+
         {/* Background Image showing river/forest landscape of Bangladesh */}
         <div className="absolute inset-0 opacity-30 pointer-events-none select-none z-0">
-          <img 
-            src={footerImage} 
-            alt="Bangladesh Landscape River and Forest" 
-            className="w-full h-full object-cover object-center" 
+          <img
+            src={footerImage}
+            alt="Bangladesh Landscape River and Forest"
+            className="w-full h-full object-cover object-center"
           />
         </div>
 
@@ -1146,7 +1140,7 @@ export default function App() {
           </p>
 
           <div className="pt-4">
-            <button 
+            <button
               onClick={() => triggerAlert("Loading FundBridge Charter...")}
               className="px-8 py-3.5 bg-white hover:bg-surface-cool text-obsidian-base font-medium rounded-full text-xs uppercase tracking-wider transition-all shadow-lg cursor-pointer inline-flex items-center gap-2"
             >
@@ -1160,7 +1154,7 @@ export default function App() {
       {/* INSTITUTIONAL FOOTER */}
       <footer className="bg-obsidian-base text-white pt-16 pb-8 border-t border-border-strong relative z-10 text-left">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10 border-b border-border-strong pb-12">
-          
+
           {/* Column 1 */}
           <div className="space-y-4">
             <div className="flex items-center">
@@ -1169,7 +1163,7 @@ export default function App() {
             <p className="text-[11px] text-text-muted leading-relaxed">
               © 2026 FundBridge Pvt. Ltd.<br />Dhaka, Bangladesh.<br />Connecting student entrepreneurs directly with alumni backing tranches.
             </p>
-            
+
             {/* Payment Badges */}
             <div className="pt-4 space-y-2">
               <span className="text-[9px] font-medium text-text-muted tracking-wider uppercase block">Transaction Gateway Partners</span>
@@ -1243,7 +1237,7 @@ export default function App() {
       {activeModal && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn p-4">
           <div className="bg-white rounded-xl shadow-2xl border border-border-default max-w-lg w-full max-h-[90vh] overflow-y-auto text-left relative">
-            <button 
+            <button
               onClick={() => setActiveModal(null)}
               className="absolute right-4 top-4 text-text-charcoal hover:text-sky-primary transition-colors cursor-pointer p-1.5"
             >
@@ -1261,8 +1255,8 @@ export default function App() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs font-medium text-text-charcoal block mb-2">Registered Email Address</label>
-                    <input 
-                      type="email" 
+                    <input
+                      type="email"
                       required
                       placeholder="student@univ.edu.bd or investor@firm.com"
                       value={loginEmail}
@@ -1273,8 +1267,8 @@ export default function App() {
 
                   <div>
                     <label className="text-xs font-medium text-text-charcoal block mb-2">Account Password</label>
-                    <input 
-                      type="password" 
+                    <input
+                      type="password"
                       required
                       placeholder="••••••••••••"
                       value={loginPassword}
@@ -1284,7 +1278,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <button 
+                <button
                   type="submit"
                   className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
@@ -1297,29 +1291,27 @@ export default function App() {
             {activeModal === 'register' && (
               <form onSubmit={handleRegisterSubmit} className="p-8 space-y-5">
                 <div>
-                  <h3 className="text-2xl font-medium text-obsidian-base font-display">Create your Trust Profile</h3>
+                  <h3 className="text-2xl font-medium text-obsidian-base font-display">Create Your Profile</h3>
                   <p className="text-xs text-text-muted mt-1">Complete enrollment validation before starting negotiation lines.</p>
                 </div>
 
                 {/* Role Switcher */}
                 <div className="grid grid-cols-2 gap-2 bg-surface-cool p-1 rounded-lg border border-border-default/80">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setRegisterRole('founder')}
-                    className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${
-                      registerRole === 'founder' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
-                    }`}
+                    className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${registerRole === 'founder' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
+                      }`}
                   >
-                    🚀 Student Founder
+                    Student Founder
                   </button>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setRegisterRole('investor')}
-                    className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${
-                      registerRole === 'investor' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
-                    }`}
+                    className={`py-2 rounded text-xs font-medium transition-all cursor-pointer text-center ${registerRole === 'investor' ? 'bg-white text-obsidian-base shadow-sm' : 'text-text-charcoal hover:bg-white/40'
+                      }`}
                   >
-                    💼 Angel Backer
+                    Investors
                   </button>
                 </div>
 
@@ -1327,8 +1319,8 @@ export default function App() {
                   {/* Common: Full Name */}
                   <div>
                     <label className="text-xs font-medium text-text-charcoal block mb-1">Full Name (Legal Identity)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       required
                       placeholder="Enter legal name exactly as shown on ID"
                       value={regName}
@@ -1343,8 +1335,8 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">Date of Birth (DOB)</label>
-                          <input 
-                            type="date" 
+                          <input
+                            type="date"
                             required
                             value={regDob}
                             onChange={(e) => setRegDob(e.target.value)}
@@ -1353,8 +1345,8 @@ export default function App() {
                         </div>
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">Student ID Number</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             required
                             placeholder="e.g. 21101402"
                             value={regStudentId}
@@ -1367,8 +1359,8 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">University Name</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             required
                             placeholder="e.g. BRAC University"
                             value={regUniversity}
@@ -1378,8 +1370,8 @@ export default function App() {
                         </div>
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">Department</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             required
                             placeholder="e.g. CSE or BBA"
                             value={regDepartment}
@@ -1391,9 +1383,9 @@ export default function App() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="text-xs font-medium text-text-charcoal block mb-1">National ID (NID) Number</label>
-                          <input 
-                            type="text" 
+                          <label className="text-xs font-medium text-text-charcoal block mb-1">NID</label>
+                          <input
+                            type="text"
                             required
                             placeholder="10 or 17-digit NID"
                             value={regNid}
@@ -1403,8 +1395,8 @@ export default function App() {
                         </div>
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">MFS Account Number</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             required
                             placeholder="bKash, Nagad or Rocket"
                             value={regMfsNumber}
@@ -1418,8 +1410,8 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-4 border-t border-border-default/40 pt-3">
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">Student ID Image (Max 5MB)</label>
-                          <input 
-                            type="file" 
+                          <input
+                            type="file"
                             required
                             accept=".png, .jpg, .jpeg"
                             onChange={(e) => setStudentIdCardImageFile(e.target.files[0])}
@@ -1428,8 +1420,8 @@ export default function App() {
                         </div>
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">NID Image Scan (Max 5MB)</label>
-                          <input 
-                            type="file" 
+                          <input
+                            type="file"
                             required
                             accept=".png, .jpg, .jpeg"
                             onChange={(e) => setNidCardImageFile(e.target.files[0])}
@@ -1444,7 +1436,7 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">Affiliation Status</label>
-                          <select 
+                          <select
                             required
                             value={regAffiliationStatus}
                             onChange={(e) => setRegAffiliationStatus(e.target.value)}
@@ -1458,8 +1450,8 @@ export default function App() {
                         </div>
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">Associated Institution/Company</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             required
                             placeholder="Firm name or University graduated"
                             value={regInstitution}
@@ -1473,8 +1465,8 @@ export default function App() {
                         {regAffiliationStatus === 'Alumni Backer' ? (
                           <div>
                             <label className="text-xs font-medium text-text-charcoal block mb-1">Passing Year</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               required={regAffiliationStatus === 'Alumni Backer'}
                               placeholder="e.g. 2018"
                               value={regPassingYear}
@@ -1485,8 +1477,8 @@ export default function App() {
                         ) : (
                           <div>
                             <label className="text-xs font-medium text-text-charcoal block mb-1">Associated Designation</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               required
                               placeholder="e.g. Syndicate Lead"
                               value={regDesignation}
@@ -1497,8 +1489,8 @@ export default function App() {
                         )}
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">NID or Passport Number</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             required
                             placeholder="Identity number"
                             value={regNidOrPassport}
@@ -1510,8 +1502,8 @@ export default function App() {
 
                       <div>
                         <label className="text-xs font-medium text-text-charcoal block mb-1">Bank Account or MFS Details</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           required
                           placeholder="e.g. Bank Account Num or bKash / Nagad Wallet"
                           value={regBankOrMfs}
@@ -1524,8 +1516,8 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-4 border-t border-border-default/40 pt-3">
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">NID/Passport Scan (Max 5MB)</label>
-                          <input 
-                            type="file" 
+                          <input
+                            type="file"
                             required
                             accept=".png, .jpg, .jpeg, .pdf"
                             onChange={(e) => setNidOrPassportImageFile(e.target.files[0])}
@@ -1534,8 +1526,8 @@ export default function App() {
                         </div>
                         <div>
                           <label className="text-xs font-medium text-text-charcoal block mb-1">Alumni/Professional ID File</label>
-                          <input 
-                            type="file" 
+                          <input
+                            type="file"
                             accept=".png, .jpg, .jpeg, .pdf"
                             onChange={(e) => setCredentialsImageFile(e.target.files[0])}
                             className="w-full text-xs text-text-muted file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-surface-cool file:text-obsidian-base hover:file:bg-border-default cursor-pointer"
@@ -1545,8 +1537,8 @@ export default function App() {
 
                       <div>
                         <label className="text-xs font-medium text-text-charcoal block mb-1">Professional Network Link (LinkedIn, etc.)</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="https://linkedin.com/in/username"
                           value={regCredentialsLink}
                           onChange={(e) => setRegCredentialsLink(e.target.value)}
@@ -1559,8 +1551,8 @@ export default function App() {
                   {/* Common: Email & Passwords */}
                   <div>
                     <label className="text-xs font-medium text-text-charcoal block mb-1">Contact Email Address</label>
-                    <input 
-                      type="email" 
+                    <input
+                      type="email"
                       required
                       placeholder="institutional email preferred"
                       value={regEmail}
@@ -1572,8 +1564,8 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-medium text-text-charcoal block mb-1">Password</label>
-                      <input 
-                        type="password" 
+                      <input
+                        type="password"
                         required
                         placeholder="••••••••••••"
                         value={regPassword}
@@ -1583,8 +1575,8 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-xs font-medium text-text-charcoal block mb-1">Confirm Password</label>
-                      <input 
-                        type="password" 
+                      <input
+                        type="password"
                         required
                         placeholder="••••••••••••"
                         value={regConfirmPassword}
@@ -1595,11 +1587,11 @@ export default function App() {
                   </div>
                 </div>
 
-                <button 
+                <button
                   type="submit"
                   className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>Submit Onboarding Application</span>
+                  <span>Submit Application</span>
                 </button>
               </form>
             )}
