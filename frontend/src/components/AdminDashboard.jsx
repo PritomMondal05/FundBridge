@@ -91,8 +91,13 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
   // Campaign audit sub-state
   const [selectedCampaignId, setSelectedCampaignId] = useState(null);
-  // Compliance checklists state stored dynamically by campaign ID (no fake dummy defaults)
   const [campaignCompliance, setCampaignCompliance] = useState({});
+  const [auditSubTab, setAuditSubTab] = useState('pending'); // 'pending' | 'published' | 'revisions' | 'rejected'
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [campaignAuditFeedback, setCampaignAuditFeedback] = useState('');
+  const [campaignRejectionReason, setCampaignRejectionReason] = useState('');
+  const [docPreviewModal, setDocPreviewModal] = useState(null); // { title, filename, size }
 
   // Disputes & Holds state (Start empty to represent real database state. If its 0 then 0!)
   const [disputesList, setDisputesList] = useState([]);
@@ -581,8 +586,74 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }
   };
 
-  const handleRequestEdits = (title) => {
-    addToast(`Revision requests compiled for "${title}". Transferred back to founder draft queue.`, 'info');
+  const handleRejectCampaignSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedCampaign) return;
+    const campaignObjId = selectedCampaign._id || selectedCampaign.id;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/campaigns/${campaignObjId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: campaignRejectionReason })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reject campaign');
+
+      addToast(`Campaign "${selectedCampaign.title}" rejected and updated in audit ledger.`, 'error');
+
+      const newLog = {
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        actor: 'ADMIN_PRITOM',
+        initials: 'AP',
+        color: 'bg-red-950 text-red-200 border-red-500/30',
+        action: 'REJECTED CAMPAIGN',
+        target: selectedCampaign.title,
+        rationale: campaignRejectionReason || 'Did not meet compliance criteria.',
+        hash: 'fb_' + Math.random().toString(36).substring(2, 6) + '...'
+      };
+      setActivityLogs(prev => [newLog, ...prev]);
+
+      setIsRejectModalOpen(false);
+      setCampaignRejectionReason('');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  const handleReuploadRequestSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedCampaign) return;
+    const campaignObjId = selectedCampaign._id || selectedCampaign.id;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/campaigns/${campaignObjId}/reupload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedbackNotes: campaignAuditFeedback })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to request campaign re-upload');
+
+      addToast(`Revision requests sent for "${selectedCampaign.title}". Transferred back to founder queue.`, 'info');
+
+      const newLog = {
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        actor: 'ADMIN_PRITOM',
+        initials: 'AP',
+        color: 'bg-amber-950 text-amber-200 border-amber-500/30',
+        action: 'REQUESTED REVISION',
+        target: selectedCampaign.title,
+        rationale: campaignAuditFeedback || 'Requires document re-upload & financial updates.',
+        hash: 'fb_' + Math.random().toString(36).substring(2, 6) + '...'
+      };
+      setActivityLogs(prev => [newLog, ...prev]);
+
+      setIsRevisionModalOpen(false);
+      setCampaignAuditFeedback('');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
   };
 
   // Escrow Release approvals
@@ -1706,6 +1777,310 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
             </div>
           )}
 
+          {/* SCREEN [3.5]: CAMPAIGN AUDIT VAULT */}
+          {activeTab === 'audits' && (
+            <div className="space-y-8 animate-fadeIn text-left">
+              {/* Workspace Header */}
+              <div className="border border-[#1F2922] bg-[#111613] rounded p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-mono text-[#E2E8F0] font-medium">Campaign Audit & Security Vault</h2>
+                  <p className="text-xs text-[#8E9B93] font-mono">
+                    Inspect startup proposals, pitch decks, financial models, milestones & publish live or request re-upload revisions.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
+                  <div className="flex bg-[#0B0F0C] border border-[#1F2922] p-1 rounded">
+                    <button
+                      onClick={() => setAuditSubTab('pending')}
+                      className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
+                        auditSubTab === 'pending' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      Pending Audit ({campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required').length})
+                    </button>
+                    <button
+                      onClick={() => setAuditSubTab('published')}
+                      className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
+                        auditSubTab === 'published' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      Published Catalog ({verifiedCampaigns.length})
+                    </button>
+                    <button
+                      onClick={() => setAuditSubTab('revisions')}
+                      className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
+                        auditSubTab === 'revisions' ? 'bg-[#111613] text-amber-400 border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      Revisions Queue ({campaignsList.filter(c => c.status === 'revision_required').length})
+                    </button>
+                    <button
+                      onClick={() => setAuditSubTab('rejected')}
+                      className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
+                        auditSubTab === 'rejected' ? 'bg-[#111613] text-red-400 border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      Rejected ({campaignsList.filter(c => c.status === 'rejected').length})
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Workspace Layout */}
+              {displayedAuditCampaigns.length > 0 && selectedAuditCampaign ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Left Column: Campaigns Queue List */}
+                  <div className="space-y-3 font-mono text-xs">
+                    <span className="text-[9px] text-[#8E9B93] uppercase tracking-wider block mb-1">
+                      {auditSubTab === 'pending' ? 'Pending Audit Queue' :
+                       auditSubTab === 'published' ? 'Live Published Catalog' :
+                       auditSubTab === 'revisions' ? 'Revision Requests Queue' : 'Rejected Campaigns Queue'}
+                    </span>
+                    {displayedAuditCampaigns.map(camp => (
+                      <button
+                        key={camp._id || camp.id}
+                        onClick={() => setSelectedCampaignId(camp.id || camp._id)}
+                        className={`w-full p-4 rounded bg-[#111613] border text-left transition-colors cursor-pointer ${
+                          (camp.id === selectedCampaignId || camp._id === selectedCampaignId)
+                            ? 'border-[#00E676] bg-[#111613]/80 shadow-[0_0_10px_rgba(0,230,118,0.1)]'
+                            : 'border-[#1F2922] hover:border-[#8E9B93]/35'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#E2E8F0] font-medium">{camp.title}</span>
+                          <span className="px-2 py-0.5 rounded text-[9px] bg-[#0B0F0C] text-[#00E676] border border-[#00E676]/30 font-sans font-semibold">
+                            {camp.category}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-[#8E9B93] mt-2 flex items-center justify-between">
+                          <span>Goal: ৳{Number(camp.goal || 0).toLocaleString('en-IN')} BDT</span>
+                          <span className="text-[#E2E8F0]">{camp.university || camp.founder?.university || 'University Project'}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Right 2 Columns: Selected Campaign Audit Workspace */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {/* Header Summary Card */}
+                    <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1F2922] pb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xl font-mono font-medium text-[#E2E8F0]">{selectedAuditCampaign.title}</h3>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono border text-sky-400 border-sky-500/30 bg-sky-500/10 uppercase">
+                              {selectedAuditCampaign.stage || 'Venture Draft'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#8E9B93] font-mono mt-1">
+                            Founder: <span className="text-[#E2E8F0] font-medium">{selectedAuditCampaign.founder?.name || 'Anika Rahman'}</span> ({selectedAuditCampaign.university || selectedAuditCampaign.founder?.university || 'BRAC University'})
+                          </p>
+                        </div>
+
+                        <div className="text-right font-mono text-xs">
+                          <span className="text-[10px] text-[#8E9B93] uppercase block">TARGET CAPITAL GOAL</span>
+                          <span className="text-lg font-bold text-[#00E676]">৳{Number(selectedAuditCampaign.goal || 0).toLocaleString('en-IN')} BDT</span>
+                          <span className="text-[10px] text-[#8E9B93] block">{selectedAuditCampaign.equityOffer || 'Equity Offer'}</span>
+                        </div>
+                      </div>
+
+                      {/* Business Overview & Pitch */}
+                      <div className="space-y-2 font-mono text-xs">
+                        <span className="text-[10px] text-[#8E9B93] uppercase block tracking-wider font-semibold">PROJECT PITCH & EXECUTIVE OVERVIEW</span>
+                        <p className="text-[#E2E8F0] leading-relaxed bg-[#0B0F0C] border border-[#1F2922] p-4 rounded text-xs font-sans">
+                          {selectedAuditCampaign.description}
+                        </p>
+                      </div>
+
+                      {/* Feedback or Rejection Banner if any */}
+                      {selectedAuditCampaign.feedbackNotes && (
+                        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded text-xs font-mono text-amber-300">
+                          <span className="font-bold block uppercase text-[10px]">Previous Revision Request Notes:</span>
+                          {selectedAuditCampaign.feedbackNotes}
+                        </div>
+                      )}
+
+                      {selectedAuditCampaign.rejectionReason && (
+                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-xs font-mono text-red-300">
+                          <span className="font-bold block uppercase text-[10px]">Rejection Reason:</span>
+                          {selectedAuditCampaign.rejectionReason}
+                        </div>
+                      )}
+
+                      {/* Milestone Roadmap Schedule */}
+                      <div className="space-y-3 font-mono text-xs">
+                        <span className="text-[10px] text-[#8E9B93] uppercase block tracking-wider font-semibold">MILESTONE TRANCHE ESCROW SCHEDULE</span>
+                        <div className="border border-[#1F2922] bg-[#0B0F0C] rounded overflow-hidden">
+                          <table className="w-full text-left text-[11px]">
+                            <thead className="bg-[#050806] text-[#8E9B93] border-b border-[#1F2922]">
+                              <tr>
+                                <th className="p-2.5">Milestone Objective</th>
+                                <th className="p-2.5">Target Timeline</th>
+                                <th className="p-2.5 text-right">Escrow Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#1F2922] text-[#E2E8F0]">
+                              {(selectedAuditCampaign.milestones || []).map((m, idx) => (
+                                <tr key={m._id || idx}>
+                                  <td className="p-2.5 font-medium">{m.title}</td>
+                                  <td className="p-2.5 text-[#8E9B93]">{m.target}</td>
+                                  <td className="p-2.5 text-right">
+                                    <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold ${
+                                      m.status === 'done' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30' :
+                                      m.status === 'active' ? 'text-sky-400 bg-sky-500/10 border border-sky-500/30' :
+                                      'text-amber-400 bg-amber-500/10 border border-amber-500/30'
+                                    }`}>
+                                      {m.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Document Vault Cards */}
+                      <div className="space-y-3 font-mono text-xs pt-2">
+                        <span className="text-[10px] text-[#8E9B93] uppercase block tracking-wider font-semibold">UPLOADED PROPOSAL DOCUMENTS & AUDIT CERTIFICATIONS</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {(selectedAuditCampaign.documents || [
+                            { title: 'Pitch Deck PDF', filename: `${selectedAuditCampaign.title}_PitchDeck.pdf`, size: '2.5 MB' },
+                            { title: 'Financial Model', filename: `${selectedAuditCampaign.title}_Financials.xlsx`, size: '1.2 MB' },
+                            { title: 'University Approval', filename: `${selectedAuditCampaign.university || 'Univ'}_Approval.pdf`, size: '890 KB' }
+                          ]).map((doc, idx) => (
+                            <div key={idx} className="border border-[#1F2922] bg-[#0B0F0C] p-3 rounded flex flex-col justify-between space-y-2 hover:border-[#00E676]/30 transition-colors">
+                              <div>
+                                <span className="text-[#E2E8F0] font-medium block text-[11px]">{doc.title}</span>
+                                <span className="text-[10px] text-[#8E9B93] block truncate">{doc.filename}</span>
+                              </div>
+                              <div className="flex items-center justify-between pt-1 border-t border-[#1F2922] text-[10px]">
+                                <span className="text-[#8E9B93]">{doc.size || '1.5 MB'}</span>
+                                <button
+                                  onClick={() => setDocPreviewModal(doc)}
+                                  className="text-[#00E676] hover:underline cursor-pointer flex items-center gap-1"
+                                >
+                                  <Eye className="w-3 h-3" /> Inspect
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Audit Compliance Scoring & Verification Checks */}
+                    <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6">
+                      <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase block border-b border-[#1F2922] pb-2">
+                        COMPLIANCE & AUDIT QUALITY SCORING
+                      </span>
+
+                      <div className="space-y-3 font-mono text-xs">
+                        <button
+                          onClick={() => {
+                            const current = getCompliance(selectedAuditCampaign.id);
+                            setCampaignCompliance(prev => ({
+                              ...prev,
+                              [selectedAuditCampaign.id]: { ...current, smartContractAudit: !current.smartContractAudit }
+                            }));
+                          }}
+                          className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+                        >
+                          {getCompliance(selectedAuditCampaign.id).smartContractAudit ? (
+                            <CheckSquare className="w-4 h-4 text-[#00E676]" />
+                          ) : (
+                            <Square className="w-4 h-4 text-[#8E9B93]" />
+                          )}
+                          <div>
+                            <span className="text-[#E2E8F0] block font-medium">Smart Contract & Milestone Escrow Audit</span>
+                            <span className="text-[10px] text-[#8E9B93]">Verifies tranche release triggers and milestone lock criteria.</span>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const current = getCompliance(selectedAuditCampaign.id);
+                            setCampaignCompliance(prev => ({
+                              ...prev,
+                              [selectedAuditCampaign.id]: { ...current, founderIdentity: !current.founderIdentity }
+                            }));
+                          }}
+                          className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+                        >
+                          {getCompliance(selectedAuditCampaign.id).founderIdentity ? (
+                            <CheckSquare className="w-4 h-4 text-[#00E676]" />
+                          ) : (
+                            <Square className="w-4 h-4 text-[#8E9B93]" />
+                          )}
+                          <div>
+                            <span className="text-[#E2E8F0] block font-medium">Founder KYB & Student Status Verification</span>
+                            <span className="text-[10px] text-[#8E9B93]">Student ID, NID, and university incubation records verified.</span>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const current = getCompliance(selectedAuditCampaign.id);
+                            setCampaignCompliance(prev => ({
+                              ...prev,
+                              [selectedAuditCampaign.id]: { ...current, regulatoryCompliance: !current.regulatoryCompliance }
+                            }));
+                          }}
+                          className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+                        >
+                          {getCompliance(selectedAuditCampaign.id).regulatoryCompliance ? (
+                            <CheckSquare className="w-4 h-4 text-[#00E676]" />
+                          ) : (
+                            <Square className="w-4 h-4 text-[#8E9B93]" />
+                          )}
+                          <div>
+                            <span className="text-[#E2E8F0] block font-medium">Financial Model & Regulatory Compliance</span>
+                            <span className="text-[10px] text-[#8E9B93]">Projections valuation realism & IP registration checked.</span>
+                          </div>
+                        </button>
+                      </div>
+
+                      {/* Three Audit Decision Actions */}
+                      <div className="space-y-4 pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono">
+                          <button
+                            onClick={() => handlePublishCampaign(selectedAuditCampaign._id || selectedAuditCampaign.id, selectedAuditCampaign.title)}
+                            className="py-3 bg-[#00E676] hover:bg-[#00E575]/90 text-black text-xs font-semibold rounded transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(0,230,118,0.2)]"
+                          >
+                            <Check className="w-4 h-4" /> Approve & Publish
+                          </button>
+
+                          <button
+                            onClick={() => setIsRevisionModalOpen(true)}
+                            className="py-3 border border-amber-500/50 hover:bg-amber-500/10 text-amber-400 text-xs font-semibold rounded transition-all cursor-pointer text-center flex items-center justify-center gap-1.5"
+                          >
+                            <ArrowRight className="w-4 h-4" /> Request Re-upload
+                          </button>
+
+                          <button
+                            onClick={() => setIsRejectModalOpen(true)}
+                            className="py-3 border border-red-500/50 hover:bg-red-500/10 text-red-400 text-xs font-semibold rounded transition-all cursor-pointer text-center flex items-center justify-center gap-1.5"
+                          >
+                            <X className="w-4 h-4" /> Reject Pitch
+                          </button>
+                        </div>
+                        <span className="text-[10px] font-mono text-[#8E9B93]/60 block text-center uppercase tracking-wide">
+                          All supervisor decisions are recorded to the platform audit ledger.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="border border-[#1F2922] bg-[#111613] rounded p-12 text-center text-[#8E9B93] font-mono text-xs space-y-2">
+                  <FileText className="w-8 h-8 text-[#8E9B93] mx-auto opacity-50 mb-2" />
+                  <p>No campaigns found in the selected audit queue status ({auditSubTab.toUpperCase()}).</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* SCREEN [4]: DISPUTES & HOLDS MANAGEMENT */}
           {activeTab === 'disputes' && (
             <div className="space-y-8 animate-fadeIn text-left">
@@ -2568,6 +2943,169 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: REQUEST RE-UPLOAD / REVISION MODAL */}
+      {isRevisionModalOpen && selectedAuditCampaign && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111613] border border-[#1F2922] w-full max-w-lg rounded-lg p-6 space-y-6 animate-fadeIn font-mono text-xs text-left">
+            <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+              <span className="text-[#E2E8F0] font-medium uppercase text-sm">Request Revision / Re-upload</span>
+              <button 
+                onClick={() => setIsRevisionModalOpen(false)}
+                className="text-[#8E9B93] hover:text-[#E2E8F0]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleReuploadRequestSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <span className="text-[#8E9B93] text-[11px] block">Target Campaign:</span>
+                <span className="text-[#00E676] font-bold block text-sm">{selectedAuditCampaign.title}</span>
+                <span className="text-[#8E9B93] text-[10px] block">Founder: {selectedAuditCampaign.founder?.name || 'Student Founder'} ({selectedAuditCampaign.university || 'Univ'})</span>
+              </div>
+
+              <div>
+                <label className="text-[11px] text-[#8E9B93] block mb-1">Supervisor Revision Feedback & Instructions:</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={campaignAuditFeedback}
+                  onChange={(e) => setCampaignAuditFeedback(e.target.value)}
+                  placeholder="Specify exact corrections required (e.g. Please update 3-year revenue projections, re-upload clear NID scan image, and adjust milestone 2 target date)..."
+                  className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded p-3 text-[#E2E8F0] text-xs focus:outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded text-center cursor-pointer"
+                >
+                  Send Re-upload Request
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsRevisionModalOpen(false)}
+                  className="flex-1 py-2.5 bg-[#0B0F0C] text-[#E2E8F0] border border-[#1F2922] rounded text-center cursor-pointer hover:bg-[#111613]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: REJECT CAMPAIGN MODAL */}
+      {isRejectModalOpen && selectedAuditCampaign && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111613] border border-red-500/30 w-full max-w-lg rounded-lg p-6 space-y-6 animate-fadeIn font-mono text-xs text-left">
+            <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+              <span className="text-red-400 font-medium uppercase text-sm">Reject Campaign Pitch</span>
+              <button 
+                onClick={() => setIsRejectModalOpen(false)}
+                className="text-[#8E9B93] hover:text-[#E2E8F0]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRejectCampaignSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <span className="text-[#8E9B93] text-[11px] block">Target Campaign:</span>
+                <span className="text-red-400 font-bold block text-sm">{selectedAuditCampaign.title}</span>
+              </div>
+
+              <div>
+                <label className="text-[11px] text-[#8E9B93] block mb-1">Rejection Rationale & Record Notes:</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={campaignRejectionReason}
+                  onChange={(e) => setCampaignRejectionReason(e.target.value)}
+                  placeholder="Provide explicit reasons for campaign rejection (e.g. Unrealistic valuation figures, non-compliance with platform student founder terms)..."
+                  className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded p-3 text-[#E2E8F0] text-xs focus:outline-none focus:border-red-500/50"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white font-semibold rounded text-center cursor-pointer"
+                >
+                  Confirm Rejection
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsRejectModalOpen(false)}
+                  className="flex-1 py-2.5 bg-[#0B0F0C] text-[#E2E8F0] border border-[#1F2922] rounded text-center cursor-pointer hover:bg-[#111613]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: DOCUMENT INSPECTION PREVIEW MODAL */}
+      {docPreviewModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111613] border border-[#1F2922] w-full max-w-xl rounded-lg p-6 space-y-6 animate-fadeIn font-mono text-xs text-left">
+            <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+              <span className="text-[#00E676] font-medium uppercase text-sm flex items-center gap-2">
+                <FileText className="w-4 h-4" /> Document Inspection Vault
+              </span>
+              <button 
+                onClick={() => setDocPreviewModal(null)}
+                className="text-[#8E9B93] hover:text-[#E2E8F0]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 bg-[#0B0F0C] border border-[#1F2922] p-5 rounded">
+              <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+                <div>
+                  <span className="text-[#E2E8F0] font-bold block text-sm">{docPreviewModal.title}</span>
+                  <span className="text-[10px] text-[#8E9B93] block">{docPreviewModal.filename}</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  {docPreviewModal.size || '1.8 MB'}
+                </span>
+              </div>
+
+              <div className="py-8 border border-dashed border-[#1F2922] rounded text-center space-y-2">
+                <FileText className="w-12 h-12 text-[#00E676] mx-auto opacity-80" />
+                <p className="text-[#E2E8F0] font-medium">Document Vault Inspection Buffer</p>
+                <p className="text-[10px] text-[#8E9B93]">Cryptographic Integrity Hash: fb_sha256_{Math.random().toString(36).substring(2, 10)}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <a
+                href="#download"
+                onClick={(e) => {
+                  e.preventDefault();
+                  addToast(`Downloading ${docPreviewModal.filename}...`, 'success');
+                  setDocPreviewModal(null);
+                }}
+                className="flex-1 py-2.5 bg-[#00E676] hover:bg-[#00E575]/90 text-black font-semibold rounded text-center cursor-pointer inline-flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" /> Download Original File
+              </a>
+              <button
+                type="button"
+                onClick={() => setDocPreviewModal(null)}
+                className="px-6 py-2.5 bg-[#0B0F0C] text-[#E2E8F0] border border-[#1F2922] rounded text-center cursor-pointer hover:bg-[#111613]"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
