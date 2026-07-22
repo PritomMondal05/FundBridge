@@ -1,0 +1,48 @@
+=======================================================
+           HOW TO RUN FUNDBRIDGE PROJECT
+=======================================================
+
+1. FIRST TIME SETUP (Install Dependencies)
+-------------------------------------------------------
+Open your terminal in this project folder and run:
+
+   npm run install-all
+
+
+2. DATABASE SETUP (Supabase)
+-------------------------------------------------------
+- Go to https://supabase.com -> SQL Editor -> New query
+- Copy and paste all text from "backend/supabase_schema.sql"
+- Click RUN (green button at top right)
+
+
+3. HOW TO START THE PROJECT
+-------------------------------------------------------
+In your terminal, simply run:
+
+   npm start
+
+This automatically starts BOTH the Frontend and Backend together!
+
+
+4. ACCESS THE APPLICATION
+-------------------------------------------------------
+- Frontend UI:  http://localhost:5173
+- Backend API:  http://localhost:5000/api/health
+
+
+5. DEFAULT DEMO LOGIN CREDENTIALS
+-------------------------------------------------------
+Admin Portal:
+  Email:    admin@fundbridge.com
+  Password: admin123
+
+Investor Portal:
+  Email:    investor@firm.com
+  Password: investorpassword
+
+Student Founder Portal:
+  Email:    anika@brac.edu.bd
+  Password: founderpassword
+
+=======================================================
