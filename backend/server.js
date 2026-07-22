@@ -278,10 +278,13 @@ const fallbackProposals = [];
 
 app.get('/api/health', async (req, res) => {
   let dbStatus = 'disconnected';
+  let provider = 'none';
   if (isSupabaseConfigured && supabase) {
-    dbStatus = 'supabase_active';
+    dbStatus = 'connected';
+    provider = 'supabase';
   } else if (mongoose.connection.readyState === 1) {
-    dbStatus = 'mongodb_connected';
+    dbStatus = 'connected';
+    provider = 'mongodb';
   } else {
     dbStatus = 'in_memory_fallback';
   }
@@ -289,6 +292,7 @@ app.get('/api/health', async (req, res) => {
   res.status(200).json({ 
     status: 'healthy', 
     database: dbStatus,
+    provider,
     supabaseConfigured: isSupabaseConfigured
   });
 });

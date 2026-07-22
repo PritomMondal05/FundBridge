@@ -1,6 +1,5 @@
 -- ========================================================
 -- FUNDBRIDGE SUPABASE DATABASE SCHEMA & INITIAL DATA
--- Copy and paste this script into Supabase -> SQL Editor -> Run
 -- ========================================================
 
 -- 1. Create Users Table

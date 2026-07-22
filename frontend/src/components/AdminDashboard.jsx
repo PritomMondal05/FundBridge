@@ -218,7 +218,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       const healthRes = await fetch(`${API_BASE_URL}/api/health`);
       if (healthRes.ok) {
         const healthData = await healthRes.json();
-        setDbConnected(healthData.database === 'connected');
+        setDbConnected(healthData.database === 'connected' || healthData.database === 'supabase_active' || healthData.database === 'mongodb_connected');
       }
 
       setDbLoading(false);
