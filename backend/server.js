@@ -431,8 +431,11 @@ app.post('/api/users/register', (req, res, next) => {
             credentials_link: credentialsLink
           }]).select().single();
 
-          if (supaUser) {
+          if (supaErr) {
+            console.error('❌ Supabase insert error during registration:', supaErr.message || supaErr);
+          } else if (supaUser) {
             newUser._id = supaUser.id;
+            console.log('✅ Registered user saved to Supabase with ID:', supaUser.id);
           }
         } catch (e) {
           console.warn('Supabase user creation error, storing in fallback:', e.message);
@@ -1041,7 +1044,8 @@ app.post('/api/admin/campaigns/:campaignId/verify', async (req, res) => {
     const { campaignId } = req.params;
     let campaign = null;
     if (mongoose.connection.readyState === 1) {
-      campaign = await Campaign.findByIdAndUpdate(campaignId, { verified: true }, { new: true });
+      const query = mongoose.Types.ObjectId.isValid(campaignId) ? { _id: campaignId } : { id: campaignId };
+      campaign = await Campaign.findOneAndUpdate(query, { verified: true, status: 'verified' }, { new: true });
     }
     const fbCmp = fallbackCampaigns.find(c => c._id === campaignId || c.id === campaignId);
     if (fbCmp) {
@@ -1050,6 +1054,7 @@ app.post('/api/admin/campaigns/:campaignId/verify', async (req, res) => {
     }
     res.status(200).json({ message: 'Campaign verified and set to live.', campaign: campaign || fbCmp });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error verifying campaign.' });
   }
 });
@@ -1061,7 +1066,8 @@ app.post('/api/admin/campaigns/:campaignId/reject', async (req, res) => {
     const { reason } = req.body;
     let campaign = null;
     if (mongoose.connection.readyState === 1) {
-      campaign = await Campaign.findByIdAndUpdate(campaignId, { verified: false, status: 'rejected', rejectionReason: reason }, { new: true });
+      const query = mongoose.Types.ObjectId.isValid(campaignId) ? { _id: campaignId } : { id: campaignId };
+      campaign = await Campaign.findOneAndUpdate(query, { verified: false, status: 'rejected', rejectionReason: reason }, { new: true });
     }
     const fbCmp = fallbackCampaigns.find(c => c._id === campaignId || c.id === campaignId);
     if (fbCmp) {
@@ -1071,6 +1077,7 @@ app.post('/api/admin/campaigns/:campaignId/reject', async (req, res) => {
     }
     res.status(200).json({ message: 'Campaign audit rejected.', campaign: campaign || fbCmp });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error rejecting campaign.' });
   }
 });
@@ -1082,7 +1089,8 @@ app.post('/api/admin/campaigns/:campaignId/reupload', async (req, res) => {
     const { feedbackNotes } = req.body;
     let campaign = null;
     if (mongoose.connection.readyState === 1) {
-      campaign = await Campaign.findByIdAndUpdate(campaignId, { verified: false, status: 'revision_required', feedbackNotes }, { new: true });
+      const query = mongoose.Types.ObjectId.isValid(campaignId) ? { _id: campaignId } : { id: campaignId };
+      campaign = await Campaign.findOneAndUpdate(query, { verified: false, status: 'revision_required', feedbackNotes }, { new: true });
     }
     const fbCmp = fallbackCampaigns.find(c => c._id === campaignId || c.id === campaignId);
     if (fbCmp) {
@@ -1092,7 +1100,154 @@ app.post('/api/admin/campaigns/:campaignId/reupload', async (req, res) => {
     }
     res.status(200).json({ message: 'Revision request sent back to founder queue.', campaign: campaign || fbCmp });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error requesting campaign revision.' });
+  }
+});
+
+// Administrative action: Block Any User (Student Founder or Investor)
+app.post('/api/admin/users/:id/block', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let targetUser = null;
+
+    if (mongoose.connection.readyState === 1) {
+      const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { id: id };
+      targetUser = await User.findOne(query);
+      if (targetUser) {
+        targetUser.vettingStatus = targetUser.vettingStatus === 'blocked' ? 'verified' : 'blocked';
+        await targetUser.save();
+
+        // If founder is blocked, pause their active campaigns
+        if (targetUser.role === 'founder' && targetUser.vettingStatus === 'blocked') {
+          await Campaign.updateMany({ founder: targetUser._id }, { status: 'funding_paused' });
+        }
+        // If investor is blocked, decline their active proposals
+        if (targetUser.role === 'investor' && targetUser.vettingStatus === 'blocked') {
+          await Proposal.updateMany({ investor: targetUser._id, status: 'pending' }, { status: 'rejected' });
+        }
+      }
+    }
+
+    const fbUser = fallbackUsers.find(u => u._id === id || u.id === id);
+    if (fbUser) {
+      fbUser.vettingStatus = fbUser.vettingStatus === 'blocked' ? 'verified' : 'blocked';
+      targetUser = targetUser || fbUser;
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User profile not found.' });
+    }
+
+    res.status(200).json({
+      message: `User ${targetUser.name} has been ${targetUser.vettingStatus === 'blocked' ? 'BLOCKED' : 'UNBLOCKED'}.`,
+      user: targetUser
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error processing user block status.' });
+  }
+});
+
+// Administrative action: Pause Campaign Funding
+app.post('/api/admin/campaigns/:campaignId/pause-funding', async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    let campaign = null;
+
+    if (mongoose.connection.readyState === 1) {
+      const query = mongoose.Types.ObjectId.isValid(campaignId) ? { _id: campaignId } : { id: campaignId };
+      const current = await Campaign.findOne(query);
+      if (current) {
+        current.status = current.status === 'funding_paused' ? 'verified' : 'funding_paused';
+        campaign = await current.save();
+      }
+    }
+
+    const fbCmp = fallbackCampaigns.find(c => c._id === campaignId || c.id === campaignId);
+    if (fbCmp) {
+      fbCmp.status = fbCmp.status === 'funding_paused' ? 'verified' : 'funding_paused';
+      campaign = campaign || fbCmp;
+    }
+
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found.' });
+    }
+
+    res.status(200).json({
+      message: `Campaign "${campaign.title}" funding set to ${campaign.status.toUpperCase()}.`,
+      campaign
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error pausing campaign funding.' });
+  }
+});
+
+// Administrative action: Block / Delete Campaign
+app.post('/api/admin/campaigns/:campaignId/block', async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    let campaign = null;
+
+    if (mongoose.connection.readyState === 1) {
+      const query = mongoose.Types.ObjectId.isValid(campaignId) ? { _id: campaignId } : { id: campaignId };
+      campaign = await Campaign.findOneAndUpdate(
+        query,
+        { verified: false, status: 'blocked' },
+        { new: true }
+      );
+    }
+
+    const fbCmp = fallbackCampaigns.find(c => c._id === campaignId || c.id === campaignId);
+    if (fbCmp) {
+      fbCmp.verified = false;
+      fbCmp.status = 'blocked';
+      campaign = campaign || fbCmp;
+    }
+
+    res.status(200).json({
+      message: `Campaign "${campaign ? campaign.title : campaignId}" blocked and removed from public feed.`,
+      campaign
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error blocking campaign.' });
+  }
+});
+
+// Administrative action: Freeze Escrow Funds
+app.post('/api/admin/campaigns/:campaignId/freeze-funds', async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+    let campaign = null;
+
+    if (mongoose.connection.readyState === 1) {
+      const query = mongoose.Types.ObjectId.isValid(campaignId) ? { _id: campaignId } : { id: campaignId };
+      const current = await Campaign.findOne(query);
+      if (current) {
+        current.escrowFrozen = !current.escrowFrozen;
+        campaign = await current.save();
+      }
+    }
+
+    const fbCmp = fallbackCampaigns.find(c => c._id === campaignId || c.id === campaignId);
+    if (fbCmp) {
+      fbCmp.escrowFrozen = !fbCmp.escrowFrozen;
+      campaign = campaign || fbCmp;
+    }
+
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found.' });
+    }
+
+    res.status(200).json({
+      message: `Escrow funds for "${campaign.title}" ${campaign.escrowFrozen ? 'FROZEN' : 'UNFROZEN'}.`,
+      campaign
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error toggling escrow freeze.' });
   }
 });
 

@@ -99,8 +99,67 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   const [campaignRejectionReason, setCampaignRejectionReason] = useState('');
   const [docPreviewModal, setDocPreviewModal] = useState(null); // { title, filename, size }
 
-  // Disputes & Holds state (Start empty to represent real database state. If its 0 then 0!)
-  const [disputesList, setDisputesList] = useState([]);
+  // Initial realistic demo complaints for Disputes & Holds Management
+  const initialComplaints = [
+    {
+      id: 'CMP-801',
+      complainant: 'Vantage Ventures Dhaka',
+      complainantRole: 'investor',
+      reportedUser: 'Anika Rahman',
+      reportedUserId: 'founder-anika',
+      reportedRole: 'student',
+      campaignTitle: 'CampusBites',
+      campaignId: 'campusbites',
+      issueType: 'Late Milestone Delivery',
+      description: 'Founder has failed to submit Milestone 2 proof documents past the agreed 30-day timeline despite receiving seed funding tranche.',
+      evidenceFile: 'milestone_delay_notice_q3.pdf',
+      evidenceSize: '1.4 MB',
+      severity: 'Critical',
+      status: 'Open',
+      createdAt: '2026-07-22 11:30'
+    },
+    {
+      id: 'CMP-802',
+      complainant: 'Tariqul Islam',
+      complainantRole: 'student',
+      reportedUser: 'Siddique Rahman',
+      reportedUserId: 'investor-siddique',
+      reportedRole: 'investor',
+      campaignTitle: 'SolarGrid AI',
+      campaignId: 'solargrid',
+      issueType: 'Payment Issues',
+      description: 'Investor wire transfer transaction hash failed confirmation on bKash merchant ledger. Pending investment terms remain unpaid.',
+      evidenceFile: 'mfs_bank_transfer_receipt.pdf',
+      evidenceSize: '850 KB',
+      severity: 'High',
+      status: 'Open',
+      createdAt: '2026-07-23 09:15'
+    },
+    {
+      id: 'CMP-803',
+      complainant: 'Dhaka Angel Syndicate',
+      complainantRole: 'investor',
+      reportedUser: 'Tariqul Islam',
+      reportedUserId: 'founder-tariqul',
+      reportedRole: 'student',
+      campaignTitle: 'EcoThread',
+      campaignId: 'ecothread',
+      issueType: 'Fake Information',
+      description: 'Discrepancy detected between uploaded trade license scan and official Registrar of Joint Stock Companies database record.',
+      evidenceFile: 'audit_verification_mismatch.pdf',
+      evidenceSize: '2.1 MB',
+      severity: 'Critical',
+      status: 'Open',
+      createdAt: '2026-07-23 14:40'
+    }
+  ];
+
+  // Disputes & Holds state
+  const [disputesList, setDisputesList] = useState(initialComplaints);
+  const [selectedUserToBlockRole, setSelectedUserToBlockRole] = useState('student'); // 'student' | 'investor'
+  const [selectedUserToBlockId, setSelectedUserToBlockId] = useState('');
+  const [selectedControlCampaignId, setSelectedControlCampaignId] = useState('');
+  const [investigatingComplaint, setInvestigatingComplaint] = useState(null);
 
   // Safety panel controls (Disputes)
   const [globalFreezeActive, setGlobalFreezeActive] = useState(false);
@@ -730,14 +789,139 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }
   };
 
-  const handleInvestigateDispute = (id, campaign) => {
-    addToast(`Investigating dispute trace for ${campaign}. Audit files locked.`, 'info');
-    setDisputesList(prev => prev.map(d => d.id === id ? { ...d, actionTaken: true } : d));
+  // Action 1: Block Any User (Student Founder or Investor)
+  const handleBlockUserAction = async (userId, userName, role) => {
+    if (!userId) {
+      addToast('Please select a user to block.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/block`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update user block status');
+
+      const isBlockedNow = data.user?.vettingStatus === 'blocked';
+      addToast(
+        isBlockedNow
+          ? `User "${userName || data.user?.name}" BLOCKED! Login access revoked & associated activities paused.`
+          : `User "${userName || data.user?.name}" UNBLOCKED and restored.`,
+        isBlockedNow ? 'error' : 'success'
+      );
+
+      const newLog = {
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        actor: 'ADMIN_PRITOM',
+        initials: 'AP',
+        color: isBlockedNow ? 'bg-red-950 text-red-200 border-red-500/30' : 'bg-emerald-950 text-emerald-200 border-emerald-500/30',
+        action: isBlockedNow ? 'BLOCKED USER' : 'UNBLOCKED USER',
+        target: userName || data.user?.name || userId,
+        rationale: isBlockedNow ? `Admin override: Blocked ${role || 'user'} account.` : `Unblocked user account.`,
+        hash: 'fb_' + Math.random().toString(36).substring(2, 6) + '...'
+      };
+      setActivityLogs(prev => [newLog, ...prev]);
+
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
   };
 
-  const handleFreezeDisputeFunds = (id, campaign) => {
-    addToast(`CRITICAL: Funds locked in escrow for campaign: ${campaign}.`, 'error');
-    setDisputesList(prev => prev.map(d => d.id === id ? { ...d, actionTaken: true } : d));
+  // Action 2: Pause Campaign Funding
+  const handlePauseCampaignFunding = async (campaignObjId, title) => {
+    if (!campaignObjId) {
+      addToast('Please select a campaign to pause funding.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/campaigns/${campaignObjId}/pause-funding`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to pause funding');
+
+      const isPaused = data.campaign?.status === 'funding_paused';
+      addToast(
+        isPaused
+          ? `Funding temporarily PAUSED for "${title || data.campaign?.title}".`
+          : `Funding RESTORED for "${title || data.campaign?.title}".`,
+        isPaused ? 'error' : 'success'
+      );
+
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  // Action 3: Block / Delete Campaign
+  const handleBlockCampaignAction = async (campaignObjId, title) => {
+    if (!campaignObjId) {
+      addToast('Please select a campaign to block.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/campaigns/${campaignObjId}/block`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to block campaign');
+
+      addToast(`Campaign "${title || data.campaign?.title}" PERMANENTLY BLOCKED and removed from investor feed.`, 'error');
+
+      const newLog = {
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        actor: 'ADMIN_PRITOM',
+        initials: 'AP',
+        color: 'bg-red-950 text-red-200 border-red-500/30',
+        action: 'BLOCKED CAMPAIGN',
+        target: title || campaignObjId,
+        rationale: 'Permanently removed non-compliant campaign from platform.',
+        hash: 'fb_' + Math.random().toString(36).substring(2, 6) + '...'
+      };
+      setActivityLogs(prev => [newLog, ...prev]);
+
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  // Action 4: Freeze Escrow Funds
+  const handleFreezeCampaignFundsAction = async (campaignObjId, title) => {
+    if (!campaignObjId) {
+      addToast('Please select a campaign to freeze escrow funds.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/campaigns/${campaignObjId}/freeze-funds`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to freeze escrow funds');
+
+      const isFrozen = data.campaign?.escrowFrozen;
+      addToast(
+        isFrozen
+          ? `Escrow funds FROZEN for "${title || data.campaign?.title}". Withdrawal locked.`
+          : `Escrow funds UNFROZEN for "${title || data.campaign?.title}".`,
+        isFrozen ? 'error' : 'success'
+      );
+
+      // Update complaint status if linked
+      setDisputesList(prev => prev.map(d => (d.campaignId === campaignObjId || d.campaignTitle === title) ? { ...d, status: isFrozen ? 'Funds Frozen' : 'Under Audit' } : d));
+
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  // Action 5: Dismiss Complaint
+  const handleDismissComplaint = (id) => {
+    setDisputesList(prev => prev.map(d => d.id === id ? { ...d, status: 'Dismissed' } : d));
+    addToast(`Complaint ${id} dismissed. Case closed.`, 'info');
   };
 
   // Render Login page if not authenticated
@@ -846,7 +1030,19 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   const filteredApplicants = vettingQueue;
 
   const selectedApplicant = vettingQueue.find(item => item._id === selectedApplicantId) || filteredApplicants[0];
-  const selectedCampaign = campaignsList.find(c => c.id === selectedCampaignId) || campaignsList[0];
+  const selectedCampaign = campaignsList.find(c => c.id === selectedCampaignId || c._id === selectedCampaignId) || campaignsList[0];
+
+  const displayedAuditCampaigns = 
+    auditSubTab === 'published'
+      ? verifiedCampaigns
+      : auditSubTab === 'revisions'
+      ? campaignsList.filter(c => c.status === 'revision_required')
+      : auditSubTab === 'rejected'
+      ? campaignsList.filter(c => c.status === 'rejected')
+      : campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required');
+
+  const selectedAuditCampaign =
+    displayedAuditCampaigns.find(c => c._id === selectedCampaignId || c.id === selectedCampaignId) || displayedAuditCampaigns[0];
 
   // Dynamic calculations for real overview statistics (if its 0 then 0)
   const totalEscrowCapital = verifiedCampaigns.reduce((acc, c) => acc + (c.raised || 0), 0);
@@ -1979,15 +2175,12 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       <div className="space-y-3 font-mono text-xs">
                         <button
                           onClick={() => {
-                            const current = getCompliance(selectedAuditCampaign.id);
-                            setCampaignCompliance(prev => ({
-                              ...prev,
-                              [selectedAuditCampaign.id]: { ...current, smartContractAudit: !current.smartContractAudit }
-                            }));
+                            const cKey = selectedAuditCampaign._id || selectedAuditCampaign.id;
+                            toggleCompliance(cKey, 'smartContractAudit');
                           }}
                           className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
                         >
-                          {getCompliance(selectedAuditCampaign.id).smartContractAudit ? (
+                          {getCompliance(selectedAuditCampaign._id || selectedAuditCampaign.id).smartContractAudit ? (
                             <CheckSquare className="w-4 h-4 text-[#00E676]" />
                           ) : (
                             <Square className="w-4 h-4 text-[#8E9B93]" />
@@ -2000,15 +2193,12 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
                         <button
                           onClick={() => {
-                            const current = getCompliance(selectedAuditCampaign.id);
-                            setCampaignCompliance(prev => ({
-                              ...prev,
-                              [selectedAuditCampaign.id]: { ...current, founderIdentity: !current.founderIdentity }
-                            }));
+                            const cKey = selectedAuditCampaign._id || selectedAuditCampaign.id;
+                            toggleCompliance(cKey, 'founderIdentity');
                           }}
                           className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
                         >
-                          {getCompliance(selectedAuditCampaign.id).founderIdentity ? (
+                          {getCompliance(selectedAuditCampaign._id || selectedAuditCampaign.id).founderIdentity ? (
                             <CheckSquare className="w-4 h-4 text-[#00E676]" />
                           ) : (
                             <Square className="w-4 h-4 text-[#8E9B93]" />
@@ -2021,15 +2211,12 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
                         <button
                           onClick={() => {
-                            const current = getCompliance(selectedAuditCampaign.id);
-                            setCampaignCompliance(prev => ({
-                              ...prev,
-                              [selectedAuditCampaign.id]: { ...current, regulatoryCompliance: !current.regulatoryCompliance }
-                            }));
+                            const cKey = selectedAuditCampaign._id || selectedAuditCampaign.id;
+                            toggleCompliance(cKey, 'regulatoryCompliance');
                           }}
                           className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
                         >
-                          {getCompliance(selectedAuditCampaign.id).regulatoryCompliance ? (
+                          {getCompliance(selectedAuditCampaign._id || selectedAuditCampaign.id).regulatoryCompliance ? (
                             <CheckSquare className="w-4 h-4 text-[#00E676]" />
                           ) : (
                             <Square className="w-4 h-4 text-[#8E9B93]" />
@@ -2081,226 +2268,395 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
             </div>
           )}
 
-          {/* SCREEN [4]: DISPUTES & HOLDS MANAGEMENT */}
+          {/* SCREEN [4]: DISPUTES & HOLDS MANAGEMENT REDESIGNED */}
           {activeTab === 'disputes' && (
             <div className="space-y-8 animate-fadeIn text-left">
-              <div className="space-y-1">
-                <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                  SECURITY CONTROLS & ESCROW POLICING
-                </span>
-                <h2 className="text-2xl font-mono text-[#E2E8F0] tracking-tight font-medium">
-                  Disputes & Holds Management
-                </h2>
-              </div>
-
-              <div className="border border-[#1F2922] bg-[#111613] rounded p-6 grid grid-cols-2 md:grid-cols-4 gap-6 font-mono text-xs">
+              {/* Workspace Header */}
+              <div className="border border-[#1F2922] bg-[#111613] rounded p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <span className="text-[#8E9B93] block uppercase text-[10px]">Active Disputes</span>
-                  <span className="text-[#E2E8F0] text-lg font-medium">{disputesList.length}</span>
+                  <span className="font-mono text-xs text-[#00E676] tracking-widest uppercase block">
+                    SUPERVISORY SECURITY & ESCROW POLICING
+                  </span>
+                  <h2 className="text-2xl font-mono text-[#E2E8F0] tracking-tight font-medium">
+                    Disputes & Holds Management
+                  </h2>
+                  <p className="text-xs text-[#8E9B93] font-mono">
+                    Block fraudulent users, pause funding, block fake campaigns, freeze escrow funds, and investigate user complaints.
+                  </p>
                 </div>
-                <div className="space-y-1 border-l border-[#1F2922] pl-6">
-                  <span className="text-[#8E9B93] block uppercase text-[10px]">Escrow at Risk</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[#E2E8F0] text-lg font-medium">$0.00</span>
-                    <span className="text-[9px] font-sans font-medium px-1.5 py-0.5 rounded text-emerald-400 border border-emerald-500/30 bg-emerald-500/10">
-                      STABLE
+
+                <div className="flex items-center gap-4 font-mono text-xs">
+                  <div className="bg-[#0B0F0C] border border-[#1F2922] p-3 rounded text-center">
+                    <span className="text-[9px] text-[#8E9B93] block uppercase">ACTIVE COMPLAINTS</span>
+                    <span className="text-lg font-bold text-amber-400">
+                      {disputesList.filter(d => d.status !== 'Dismissed').length}
                     </span>
                   </div>
-                </div>
-                <div className="space-y-1 border-l border-[#1F2922] pl-6">
-                  <span className="text-[#8E9B93] block uppercase text-[10px]">High Priority</span>
-                  <span className="text-[#8E9B93] text-lg font-medium">0</span>
-                </div>
-                <div className="space-y-1 border-l border-[#1F2922] pl-6">
-                  <span className="text-[#8E9B93] block uppercase text-[10px]">Resolution Rate</span>
-                  <span className="text-[#00E676] text-lg font-medium">100%</span>
+                  <div className="bg-[#0B0F0C] border border-[#1F2922] p-3 rounded text-center">
+                    <span className="text-[9px] text-[#8E9B93] block uppercase">ESCROW RISK STATUS</span>
+                    <span className="text-lg font-bold text-emerald-400">SECURE</span>
+                  </div>
                 </div>
               </div>
 
+              {/* TOP ROW: PANEL 1 & PANEL 2 */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6">
-                  <div className="flex items-center justify-between border-b border-[#1F2922] pb-3 font-mono text-xs">
-                    <span className="text-[#8E9B93] tracking-widest uppercase">
-                      Safety Control Panel
-                    </span>
-                    <span className="text-[#00E676] font-medium uppercase text-[10px]">
-                      SYSTEM_ARMED: TRUE
-                    </span>
-                  </div>
 
+                {/* PANEL 1: BLOCK ANY USER */}
+                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6 flex flex-col justify-between">
                   <div className="space-y-4">
-                    <div className="border border-[#1F2922] bg-[#0B0F0C] rounded p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1 font-mono text-xs">
-                        <span className="text-[#E2E8F0] block">Freeze Escrow Payments</span>
-                        <span className="text-[10px] text-[#8E9B93]">Force immediate hold on all disbursements.</span>
+                    <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+                      <div>
+                        <span className="text-xs font-mono text-[#00E676] uppercase tracking-wider block">1. BLOCK ANY USER</span>
+                        <h3 className="text-sm font-mono text-[#E2E8F0] font-medium mt-0.5">Account Access & Protocol Revocation</h3>
                       </div>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-mono border border-red-500/30 bg-red-500/10 text-red-400 uppercase">
+                        SUPERVISOR OVERRIDE
+                      </span>
+                    </div>
+
+                    {/* Role Filter Selector */}
+                    <div className="flex gap-2 font-mono text-xs">
                       <button
-                        onClick={handleExecuteGlobalFreeze}
-                        className={`px-4 py-2 text-xs font-mono font-medium rounded transition-all cursor-pointer flex items-center gap-2 ${globalFreezeActive
-                          ? 'bg-red-500 text-white'
-                          : 'border border-red-500/50 hover:bg-red-500/10 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
-                          }`}
+                        type="button"
+                        onClick={() => { setSelectedUserToBlockRole('student'); setSelectedUserToBlockId(''); }}
+                        className={`flex-1 py-2 px-3 rounded text-center cursor-pointer transition-colors ${
+                          selectedUserToBlockRole === 'student'
+                            ? 'bg-[#00E676] text-black font-semibold'
+                            : 'bg-[#0B0F0C] text-[#8E9B93] border border-[#1F2922] hover:text-[#E2E8F0]'
+                        }`}
                       >
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>{globalFreezeActive ? 'DEACTIVATE FREEZE' : 'EXECUTE GLOBAL FREEZE'}</span>
+                        Student Founders ({verifiedFoundersList.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedUserToBlockRole('investor'); setSelectedUserToBlockId(''); }}
+                        className={`flex-1 py-2 px-3 rounded text-center cursor-pointer transition-colors ${
+                          selectedUserToBlockRole === 'investor'
+                            ? 'bg-[#00E676] text-black font-semibold'
+                            : 'bg-[#0B0F0C] text-[#8E9B93] border border-[#1F2922] hover:text-[#E2E8F0]'
+                        }`}
+                      >
+                        Investors ({verifiedInvestorsList.length})
                       </button>
                     </div>
 
-                    <div className="border border-[#1F2922] bg-[#0B0F0C] rounded p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1 font-mono text-xs">
-                        <span className="text-[#E2E8F0] block">Suspend Account Access</span>
-                        <span className="text-[10px] text-[#8E9B93]">Revoke active authentication tokens.</span>
-                      </div>
-                      <button
-                        onClick={handleRevokeTokens}
-                        className={`px-4 py-2 text-xs font-mono font-medium rounded transition-all cursor-pointer flex items-center gap-2 ${tokensRevoked
-                          ? 'bg-amber-500 text-black'
-                          : 'bg-[#0B0F0C] hover:bg-[#111613] text-[#E2E8F0] border border-[#1F2922]'
-                          }`}
+                    {/* Target User Select Dropdown */}
+                    <div className="space-y-2 font-mono text-xs">
+                      <label className="text-[10px] text-[#8E9B93] block uppercase font-semibold">
+                        SELECT TARGET {selectedUserToBlockRole === 'student' ? 'STUDENT FOUNDER' : 'INVESTOR'}:
+                      </label>
+                      <select
+                        value={selectedUserToBlockId}
+                        onChange={(e) => setSelectedUserToBlockId(e.target.value)}
+                        className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded p-3 text-[#E2E8F0] text-xs focus:outline-none focus:border-[#00E676]/50"
                       >
-                        <Unlock className="w-3.5 h-3.5 text-[#00E676]" />
-                        <span>{tokensRevoked ? 'RE-ENABLE ACCESS' : 'REVOKE ACCESS TOKENS'}</span>
-                      </button>
+                        <option value="">-- Choose User Profile to Inspect / Block --</option>
+                        {(selectedUserToBlockRole === 'student' ? verifiedFoundersList : verifiedInvestorsList).map(u => (
+                          <option key={u._id || u.id} value={u._id || u.id}>
+                            {u.name} ({u.email}) - Status: {(u.vettingStatus || 'verified').toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+
+                    {/* Selected User Details Preview Box */}
+                    {(() => {
+                      const userList = selectedUserToBlockRole === 'student' ? verifiedFoundersList : verifiedInvestorsList;
+                      const selectedUser = userList.find(u => u._id === selectedUserToBlockId || u.id === selectedUserToBlockId) || userList[0];
+                      if (!selectedUser) return null;
+                      const isBlocked = selectedUser.vettingStatus === 'blocked';
+
+                      return (
+                        <div className="p-4 bg-[#0B0F0C] border border-[#1F2922] rounded space-y-3 font-mono text-xs">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-[#E2E8F0] font-bold block text-sm">{selectedUser.name}</span>
+                              <span className="text-[10px] text-[#8E9B93] block">{selectedUser.email}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${
+                              isBlocked ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                            }`}>
+                              {isBlocked ? 'BLOCKED' : selectedUser.vettingStatus || 'VERIFIED'}
+                            </span>
+                          </div>
+
+                          <div className="text-[10px] text-[#8E9B93] grid grid-cols-2 gap-2 pt-2 border-t border-[#1F2922]">
+                            <div>
+                              <span className="block text-[9px] uppercase">AFFILIATION</span>
+                              <span className="text-[#E2E8F0]">{selectedUser.university || selectedUser.institution || 'Institutional'}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[9px] uppercase">ROLE TYPE</span>
+                              <span className="text-[#E2E8F0] uppercase">{selectedUser.role || selectedUserToBlockRole}</span>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons based on User Role */}
+                          <div className="pt-2">
+                            {selectedUserToBlockRole === 'student' ? (
+                              <button
+                                type="button"
+                                onClick={() => handleBlockUserAction(selectedUser._id || selectedUser.id, selectedUser.name, 'Student Founder')}
+                                className={`w-full py-3 px-4 rounded text-xs font-mono font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                                  isBlocked
+                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                                    : 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.2)]'
+                                }`}
+                              >
+                                <Lock className="w-4 h-4" />
+                                <span>{isBlocked ? 'Unblock Student Account' : 'Block Student (Stop Login & Pause Campaigns)'}</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleBlockUserAction(selectedUser._id || selectedUser.id, selectedUser.name, 'Investor')}
+                                className={`w-full py-3 px-4 rounded text-xs font-mono font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                                  isBlocked
+                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                                    : 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.2)]'
+                                }`}
+                              >
+                                <Lock className="w-4 h-4" />
+                                <span>{isBlocked ? 'Unblock Investor Account' : 'Block Investor (Cancel Offers & Revoke Access)'}</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
-                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6">
-                  <div className="border-b border-[#1F2922] pb-3">
-                    <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                      Active Safety Protocols
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 font-mono text-xs">
-                    <div className="flex items-center justify-between p-3.5 bg-[#0B0F0C] border border-[#1F2922] rounded">
-                      <div className="space-y-0.5">
-                        <span className="text-[#E2E8F0] block">DDoS Mitigation Network</span>
-                        <span className="text-[10px] text-[#8E9B93]">Active sync buffers rate filtering.</span>
+                {/* PANEL 2: CONTROL CAMPAIGNS & MONEY */}
+                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+                      <div>
+                        <span className="text-xs font-mono text-[#00E676] uppercase tracking-wider block">2. CONTROL CAMPAIGNS & MONEY</span>
+                        <h3 className="text-sm font-mono text-[#E2E8F0] font-medium mt-0.5">Escrow Lock & Campaign Policing</h3>
                       </div>
-                      <button
-                        onClick={() => {
-                          setDdosMitigation(!ddosMitigation);
-                          addToast(`DDoS Mitigation set to ${!ddosMitigation ? 'ACTIVE' : 'INACTIVE'}.`, 'info');
-                        }}
-                        className={`px-2.5 py-1 rounded text-[10px] border font-medium ${ddosMitigation
-                          ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                          : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                          }`}
-                      >
-                        {ddosMitigation ? 'ACTIVE' : 'SUSPENDED'}
-                      </button>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-mono border border-sky-500/30 bg-sky-500/10 text-sky-400 uppercase">
+                        ESCROW GUARDIAN
+                      </span>
                     </div>
 
-                    <div className="flex items-center justify-between p-3.5 bg-[#0B0F0C] border border-[#1F2922] rounded">
-                      <div className="space-y-0.5">
-                        <span className="text-[#E2E8F0] block">Fraud Detection AI Daemon</span>
-                        <span className="text-[10px] text-[#8E9B93]">OCR and database checks.</span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setFraudDetectionAI(!fraudDetectionAI);
-                          addToast(`Fraud AI set to ${!fraudDetectionAI ? 'ACTIVE' : 'INACTIVE'}.`, 'info');
-                        }}
-                        className={`px-2.5 py-1 rounded text-[10px] border font-medium ${fraudDetectionAI
-                          ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                          : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                          }`}
+                    {/* Campaign Selector */}
+                    <div className="space-y-2 font-mono text-xs">
+                      <label className="text-[10px] text-[#8E9B93] block uppercase font-semibold">
+                        SELECT TARGET CAMPAIGN TO CONTROL:
+                      </label>
+                      <select
+                        value={selectedControlCampaignId}
+                        onChange={(e) => setSelectedControlCampaignId(e.target.value)}
+                        className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded p-3 text-[#E2E8F0] text-xs focus:outline-none focus:border-[#00E676]/50"
                       >
-                        {fraudDetectionAI ? 'ACTIVE' : 'OFFLINE'}
-                      </button>
+                        <option value="">-- Select Campaign --</option>
+                        {[...campaignsList, ...verifiedCampaigns].map(c => (
+                          <option key={c._id || c.id} value={c._id || c.id}>
+                            {c.title} ({c.university || 'Univ'}) - Target: ৳{Number(c.goal || 0).toLocaleString()}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
-                    <div className="flex items-center justify-between p-3.5 bg-[#0B0F0C] border border-[#1F2922] rounded">
-                      <div className="space-y-0.5">
-                        <span className="text-[#E2E8F0] block">L3 Manual Review Queue</span>
-                        <span className="text-[10px] text-[#8E9B93]">Supervisor intervention gates.</span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setL3ManualReview(!l3ManualReview);
-                          addToast(`L3 Manual Review Queue set to ${!l3ManualReview ? 'ACTIVE' : 'QUEUED'}.`, 'info');
-                        }}
-                        className={`px-2.5 py-1 rounded text-[10px] border font-medium ${l3ManualReview
-                          ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                          : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                          }`}
-                      >
-                        {l3ManualReview ? 'ACTIVE' : 'QUEUED'}
-                      </button>
-                    </div>
+                    {/* Target Campaign Details Preview */}
+                    {(() => {
+                      const allCamps = [...campaignsList, ...verifiedCampaigns];
+                      const targetCamp = allCamps.find(c => c._id === selectedControlCampaignId || c.id === selectedControlCampaignId) || allCamps[0];
+                      if (!targetCamp) return null;
+
+                      const isPaused = targetCamp.status === 'funding_paused';
+                      const isBlocked = targetCamp.status === 'blocked';
+                      const isFrozen = targetCamp.escrowFrozen;
+
+                      return (
+                        <div className="p-4 bg-[#0B0F0C] border border-[#1F2922] rounded space-y-3 font-mono text-xs">
+                          <div className="flex items-center justify-between border-b border-[#1F2922] pb-2">
+                            <div>
+                              <span className="text-[#E2E8F0] font-bold block text-sm">{targetCamp.title}</span>
+                              <span className="text-[10px] text-[#8E9B93] block">Goal: ৳{Number(targetCamp.goal || 0).toLocaleString('en-IN')} BDT</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                              {isPaused && <span className="px-2 py-0.5 rounded text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase font-bold">PAUSED</span>}
+                              {isBlocked && <span className="px-2 py-0.5 rounded text-[9px] bg-red-500/10 text-red-400 border border-red-500/30 uppercase font-bold">BLOCKED</span>}
+                              {isFrozen && <span className="px-2 py-0.5 rounded text-[9px] bg-sky-500/10 text-sky-400 border border-sky-500/30 uppercase font-bold">ESCROW FROZEN</span>}
+                              {!isPaused && !isBlocked && !isFrozen && <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/10 text-[#00E676] border border-emerald-500/30 uppercase font-bold">ACTIVE</span>}
+                            </div>
+                          </div>
+
+                          {/* 3 Direct Control Action Buttons */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                            {/* Button 1: Pause Funding */}
+                            <button
+                              type="button"
+                              onClick={() => handlePauseCampaignFunding(targetCamp._id || targetCamp.id, targetCamp.title)}
+                              className={`p-3 rounded border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                isPaused
+                                  ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                                  : 'bg-[#111613] border-[#1F2922] hover:border-amber-500/50 text-[#E2E8F0]'
+                              }`}
+                            >
+                              <span className="font-bold text-[11px] text-amber-400 flex items-center gap-1">
+                                {isPaused ? '▶ Resume Funding' : '⏸ Pause Funding'}
+                              </span>
+                              <span className="text-[9px] text-[#8E9B93] leading-tight">
+                                {isPaused ? 'Restore payment processing' : 'Temporarily stop money transfers'}
+                              </span>
+                            </button>
+
+                            {/* Button 2: Block / Delete Campaign */}
+                            <button
+                              type="button"
+                              onClick={() => handleBlockCampaignAction(targetCamp._id || targetCamp.id, targetCamp.title)}
+                              className={`p-3 rounded border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                isBlocked
+                                  ? 'bg-red-500/20 border-red-500 text-red-300'
+                                  : 'bg-[#111613] border-[#1F2922] hover:border-red-500/50 text-[#E2E8F0]'
+                              }`}
+                            >
+                              <span className="font-bold text-[11px] text-red-400 flex items-center gap-1">
+                                🚫 Block Campaign
+                              </span>
+                              <span className="text-[9px] text-[#8E9B93] leading-tight">
+                                Hide fake/bad pitch from investor feed
+                              </span>
+                            </button>
+
+                            {/* Button 3: Freeze Escrow Funds */}
+                            <button
+                              type="button"
+                              onClick={() => handleFreezeCampaignFundsAction(targetCamp._id || targetCamp.id, targetCamp.title)}
+                              className={`p-3 rounded border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                isFrozen
+                                  ? 'bg-sky-500/20 border-sky-500 text-sky-300'
+                                  : 'bg-[#111613] border-[#1F2922] hover:border-sky-500/50 text-[#E2E8F0]'
+                              }`}
+                            >
+                              <span className="font-bold text-[11px] text-sky-400 flex items-center gap-1">
+                                🔒 {isFrozen ? 'Unfreeze Funds' : 'Freeze Funds'}
+                              </span>
+                              <span className="text-[9px] text-[#8E9B93] leading-tight">
+                                Lock money in Escrow account
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
 
-              {/* Active Complaints Table */}
-              <div className="border border-[#1F2922] bg-[#111613] rounded overflow-hidden">
-                <div className="p-6 border-b border-[#1F2922]">
-                  <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                    Active Complaints Ledger
+              {/* PANEL 3: MANAGE ALL USER COMPLAINTS */}
+              <div className="border border-[#1F2922] bg-[#111613] rounded overflow-hidden space-y-0">
+                <div className="p-6 border-b border-[#1F2922] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-mono text-[#00E676] uppercase tracking-wider block">3. MANAGE ALL USER COMPLAINTS</span>
+                    <h3 className="text-lg font-mono text-[#E2E8F0] font-medium">Platform Complaints & Incident Ledger</h3>
+                  </div>
+
+                  <span className="text-xs font-mono text-[#8E9B93]">
+                    Total Registered Cases: <span className="text-[#E2E8F0] font-bold">{disputesList.length}</span>
                   </span>
                 </div>
 
+                {/* Active Complaints Table */}
                 <div className="overflow-x-auto text-xs font-mono">
                   {disputesList.length > 0 ? (
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-[#050806] border-b border-[#1F2922] text-[#8E9B93] font-medium">
-                          <th className="p-4">Issue / Campaign</th>
-                          <th className="p-4">Stakeholder</th>
+                          <th className="p-4">Case ID & Issue</th>
+                          <th className="p-4">Complainant</th>
+                          <th className="p-4">Reported Entity</th>
                           <th className="p-4">Severity</th>
-                          <th className="p-4">Timeline</th>
-                          <th className="p-4 text-center">Actions</th>
+                          <th className="p-4">Case Status</th>
+                          <th className="p-4 text-center whitespace-nowrap">Direct Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#1F2922]">
-                        {disputesList.map(dispute => (
-                          <tr key={dispute.id} className="hover:bg-[#111613]/55 transition-colors">
+                      <tbody className="divide-y divide-[#1F2922] text-[#E2E8F0]">
+                        {disputesList.map(complaint => (
+                          <tr key={complaint.id} className="hover:bg-[#111613]/80 transition-colors">
+                            {/* Case ID & Issue */}
                             <td className="p-4">
-                              <span className="text-[#E2E8F0] block">{dispute.issue}</span>
-                              <span className="text-[#8E9B93] text-[10px]">{dispute.campaign}</span>
+                              <span className="text-[#00E676] font-bold block">{complaint.id}</span>
+                              <span className="text-[#E2E8F0] font-medium block">{complaint.issueType}</span>
+                              <span className="text-[10px] text-[#8E9B93] block truncate max-w-[200px]">{complaint.campaignTitle}</span>
                             </td>
-                            <td className="p-4 text-[#8E9B93]">{dispute.stakeholder}</td>
+
+                            {/* Complainant */}
                             <td className="p-4">
-                              <span className={`px-2 py-0.5 rounded text-[10px] border font-medium ${dispute.severity === 'Critical'
-                                ? 'text-red-400 border-red-500/30 bg-red-500/10'
-                                : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                                }`}>
-                                {dispute.severity.toUpperCase()}
+                              <span className="text-[#E2E8F0] font-medium block">{complaint.complainant}</span>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] border border-sky-500/30 bg-sky-500/10 text-sky-400 font-sans uppercase">
+                                {complaint.complainantRole || 'Investor'}
                               </span>
                             </td>
+
+                            {/* Reported Entity */}
                             <td className="p-4">
-                              <div className="flex items-center gap-3">
-                                <span className="text-[#E2E8F0]">{dispute.timeline}</span>
-                                <div className="w-20 h-1.5 bg-[#0B0F0C] rounded-full overflow-hidden border border-[#1F2922]">
-                                  <div
-                                    className={`h-full rounded-full ${dispute.severity === 'Critical' ? 'bg-red-400' : 'bg-amber-400'}`}
-                                    style={{ width: dispute.severity === 'Critical' ? '90%' : '50%' }}
-                                  ></div>
-                                </div>
-                              </div>
+                              <span className="text-[#E2E8F0] font-medium block">{complaint.reportedUser}</span>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] border border-amber-500/30 bg-amber-500/10 text-amber-400 font-sans uppercase">
+                                {complaint.reportedRole || 'Student Founder'}
+                              </span>
                             </td>
+
+                            {/* Severity */}
                             <td className="p-4">
-                              <div className="flex justify-center">
-                                {dispute.severity === 'Critical' ? (
-                                  <button
-                                    onClick={() => handleFreezeDisputeFunds(dispute.id, dispute.campaign)}
-                                    disabled={dispute.actionTaken}
-                                    className={`px-3 py-1.5 text-[10px] font-mono font-medium rounded transition-colors cursor-pointer border border-red-500/50 text-red-400 hover:bg-red-500/10 ${dispute.actionTaken && 'opacity-30 cursor-not-allowed'
-                                      }`}
-                                  >
-                                    {dispute.actionTaken ? 'FUNDS_FROZEN' : 'FREEZE FUNDS'}
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleInvestigateDispute(dispute.id, dispute.campaign)}
-                                    disabled={dispute.actionTaken}
-                                    className={`px-3 py-1.5 text-[10px] font-mono font-medium rounded transition-colors cursor-pointer border border-[#1F2922] text-[#E2E8F0] hover:bg-[#0B0F0C] ${dispute.actionTaken && 'opacity-30 cursor-not-allowed'
-                                      }`}
-                                  >
-                                    {dispute.actionTaken ? 'INVESTIGATING' : 'INVESTIGATE'}
-                                  </button>
-                                )}
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                complaint.severity === 'Critical' ? 'text-red-400 bg-red-500/10 border border-red-500/30' :
+                                complaint.severity === 'High' ? 'text-amber-400 bg-amber-500/10 border border-amber-500/30' :
+                                'text-sky-400 bg-sky-500/10 border border-sky-500/30'
+                              }`}>
+                                {complaint.severity}
+                              </span>
+                            </td>
+
+                            {/* Case Status */}
+                            <td className="p-4">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                complaint.status === 'Dismissed' ? 'text-[#8E9B93] bg-[#0B0F0C] border border-[#1F2922]' :
+                                complaint.status === 'Funds Frozen' ? 'text-sky-400 bg-sky-500/10 border border-sky-500/30' :
+                                'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
+                              }`}>
+                                {complaint.status}
+                              </span>
+                            </td>
+
+                            {/* 4 Direct Action Buttons Right Next to Complaint */}
+                            <td className="p-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                {/* 1. Investigate */}
+                                <button
+                                  onClick={() => setInvestigatingComplaint(complaint)}
+                                  className="px-2.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/25 border border-sky-500/30 text-sky-400 rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                                >
+                                  <Eye className="w-3 h-3" /> Investigate
+                                </button>
+
+                                {/* 2. Freeze Funds */}
+                                <button
+                                  onClick={() => handleFreezeCampaignFundsAction(complaint.campaignId || complaint.campaignTitle, complaint.campaignTitle)}
+                                  className="px-2.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/25 border border-sky-500/30 text-sky-400 rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                                >
+                                  <Lock className="w-3 h-3" /> Freeze Funds
+                                </button>
+
+                                {/* 3. Block User */}
+                                <button
+                                  onClick={() => handleBlockUserAction(complaint.reportedUserId || complaint.reportedUser, complaint.reportedUser, complaint.reportedRole)}
+                                  className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-400 rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                                >
+                                  <Lock className="w-3 h-3" /> Block User
+                                </button>
+
+                                {/* 4. Dismiss */}
+                                <button
+                                  onClick={() => handleDismissComplaint(complaint.id)}
+                                  className="px-2.5 py-1.5 bg-[#0B0F0C] hover:bg-[#111613] border border-[#1F2922] text-[#8E9B93] hover:text-[#E2E8F0] rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                                >
+                                  <X className="w-3 h-3" /> Dismiss
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -2308,24 +2664,22 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       </tbody>
                     </table>
                   ) : (
-                    <div className="p-8 text-center text-[#8E9B93]">No active complaints registered. System secure.</div>
+                    <div className="p-8 text-center text-[#8E9B93]">No active user complaints registered. System secure.</div>
                   )}
                 </div>
               </div>
 
-              {/* Bottom Section Diagnostics */}
+              {/* Bottom Telemetry Diagnostics */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                {/* Security Event Stream */}
                 <div className="lg:col-span-2 border border-[#1F2922] bg-[#111613] rounded p-6 space-y-4">
                   <div className="flex items-center gap-2 border-b border-[#1F2922] pb-3">
                     <Terminal className="w-4 h-4 text-[#00E676]" />
                     <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                      Security Event Stream
+                      Security & Compliance Event Buffer
                     </span>
                   </div>
 
-                  <div className="bg-[#0B0F0C] border border-[#1F2922] rounded p-4 h-48 overflow-y-auto font-mono text-[10px] text-[#8E9B93] space-y-1.5 custom-scrollbar">
+                  <div className="bg-[#0B0F0C] border border-[#1F2922] rounded p-4 h-36 overflow-y-auto font-mono text-[10px] text-[#8E9B93] space-y-1.5 custom-scrollbar">
                     {securityLogs.map((log, index) => (
                       <div key={index} className="flex gap-2">
                         <span className="text-[#00E676] select-none">&gt;</span>
@@ -2335,267 +2689,29 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   </div>
                 </div>
 
-                {/* Risk Concentration Widget */}
                 <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-4">
                   <div className="border-b border-[#1F2922] pb-3">
                     <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                      Risk Concentration Widget
+                      Escrow Vault Health Check
                     </span>
                   </div>
 
-                  <div className="bg-[#0B0F0C] border border-[#1F2922] rounded p-5 space-y-4 text-xs font-mono">
-                    <div className="flex items-center gap-2 text-red-400">
-                      <MapPin className="w-4 h-4 text-red-500 animate-bounce" />
-                      <span>North America - Cluster A</span>
+                  <div className="bg-[#0B0F0C] border border-[#1F2922] rounded p-4 space-y-3 text-xs font-mono">
+                    <div className="flex items-center justify-between text-emerald-400">
+                      <span>Vault Integrity:</span>
+                      <span className="font-bold">100% OK</span>
                     </div>
-
-                    <div className="space-y-1.5 text-[10px] text-[#8E9B93]">
-                      <div className="flex justify-between">
-                        <span>Threat Density</span>
-                        <span className="text-[#E2E8F0]">High Alert</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Incident Log Sync</span>
-                        <span className="text-[#E2E8F0]">0.4s ago</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Flagged Node IPs</span>
-                        <span className="text-red-400 font-medium">04 active</span>
-                      </div>
+                    <div className="flex items-center justify-between text-[#8E9B93] text-[10px]">
+                      <span>Disbursements On Hold:</span>
+                      <span className="text-amber-400 font-bold">0</span>
                     </div>
-
-                    <button
-                      onClick={() => addToast('Threat map node updated. Local security relays synced.', 'info')}
-                      className="w-full py-2 bg-[#111613] hover:bg-[#0B0F0C] text-[#E2E8F0] border border-[#1F2922] text-[10px] font-mono rounded transition-colors cursor-pointer"
-                    >
-                      MAP_DIAGNOSTICS
-                    </button>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* SCREEN [5]: CAMPAIGN AUDIT VAULT (REMOVED FAKE DUMMY ATTRIBUTES - RENDER FROM DATABASE DOCS ONLY) */}
-          {activeTab === 'audits' && (
-            <div className="space-y-8 animate-fadeIn text-left">
-              <div className="space-y-1">
-                <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                  VETTING GATE & QUALITY GATES
-                </span>
-                <h2 className="text-2xl font-mono text-[#E2E8F0] tracking-tight font-medium">
-                  Campaign Audit Vault
-                </h2>
-              </div>
 
-              {campaignsList.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                  {/* Left List Column: Pending Campaigns List */}
-                  <div className="space-y-4">
-                    <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase block mb-1">
-                      Pending Audits - {campaignsList.length}
-                    </span>
-
-                    <div className="space-y-3 font-mono text-xs">
-                      {campaignsList.map(c => {
-                        const isSelected = c.id === selectedCampaignId;
-                        return (
-                          <button
-                            key={c._id}
-                            onClick={() => setSelectedCampaignId(c.id)}
-                            className={`w-full p-4 rounded bg-[#111613] border text-left transition-colors cursor-pointer flex flex-col justify-between gap-3 ${isSelected
-                              ? 'border-[#00E676] bg-[#111613]/85'
-                              : 'border-[#1F2922] hover:border-[#8E9B93]/40'
-                              }`}
-                          >
-                            <div className="flex items-start justify-between w-full">
-                              <div>
-                                <span className="text-[#E2E8F0] block font-medium">{c.title}</span>
-                                <span className="text-[10px] text-[#8E9B93]">{c.id}</span>
-                              </div>
-                              <span className="text-[9px] font-sans font-medium px-2 py-0.5 rounded border text-amber-400 border-amber-500/30 bg-amber-500/10">
-                                DRAFT
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between text-[10px] text-[#8E9B93] w-full pt-1 border-t border-[#1F2922]">
-                              <span>Budget: ৳ {c.goal.toLocaleString()}</span>
-                              <span>{c.university}</span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Right Detailed Viewer Column: Render Campaign Document strictly */}
-                  {selectedCampaign && (
-                    <div className="lg:col-span-2 space-y-6">
-                      <div className="border border-[#1F2922] bg-[#111613] rounded overflow-hidden">
-                        <div className="relative h-32 bg-slate-900 flex items-end p-6 border-b border-[#1F2922]">
-                          <div className="absolute inset-0 bg-[#0B0F0C]/70 mix-blend-multiply z-10"></div>
-                          <div className="absolute inset-0 bg-gradient-to-r from-emerald-950 to-cyan-950 opacity-40 z-0"></div>
-
-                          <div className="relative z-20 flex justify-between items-end w-full">
-                            <div className="space-y-1 font-mono text-xs">
-                              <span className="text-[#00E676] bg-[#00E676]/10 px-2 py-0.5 rounded border border-[#00E676]/30 uppercase text-[9px]">
-                                {selectedCampaign.stage || 'Venture Draft'}
-                              </span>
-                              <h3 className="text-xl text-[#E2E8F0] tracking-tight font-medium mt-1">
-                                {selectedCampaign.title}
-                              </h3>
-                            </div>
-                            <span className="font-mono text-xs text-[#8E9B93]">
-                              DRAFT_REF: {selectedCampaign.id}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Badges of campaign (loaded from Mongoose fields) */}
-                        <div className="p-6 border-b border-[#1F2922] grid grid-cols-3 gap-4 text-center font-mono text-xs">
-                          <div className="bg-[#0B0F0C] border border-[#1F2922] p-3 rounded">
-                            <span className="text-[#8E9B93] block text-[9px] uppercase">Budget Target</span>
-                            <span className="text-[#E2E8F0] font-medium block mt-1">৳ {selectedCampaign.goal?.toLocaleString()}</span>
-                          </div>
-                          <div className="bg-[#0B0F0C] border border-[#1F2922] p-3 rounded">
-                            <span className="text-[#8E9B93] block text-[9px] uppercase">Terms Offered</span>
-                            <span className="text-[#E2E8F0] font-medium block mt-1">{selectedCampaign.equityOffer}</span>
-                          </div>
-                          <div className="bg-[#0B0F0C] border border-[#1F2922] p-3 rounded">
-                            <span className="text-[#8E9B93] block text-[9px] uppercase">Category</span>
-                            <span className="text-[#E2E8F0] font-medium block mt-1">{selectedCampaign.category}</span>
-                          </div>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-
-                          {/* Description box */}
-                          <div className="space-y-2 font-mono text-xs">
-                            <span className="text-[#8E9B93] block uppercase text-[9px]">Description Overview</span>
-                            <p className="text-[#E2E8F0] leading-relaxed bg-[#0B0F0C] border border-[#1F2922] p-4 rounded text-[11px]">
-                              {selectedCampaign.description}
-                            </p>
-                          </div>
-
-                          {/* Roadmap Timeline loaded from c.milestones */}
-                          {selectedCampaign.milestones && selectedCampaign.milestones.length > 0 && (
-                            <div className="space-y-4">
-                              <span className="font-mono text-[10px] text-[#8E9B93] tracking-widest uppercase block">
-                                Database Roadmap Timeline
-                              </span>
-
-                              <div className="grid grid-cols-4 gap-2 text-center font-mono text-[9px] relative before:absolute before:left-0 before:right-0 before:top-2.5 before:h-0.5 before:bg-[#1F2922]">
-                                {selectedCampaign.milestones.map((milestone, idx) => {
-                                  const isDone = milestone.status === 'done';
-                                  const isActive = milestone.status === 'active' || milestone.status === 'pending';
-                                  return (
-                                    <div key={milestone._id || idx} className="relative z-10 flex flex-col items-center">
-                                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center mb-2 ${isDone
-                                        ? 'bg-[#00E676] text-black border-[#00E676]'
-                                        : isActive
-                                          ? 'bg-amber-500/10 text-amber-400 border-amber-500'
-                                          : 'bg-[#0B0F0C] text-[#8E9B93] border-[#1F2922]'
-                                        }`}>
-                                        {isDone ? <Check className="w-3 h-3" /> : idx + 1}
-                                      </div>
-                                      <span className={isDone ? 'text-[#00E676] font-medium' : isActive ? 'text-amber-400 font-medium' : 'text-[#8E9B93]'}>
-                                        {milestone.title}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Compliance Audit Checklist card */}
-                          <div className="border border-[#1F2922] bg-[#0B0F0C] rounded p-5 space-y-4">
-                            <span className="font-mono text-[10px] text-[#8E9B93] tracking-widest uppercase block border-b border-[#1F2922] pb-2">
-                              Compliance Audit Checklist
-                            </span>
-
-                            <div className="space-y-3 font-mono text-xs">
-                              {/* Item 1 */}
-                              <button
-                                onClick={() => toggleCompliance(selectedCampaign.id, 'smartContractAudit')}
-                                className="w-full flex items-center gap-3 justify-between p-3.5 bg-[#111613] border border-[#1F2922] rounded hover:border-[#00E676]/30 cursor-pointer text-left"
-                              >
-                                <div className="space-y-0.5">
-                                  <span className="text-[#E2E8F0] block">Smart Contract Audit (Solidity V0.8.19)</span>
-                                  <span className="text-[10px] text-[#8E9B93]">Validates compiled code bytecode logic safety parameters.</span>
-                                </div>
-                                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded border ${compliance.smartContractAudit
-                                  ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                                  : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                                  }`}>
-                                  {compliance.smartContractAudit ? 'VERIFIED' : 'PENDING'}
-                                </span>
-                              </button>
-
-                              {/* Item 2 */}
-                              <button
-                                onClick={() => toggleCompliance(selectedCampaign.id, 'founderIdentity')}
-                                className="w-full flex items-center gap-3 justify-between p-3.5 bg-[#111613] border border-[#1F2922] rounded hover:border-[#00E676]/30 cursor-pointer text-left"
-                              >
-                                <div className="space-y-0.5">
-                                  <span className="text-[#E2E8F0] block">Founder Identity Verification (KYC/KYB)</span>
-                                  <span className="text-[10px] text-[#8E9B93]">Confirms registration databases enrollments match.</span>
-                                </div>
-                                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded border ${compliance.founderIdentity
-                                  ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                                  : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                                  }`}>
-                                  {compliance.founderIdentity ? 'VERIFIED' : 'PENDING'}
-                                </span>
-                              </button>
-
-                              {/* Item 3 */}
-                              <button
-                                onClick={() => toggleCompliance(selectedCampaign.id, 'regulatoryCompliance')}
-                                className="w-full flex items-center gap-3 justify-between p-3.5 bg-[#111613] border border-[#1F2922] rounded hover:border-[#00E676]/30 cursor-pointer text-left"
-                              >
-                                <div className="space-y-0.5">
-                                  <span className="text-[#E2E8F0] block">Regulatory Compliance Shield</span>
-                                  <span className="text-[10px] text-[#8E9B93]">Awaiting final administrator supervisory verification.</span>
-                                </div>
-                                <span className={`text-[10px] font-sans font-medium px-2 py-0.5 rounded border ${compliance.regulatoryCompliance
-                                  ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                                  : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                                  }`}>
-                                  {compliance.regulatoryCompliance ? 'VERIFIED' : 'PENDING'}
-                                </span>
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-4 pt-2">
-                            <button
-                              onClick={() => handlePublishCampaign(selectedCampaign._id, selectedCampaign.title)}
-                              className="flex-1 py-2.5 bg-[#00E676] hover:bg-[#00E575]/90 text-black font-mono font-medium rounded text-xs text-center transition-colors cursor-pointer"
-                            >
-                              Publish to Feed
-                            </button>
-                            <button
-                              onClick={() => handleRequestEdits(selectedCampaign.title)}
-                              className="flex-1 py-2.5 bg-[#0B0F0C] hover:bg-[#111613] text-[#E2E8F0] border border-[#1F2922] font-mono text-xs text-center transition-colors cursor-pointer"
-                            >
-                              Request Edits
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="border border-dashed border-[#1F2922] rounded-xl p-12 text-center text-[#8E9B93] space-y-3 font-mono">
-                  <Check className="w-8 h-8 text-[#00E676] mx-auto opacity-70" />
-                  <p className="text-xs font-medium">All startup campaign verification requests cleared on mainnet.</p>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* SCREEN [6]: ADMIN ACTIVITY LOG */}
           {activeTab === 'logs' && (
@@ -3105,6 +3221,113 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: INVESTIGATION EVIDENCE & COMPLAINT DETAILS MODAL */}
+      {investigatingComplaint && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111613] border border-[#1F2922] w-full max-w-2xl rounded-lg p-6 space-y-6 animate-fadeIn font-mono text-xs text-left relative">
+            <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+              <div>
+                <span className="text-[#00E676] font-bold text-sm block">CASE INVESTIGATION VAULT: {investigatingComplaint.id}</span>
+                <span className="text-[10px] text-[#8E9B93]">Filed on: {investigatingComplaint.createdAt}</span>
+              </div>
+              <button 
+                onClick={() => setInvestigatingComplaint(null)}
+                className="text-[#8E9B93] hover:text-[#E2E8F0] cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Stakeholder Summary Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-3 bg-[#0B0F0C] border border-[#1F2922] rounded space-y-1">
+                <span className="text-[9px] text-[#8E9B93] block uppercase">COMPLAINANT (REPORTED BY)</span>
+                <span className="text-[#E2E8F0] font-bold block">{investigatingComplaint.complainant}</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] border border-sky-500/30 bg-sky-500/10 text-sky-400 font-sans uppercase inline-block">
+                  {investigatingComplaint.complainantRole}
+                </span>
+              </div>
+
+              <div className="p-3 bg-[#0B0F0C] border border-[#1F2922] rounded space-y-1">
+                <span className="text-[9px] text-[#8E9B93] block uppercase">REPORTED ENTITY</span>
+                <span className="text-red-400 font-bold block">{investigatingComplaint.reportedUser}</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] border border-amber-500/30 bg-amber-500/10 text-amber-400 font-sans uppercase inline-block">
+                  {investigatingComplaint.reportedRole}
+                </span>
+              </div>
+            </div>
+
+            {/* Complaint Issue & Description Statement */}
+            <div className="space-y-2 bg-[#0B0F0C] border border-[#1F2922] p-4 rounded">
+              <div className="flex items-center justify-between border-b border-[#1F2922] pb-2">
+                <span className="text-amber-400 font-bold text-xs uppercase">Issue: {investigatingComplaint.issueType}</span>
+                <span className="text-red-400 text-[10px] uppercase font-bold px-2 py-0.5 bg-red-500/10 border border-red-500/30 rounded">
+                  Severity: {investigatingComplaint.severity}
+                </span>
+              </div>
+              <p className="text-[#E2E8F0] leading-relaxed pt-1 text-xs">
+                {investigatingComplaint.description}
+              </p>
+            </div>
+
+            {/* Uploaded Evidence Card */}
+            <div className="p-4 bg-[#0B0F0C] border border-[#1F2922] rounded flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-[#8E9B93] uppercase block">UPLOADED EVIDENCE ATTACHMENT</span>
+                <span className="text-[#E2E8F0] font-bold block">{investigatingComplaint.evidenceFile || 'evidence_proof.pdf'}</span>
+                <span className="text-[10px] text-[#8E9B93] block">{investigatingComplaint.evidenceSize || '1.2 MB'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDocPreviewModal({ title: investigatingComplaint.issueType, filename: investigatingComplaint.evidenceFile || 'evidence.pdf', size: investigatingComplaint.evidenceSize || '1.2 MB' })}
+                className="px-3 py-2 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 rounded text-xs cursor-pointer flex items-center gap-1.5 font-semibold"
+              >
+                <Eye className="w-3.5 h-3.5" /> Inspect Proof
+              </button>
+            </div>
+
+            {/* Direct Enforcement Actions Inside Modal */}
+            <div className="space-y-2 pt-2 border-t border-[#1F2922]">
+              <span className="text-[10px] text-[#8E9B93] uppercase block font-semibold">DIRECT ENFORCEMENT ACTIONS:</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleFreezeCampaignFundsAction(investigatingComplaint.campaignId || investigatingComplaint.campaignTitle, investigatingComplaint.campaignTitle);
+                    setInvestigatingComplaint(null);
+                  }}
+                  className="py-2.5 px-3 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 font-semibold rounded text-[11px] cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Freeze Campaign Funds
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleBlockUserAction(investigatingComplaint.reportedUserId || investigatingComplaint.reportedUser, investigatingComplaint.reportedUser, investigatingComplaint.reportedRole);
+                    setInvestigatingComplaint(null);
+                  }}
+                  className="py-2.5 px-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded text-[11px] cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <Lock className="w-3.5 h-3.5" /> Block Reported User
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDismissComplaint(investigatingComplaint.id);
+                    setInvestigatingComplaint(null);
+                  }}
+                  className="py-2.5 px-3 bg-[#0B0F0C] hover:bg-[#111613] text-[#8E9B93] border border-[#1F2922] font-semibold rounded text-[11px] cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <X className="w-3.5 h-3.5" /> Dismiss Complaint
+                </button>
+              </div>
             </div>
           </div>
         </div>
