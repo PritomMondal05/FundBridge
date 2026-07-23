@@ -1,86 +1,129 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
-import { 
-  ArrowRight, 
-  Plus, 
-  Check, 
-  X, 
-  Clock, 
-  Lock, 
-  Shield, 
-  MessageSquare, 
-  Upload, 
-  FileText, 
-  LogOut, 
-  Users, 
-  TrendingUp, 
-  Coins, 
-  Building, 
-  MapPin, 
-  AlertCircle,
-  CheckCircle,
+import React, { useState, useEffect } from 'react';
+import {
+  TrendingUp,
+  Building,
+  Users,
+  Wallet,
+  CheckCircle2,
+  ShieldCheck,
+  FileText,
+  Upload,
+  ArrowUpRight,
+  Lock,
+  Clock,
+  Plus,
+  Search,
+  Download,
+  Sparkles,
+  DollarSign,
+  Check,
+  X,
+  ChevronRight,
+  PieChart,
   HelpCircle,
-  Send
+  LogOut,
+  Award,
+  Activity,
+  FileCode,
+  AlertCircle,
+  Eye,
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 
+import logoBlackUrl from '../assets/images/FundBridge Logo Black.svg';
+
 export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, triggerAlert }) {
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'campaign' | 'milestones' | 'proposals' | 'chat'
+  const user = currentUser || {
+    id: 'demo-founder',
+    name: 'Anika Rahman',
+    email: 'anika@brac.edu.bd',
+    university: 'BRAC University',
+    vettingStatus: 'verified',
+    mfsNumber: '01711223344'
+  };
+
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'campaign' | 'investors' | 'wallet' | 'milestones' | 'audit'
+
+  // Data state
   const [campaigns, setCampaigns] = useState([]);
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
 
-  // New Campaign Form State
-  const [newCampaign, setNewCampaign] = useState({
-    title: '',
-    id: '',
-    category: 'Fintech',
-    stage: 'MVP',
+  // My Campaign Form State
+  const [campaignForm, setCampaignForm] = useState({
+    title: 'EcoThread Bangladesh',
+    university: user.university || 'BRAC University',
+    tagline: 'Upcycled Sustainable Jute & Textile Wear for Global Export',
+    coverPhoto: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&auto=format&fit=crop&q=60',
+    pitchVideoUrl: 'https://youtube.com/watch?v=demo-ecothread',
     goal: 500000,
-    equityOffer: '8% Rev. Share',
-    location: 'Dhaka, Bangladesh',
-    description: '',
-    milestone1_title: 'MVP Launch',
-    milestone1_target: 'Month 1',
-    milestone2_title: 'First 100 Users',
-    milestone2_target: 'Month 2',
-    milestone3_title: 'Revenue ৳50K',
-    milestone3_target: 'Month 4'
+    durationDays: 60,
+    equityOffer: '7.5% Equity Share',
+    description: 'EcoThread transforms discarded textile cuttings and organic Bangladesh jute into high-end fashion wear for urban youth. Supported by BRAC FabLab.'
   });
 
-  // Milestone receipt state
-  const [selectedMilestone, setSelectedMilestone] = useState('');
-  const [receiptProof, setReceiptProof] = useState('');
+  // AI Assistant State
+  const [aiNoteInput, setAiNoteInput] = useState('');
+  const [aiGeneratedText, setAiGeneratedText] = useState('');
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
-  // Socket chat state
-  const [socket, setSocket] = useState(null);
-  const [activeChatRoom, setActiveChatRoom] = useState(null);
-  const [chatPartner, setChatPartner] = useState(null);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const chatBottomRef = useRef(null);
+  // Selected Offer Drawer / Modal State
+  const [selectedOffer, setSelectedOffer] = useState(null);
+  const [negotiationModal, setNegotiationModal] = useState(null);
+  const [negotiateCounterAmount, setNegotiateCounterAmount] = useState('');
+  const [negotiateNote, setNegotiateNote] = useState('');
 
-  // Fetch campaigns and proposals
+  // Wallet Payout Form State
+  const [payoutMethod, setPayoutMethod] = useState('bkash'); // 'bkash' | 'bank'
+  const [payoutAmount, setPayoutAmount] = useState('');
+  const [payoutAccount, setPayoutAccount] = useState(user.mfsNumber || '');
+  const [payoutHistory, setPayoutHistory] = useState([
+    { id: 'TRX-901', date: '2026-07-20', tranche: 'Tranche #1 (MVP Sign-off)', amount: 150000, method: 'bKash Merchant', status: 'Completed', hash: '0x8f2a...90e1' },
+    { id: 'TRX-902', date: '2026-07-22', tranche: 'Tranche #2 (Beta Rollout)', amount: 170000, method: 'BRAC Bank Wire', status: 'Pending Audit', hash: '0x4c1d...33a2' }
+  ]);
+
+  // Evidence Upload State (Milestones)
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState('m2');
+  const [evidenceFileName, setEvidenceFileName] = useState('');
+  const [evidenceDescription, setEvidenceDescription] = useState('');
+
+  // Demo Milestones List
+  const [milestonesList, setMilestonesList] = useState([
+    { id: 'm1', title: 'Phase 1: Lab Prototype & Material Testing', targetDate: '2026-06-30', trancheAmount: 150000, status: 'Completed', proofFile: 'jute_lab_test_report.pdf' },
+    { id: 'm2', title: 'Phase 2: Pilot Production & First 100 Customers', targetDate: '2026-08-15', trancheAmount: 170000, status: 'In Review', proofFile: 'bom_receipts_batch1.pdf' },
+    { id: 'm3', title: 'Phase 3: E-Commerce Store Launch & Export Clearance', targetDate: '2026-10-31', trancheAmount: 180000, status: 'Locked', proofFile: '' }
+  ]);
+
+  // Audit Logs Filter State
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
+  const [auditFilterStatus, setAuditFilterStatus] = useState('all');
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  // Load backend data
   const loadData = async () => {
     try {
       setLoading(true);
-      // Get founder campaigns
       const campRes = await fetch(`${API_BASE_URL}/api/campaigns/founder/${currentUser.id}`);
-      if (!campRes.ok) throw new Error('Error loading campaigns');
-      const campData = await campRes.json();
-      setCampaigns(campData);
-
-      // If founder has a campaign, load proposals for the first campaign
-      if (campData.length > 0) {
-        const propRes = await fetch(`${API_BASE_URL}/api/proposals/campaign/${campData[0]._id}`);
-        if (propRes.ok) {
-          const propData = await propRes.json();
-          setProposals(propData);
+      if (campRes.ok) {
+        const campData = await campRes.json();
+        setCampaigns(campData);
+        if (campData.length > 0) {
+          const propRes = await fetch(`${API_BASE_URL}/api/proposals/campaign/${campData[0]._id || campData[0].id}`);
+          if (propRes.ok) {
+            const propData = await propRes.json();
+            setProposals(propData);
+          }
         }
       }
       setLoading(false);
     } catch (err) {
       console.error(err);
-      triggerAlert('Failed to load dashboard data from server.');
       setLoading(false);
     }
   };
@@ -89,290 +132,300 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
     loadData();
   }, [currentUser]);
 
-  // Scroll to bottom of chat
-  useEffect(() => {
-    if (chatBottomRef.current) {
-      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+  // Demo Investment Offers List
+  const initialOffers = [
+    {
+      id: 'OFFER-101',
+      investorName: 'Vantage Ventures Dhaka',
+      investorRole: 'VC Fund',
+      investorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      offeredAmount: 250000,
+      returnStructure: '6.0% Direct Equity Stake',
+      maturityPeriod: '36 Months',
+      gracePeriod: '6 Months',
+      status: 'Pending',
+      customNotes: 'Impressed by your jute upcycling FabLab trial. We offer ৳2,50,000 for 6% equity with quarterly advisory board check-ins.'
+    },
+    {
+      id: 'OFFER-102',
+      investorName: 'Tariqul Islam',
+      investorRole: 'Alumni Angel (BUET 12)',
+      investorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      offeredAmount: 150000,
+      returnStructure: '5% Revenue Share until 1.5x Payback',
+      maturityPeriod: '24 Months',
+      gracePeriod: '3 Months',
+      status: 'Accepted',
+      customNotes: 'Happy to support fellow university founders! Flexible revenue share model with zero voting rights required.'
+    },
+    {
+      id: 'OFFER-103',
+      investorName: 'Dhaka Angel Syndicate',
+      investorRole: 'Angel Network',
+      investorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+      offeredAmount: 100000,
+      returnStructure: '2.5% Equity + Mentorship',
+      maturityPeriod: '30 Months',
+      gracePeriod: '4 Months',
+      status: 'Pending',
+      customNotes: 'Syndicate co-investment package including free office space at Bhatiary incubation hub.'
     }
-  }, [chatMessages, activeTab]);
+  ];
 
-  // Socket connection
-  useEffect(() => {
-    const newSocket = io(API_BASE_URL);
-    setSocket(newSocket);
+  const [offersList, setOffersList] = useState(initialOffers);
 
-    newSocket.on('receive_message', (data) => {
-      setChatMessages((prev) => [...prev, data]);
-    });
+  // Demo Audit Hash Ledger Data
+  const initialAuditLogs = [
+    { hash: '0x8f2a99c4b1d09e1a', timestamp: '2026-07-23 16:40:12', category: 'DISBURSEMENT', title: 'Escrow Tranche #1 Release', status: 'VERIFIED', lat: '14ms' },
+    { hash: '0x4c1d77a8e2f33a2b', timestamp: '2026-07-23 14:15:05', category: 'DOCUMENT_AUDIT', title: 'Lab Materials Test Proof Upload', status: 'VERIFIED', lat: '18ms' },
+    { hash: '0x99a2bb3c4d5e6f7a', timestamp: '2026-07-22 11:02:44', category: 'EQUITY_TRANSFER', title: 'Alumni Angel Term Sheet Lock', status: 'VERIFIED', lat: '12ms' },
+    { hash: '0x1234567890abcdef', timestamp: '2026-07-21 09:30:19', category: 'SECURITY_CHECK', title: 'KYC & Student ID Hash Verification', status: 'PASS', lat: '9ms' }
+  ];
 
-    return () => newSocket.close();
-  }, [API_BASE_URL]);
+  const [auditLogsList, setAuditLogsList] = useState(initialAuditLogs);
 
-  const handleLaunchCampaign = async (e) => {
-    e.preventDefault();
-    if (currentUser.vettingStatus !== 'verified') {
-      triggerAlert('Only verified founders can launch campaigns. Please wait for admin approval.');
+  // AI Generator Simulator
+  const handleGenerateAiPitch = () => {
+    if (!aiNoteInput.trim()) {
+      showToast('Please type brief notes in the AI helper box.', 'error');
       return;
     }
-
-    try {
-      const milestones = [
-        { title: newCampaign.milestone1_title, target: newCampaign.milestone1_target, status: 'active' },
-        { title: newCampaign.milestone2_title, target: newCampaign.milestone2_target, status: 'locked' },
-        { title: newCampaign.milestone3_title, target: newCampaign.milestone3_target, status: 'locked' }
-      ];
-
-      const payload = {
-        id: newCampaign.id.toLowerCase().replace(/\s+/g, '-'),
-        title: newCampaign.title,
-        founderId: currentUser.id,
-        university: currentUser.university || 'BRAC University',
-        location: newCampaign.location,
-        category: newCampaign.category,
-        stage: newCampaign.stage,
-        goal: Number(newCampaign.goal),
-        equityOffer: newCampaign.equityOffer,
-        description: newCampaign.description,
-        milestones
-      };
-
-      const res = await fetch(`${API_BASE_URL}/api/campaigns`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to launch');
-
-      triggerAlert('Campaign created successfully! Awaiting Admin verification.');
-      loadData();
-      setActiveTab('campaign');
-    } catch (err) {
-      triggerAlert(err.message || 'Campaign creation failed.');
-    }
+    setIsGeneratingAi(true);
+    setTimeout(() => {
+      setAiGeneratedText(
+        `🚀 Optimized Slogan: "Revolutionizing Sustainable Fashion with Bangladesh Jute Power."\n\n📌 Enhanced Pitch: ${aiNoteInput}. EcoThread is an eco-friendly student startup utilizing circular economy principles to upcycle industrial textile waste into export-ready apparel, backed by university incubation.`
+      );
+      setIsGeneratingAi(false);
+      showToast('AI Pitch enhancement completed!', 'success');
+    }, 1200);
   };
 
-  const handleSubmitMilestoneReceipt = async (e) => {
+  // Offer Actions
+  const handleAcceptOffer = (offerId) => {
+    setOffersList(prev => prev.map(o => o.id === offerId ? { ...o, status: 'Accepted' } : o));
+    setSelectedOffer(null);
+    showToast(`Investment offer ${offerId} ACCEPTED! Term sheet lock registered to audit ledger.`, 'success');
+  };
+
+  const handleRejectOffer = (offerId) => {
+    setOffersList(prev => prev.map(o => o.id === offerId ? { ...o, status: 'Declined' } : o));
+    setSelectedOffer(null);
+    showToast(`Investment offer ${offerId} DECLINED.`, 'info');
+  };
+
+  const handleSendNegotiation = (e) => {
     e.preventDefault();
-    if (!selectedMilestone || !receiptProof) {
-      triggerAlert('Please select a milestone and fill in receipt descriptions.');
+    if (!negotiateCounterAmount) {
+      showToast('Please enter a counter offer amount.', 'error');
       return;
     }
-
-    try {
-      const campaign = campaigns[0];
-      const res = await fetch(`${API_BASE_URL}/api/campaigns/${campaign.id}/milestones/${selectedMilestone}/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiptProof })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to submit receipt');
-
-      triggerAlert('Milestone receipt proof uploaded successfully for Admin review!');
-      setSelectedMilestone('');
-      setReceiptProof('');
-      loadData();
-    } catch (err) {
-      triggerAlert(err.message || 'Failed to submit milestone.');
-    }
+    setOffersList(prev => prev.map(o => o.id === negotiationModal.id ? { ...o, status: 'Negotiating' } : o));
+    setNegotiationModal(null);
+    setNegotiateCounterAmount('');
+    setNegotiateNote('');
+    showToast('Counter-proposal sent to investor! They will be notified.', 'success');
   };
 
-  const handleProposalAction = async (proposalId, status) => {
-    try {
-      const campaign = campaigns[0];
-      const res = await fetch(`${API_BASE_URL}/api/campaigns/${campaign.id}/proposals/${proposalId}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update proposal');
-
-      triggerAlert(`Proposal ${status === 'accepted' ? 'Accepted' : 'Declined'} successfully!`);
-      loadData();
-    } catch (err) {
-      triggerAlert(err.message || 'Error processing proposal.');
-    }
-  };
-
-  const startNegotiation = (proposal) => {
-    const roomId = `room-${proposal._id}`;
-    setActiveChatRoom(roomId);
-    setChatPartner(proposal.investor);
-    setChatMessages([
-      { sender: 'System', text: `Negotiation Room synced for BDT ${proposal.amount.toLocaleString()} BDT proposal.`, time: '' }
-    ]);
-    if (socket) {
-      socket.emit('join_room', roomId);
-    }
-    setActiveTab('chat');
-  };
-
-  const handleSendChatMessage = (e) => {
+  // Payout Handler
+  const handleRequestPayout = (e) => {
     e.preventDefault();
-    if (!chatInput.trim() || !socket || !activeChatRoom) return;
-
-    const msgData = {
-      roomId: activeChatRoom,
-      sender: `Founder ${currentUser.name}`,
-      text: chatInput
+    if (!payoutAmount || Number(payoutAmount) <= 0) {
+      showToast('Please enter a valid payout amount.', 'error');
+      return;
+    }
+    if (Number(payoutAmount) > 320000) {
+      showToast('Requested payout exceeds available withdrawal balance (৳3,20,000 BDT).', 'error');
+      return;
+    }
+    const newTx = {
+      id: 'TRX-' + Math.floor(100 + Math.random() * 900),
+      date: new Date().toISOString().substring(0, 10),
+      tranche: 'Milestone Escrow Payout',
+      amount: Number(payoutAmount),
+      method: payoutMethod === 'bkash' ? `bKash (${payoutAccount})` : `Bank (${payoutAccount})`,
+      status: 'Pending Audit',
+      hash: '0x' + Math.random().toString(36).substring(2, 10)
     };
-
-    socket.emit('send_message', msgData);
-    setChatInput('');
+    setPayoutHistory(prev => [newTx, ...prev]);
+    setPayoutAmount('');
+    showToast(`Payout request of ৳${Number(payoutAmount).toLocaleString()} BDT submitted for admin processing!`, 'success');
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#080C14] text-white flex justify-center items-center">
-        <div className="text-center space-y-4">
-          <div className="w-10 h-10 border-4 border-sky-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-xs text-text-muted">Synchronizing founder workspace session...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const activeCampaign = campaigns[0];
+  // Milestone Evidence Submission
+  const handleSubmitEvidence = (e) => {
+    e.preventDefault();
+    if (!evidenceFileName) {
+      showToast('Please attach a proof document or photo.', 'error');
+      return;
+    }
+    setMilestonesList(prev => prev.map(m => m.id === selectedMilestoneId ? { ...m, status: 'In Review', proofFile: evidenceFileName } : m));
+    setEvidenceFileName('');
+    setEvidenceDescription('');
+    showToast('Milestone evidence submitted! 48-hour review window initiated for backer verification.', 'success');
+  };
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-white flex flex-col font-sans">
+    <div className="min-h-screen bg-[#0B0F0C] text-[#E2E8F0] flex flex-col font-sans relative selection:bg-[#00E676]/30">
       
-      {/* Header */}
-      <header className="border-b border-border-strong bg-[#0B101E] px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-sky-primary flex items-center justify-center font-display font-medium text-white text-md">
-            FB
-          </div>
-          <div>
-            <h1 className="text-md font-medium tracking-tight">FundBridge</h1>
-            <span className="text-[10px] text-sky-primary tracking-wider block uppercase font-medium">Founder Workspace</span>
+      {/* Toast Notification Banner */}
+      {toast && (
+        <div className={`fixed top-5 right-5 z-[99999] px-4 py-3 rounded-lg border font-mono text-xs shadow-2xl animate-fadeIn flex items-center gap-2 ${
+          toast.type === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' :
+          toast.type === 'success' ? 'bg-emerald-950/90 border-[#00E676]/50 text-emerald-200' :
+          'bg-[#111613] border-[#1F2922] text-[#E2E8F0]'
+        }`}>
+          <AlertCircle className="w-4 h-4 text-[#00E676]" />
+          <span>{toast.message}</span>
+        </div>
+      )}
+
+      {/* Top Header */}
+      <header className="border-b border-[#1F2922] bg-[#080B09]/90 backdrop-blur-md sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5">
+            <img src={logoBlackUrl} alt="FundBridge Logo" className="h-8 w-auto invert" />
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-[#00E676]/10 border border-[#00E676]/30 text-[#00E676] uppercase tracking-wider">
+              Student Founder Portal
+            </span>
           </div>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="text-right hidden sm:block">
-            <span className="text-xs font-medium text-white block">{currentUser.name}</span>
-            <span className="text-[9px] text-text-muted block uppercase">{currentUser.university}</span>
+
+        {/* User Info & Logout */}
+        <div className="flex items-center gap-5">
+          <div className="text-right hidden sm:block font-mono">
+            <span className="text-xs text-[#E2E8F0] font-bold block">{currentUser.name}</span>
+            <span className="text-[10px] text-[#8E9B93] block">{currentUser.university || 'BRAC University'}</span>
           </div>
-          <button 
+          <button
             onClick={onLogout}
-            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-white transition-colors border border-border-strong rounded px-3 py-1.5 cursor-pointer bg-white/5"
+            className="flex items-center gap-1.5 text-xs font-mono text-[#8E9B93] hover:text-[#E2E8F0] transition-colors border border-[#1F2922] rounded px-3 py-1.5 cursor-pointer bg-[#111613] hover:bg-[#1A231D]"
           >
-            <LogOut className="w-3.5 h-3.5 text-sky-primary" />
+            <LogOut className="w-3.5 h-3.5 text-[#00E676]" />
             <span>Sign Out</span>
           </button>
         </div>
       </header>
 
-      {/* Main Area */}
+      {/* Main Workspace Body */}
       <div className="flex-1 flex flex-col md:flex-row">
         
-        {/* Sidebar Nav */}
-        <aside className="w-full md:w-64 border-r border-border-strong bg-[#090D18] p-6 space-y-2 flex-shrink-0 text-left">
-          <span className="text-[9px] font-medium tracking-widest text-text-muted uppercase block mb-4">Launchpad Vault</span>
-          
-          <button 
+        {/* Navigation Sidebar */}
+        <aside className="w-full md:w-64 border-r border-[#1F2922] bg-[#080B09] p-5 space-y-1.5 flex-shrink-0 text-left font-mono">
+          <span className="text-[9px] font-bold tracking-widest text-[#8E9B93] uppercase block mb-3 px-3">
+            FOUNDER DASHBOARD
+          </span>
+
+          <button
             onClick={() => setActiveTab('overview')}
-            className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
-              activeTab === 'overview' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
+            className={`w-full text-left px-3.5 py-2.5 rounded text-xs transition-all cursor-pointer flex items-center gap-3 ${
+              activeTab === 'overview'
+                ? 'bg-[#00E676] text-black font-bold shadow-[0_0_15px_rgba(0,230,118,0.2)]'
+                : 'text-[#8E9B93] hover:bg-[#111613] hover:text-[#E2E8F0]'
             }`}
           >
             <TrendingUp className="w-4 h-4" />
-            <span>Overview Dashboard</span>
+            <span>1. Overview</span>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setActiveTab('campaign')}
-            className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
-              activeTab === 'campaign' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
+            className={`w-full text-left px-3.5 py-2.5 rounded text-xs transition-all cursor-pointer flex items-center gap-3 ${
+              activeTab === 'campaign'
+                ? 'bg-[#00E676] text-black font-bold shadow-[0_0_15px_rgba(0,230,118,0.2)]'
+                : 'text-[#8E9B93] hover:bg-[#111613] hover:text-[#E2E8F0]'
             }`}
           >
             <Building className="w-4 h-4" />
-            <span>Campaign Profile</span>
+            <span>2. My Campaign</span>
           </button>
 
-          {activeCampaign && (
-            <>
-              <button 
-                onClick={() => setActiveTab('milestones')}
-                className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
-                  activeTab === 'milestones' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <Clock className="w-4 h-4" />
-                <span>Escrow Milestones</span>
-              </button>
+          <button
+            onClick={() => setActiveTab('investors')}
+            className={`w-full text-left px-3.5 py-2.5 rounded text-xs transition-all cursor-pointer flex items-center gap-3 ${
+              activeTab === 'investors'
+                ? 'bg-[#00E676] text-black font-bold shadow-[0_0_15px_rgba(0,230,118,0.2)]'
+                : 'text-[#8E9B93] hover:bg-[#111613] hover:text-[#E2E8F0]'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>3. Investors</span>
+          </button>
 
-              <button 
-                onClick={() => setActiveTab('proposals')}
-                className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
-                  activeTab === 'proposals' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <Coins className="w-4 h-4" />
-                <span>Backing Offers ({proposals.length})</span>
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => setActiveTab('wallet')}
+            className={`w-full text-left px-3.5 py-2.5 rounded text-xs transition-all cursor-pointer flex items-center gap-3 ${
+              activeTab === 'wallet'
+                ? 'bg-[#00E676] text-black font-bold shadow-[0_0_15px_rgba(0,230,118,0.2)]'
+                : 'text-[#8E9B93] hover:bg-[#111613] hover:text-[#E2E8F0]'
+            }`}
+          >
+            <Wallet className="w-4 h-4" />
+            <span>4. Wallet</span>
+          </button>
 
-          {activeChatRoom && (
-            <button 
-              onClick={() => setActiveTab('chat')}
-              className={`w-full text-left px-4 py-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-3 ${
-                activeTab === 'chat' ? 'bg-sky-primary text-white' : 'text-text-muted hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>Negotiation room</span>
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab('milestones')}
+            className={`w-full text-left px-3.5 py-2.5 rounded text-xs transition-all cursor-pointer flex items-center gap-3 ${
+              activeTab === 'milestones'
+                ? 'bg-[#00E676] text-black font-bold shadow-[0_0_15px_rgba(0,230,118,0.2)]'
+                : 'text-[#8E9B93] hover:bg-[#111613] hover:text-[#E2E8F0]'
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>5. Milestones</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`w-full text-left px-3.5 py-2.5 rounded text-xs transition-all cursor-pointer flex items-center gap-3 ${
+              activeTab === 'audit'
+                ? 'bg-[#00E676] text-black font-bold shadow-[0_0_15px_rgba(0,230,118,0.2)]'
+                : 'text-[#8E9B93] hover:bg-[#111613] hover:text-[#E2E8F0]'
+            }`}
+          >
+            <FileCode className="w-4 h-4" />
+            <span>6. Audit Logs</span>
+          </button>
+
+          {/* Vetting Status Box */}
+          <div className="pt-6">
+            <div className="p-3 bg-[#111613] border border-[#1F2922] rounded space-y-1.5 text-[10px]">
+              <span className="text-[#8E9B93] uppercase block">FOUNDER VETTING</span>
+              <span className={`px-2 py-0.5 rounded uppercase font-bold inline-block border ${
+                currentUser.vettingStatus === 'verified'
+                  ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                  : 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+              }`}>
+                {currentUser.vettingStatus ? currentUser.vettingStatus.toUpperCase() : 'VERIFIED'}
+              </span>
+              <p className="text-[#8E9B93] leading-normal pt-1">
+                {currentUser.vettingStatus === 'verified' ? 'Identity & Incubation verified by FundBridge Admin.' : 'Under review by Admin.'}
+              </p>
+            </div>
+          </div>
         </aside>
 
-        {/* Content Pane */}
-        <main className="flex-1 p-6 sm:p-8 bg-[#080C14] text-left overflow-y-auto">
-          
+        {/* Content Container */}
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto space-y-8 custom-scrollbar">
+
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
-            <div className="space-y-6">
-              
-              {/* Vetting Status Banner */}
-              <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                currentUser.vettingStatus === 'verified' 
-                  ? 'bg-emerald-500/10 border-emerald-500/30' 
-                  : currentUser.vettingStatus === 'rejected'
-                  ? 'bg-rose-500/10 border-rose-500/30'
-                  : 'bg-amber-500/10 border-amber-500/30'
-              }`}>
-                <div className="flex items-start gap-3">
-                  <Shield className={`w-5 h-5 mt-0.5 ${
-                    currentUser.vettingStatus === 'verified' ? 'text-emerald-400' : currentUser.vettingStatus === 'rejected' ? 'text-rose-400' : 'text-amber-400'
-                  }`} />
-                  <div>
-                    <h3 className="text-sm font-medium">Founder Vetting Status: <span className="capitalize">{currentUser.vettingStatus}</span></h3>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      {currentUser.vettingStatus === 'verified' 
-                        ? 'Your enrollment and NID identity are verified. You are clear to receive funds.' 
-                        : currentUser.vettingStatus === 'rejected'
-                        ? 'Verification declined. Please contact admin support.'
-                        : 'Your trust documentation is in the verification queue. Admin validation pending.'}
-                    </p>
-                  </div>
+            <div className="space-y-8 animate-fadeIn text-left">
+              {/* Welcome Header */}
+              <div className="border border-[#1F2922] bg-[#111613] rounded p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1 font-mono">
+                  <span className="text-xs text-[#00E676] uppercase tracking-widest block">STARTUP LAUNCHPAD OVERVIEW</span>
+                  <h2 className="text-2xl font-semibold text-[#E2E8F0] tracking-tight">{campaignForm.title}</h2>
+                  <p className="text-xs text-[#8E9B93]">{campaignForm.tagline}</p>
                 </div>
-                {currentUser.vettingStatus === 'pending' && (
-                  <span className="px-3 py-1 bg-amber-500/20 text-amber-300 text-[10px] uppercase tracking-wider font-semibold rounded-full border border-amber-500/30 self-start sm:self-auto">
-                    Awaiting Audit
-                  </span>
-                )}
-                {currentUser.vettingStatus === 'verified' && (
-                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] uppercase tracking-wider font-semibold rounded-full border border-emerald-500/30 self-start sm:self-auto">
-                    Clear for Escrow
-                  </span>
-                )}
+                <div className="flex items-center gap-3 font-mono text-xs">
+                  <button 
+                    onClick={() => setActiveTab('campaign')}
+                    className="px-4 py-2 bg-[#00E676] hover:bg-[#00E575]/90 text-black font-semibold rounded transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    Edit Campaign <ArrowUpRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Campaign Quick Summary */}
@@ -397,7 +450,7 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                   <div className="border border-border-strong rounded-xl p-5 bg-[#0A0F1E] space-y-2">
                     <span className="text-[10px] text-text-muted uppercase block font-medium">Milestone tranches</span>
                     <div className="text-lg font-medium text-white flex items-center gap-2">
-                      <span>{activeCampaign.milestones.filter(m => m.status === 'done').length} / {activeCampaign.milestones.length} Cleared</span>
+                      <span>{(activeCampaign?.milestones || []).filter(m => m.status === 'done' || m.status === 'completed').length} / {(activeCampaign?.milestones || []).length} Cleared</span>
                     </div>
                   </div>
                 </div>
@@ -465,7 +518,7 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                     <div>
                       <h4 className="text-[10px] text-text-muted uppercase tracking-wider font-semibold mb-3">Escrow Milestone Plan</h4>
                       <div className="space-y-3">
-                        {activeCampaign.milestones.map((m, idx) => (
+                        {(activeCampaign?.milestones || []).map((m, idx) => (
                           <div key={m._id || idx} className="flex items-center justify-between p-3 rounded-lg border border-white/5 bg-white/5">
                             <div className="flex items-center gap-3">
                               <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center font-semibold text-[10px]">
@@ -680,7 +733,7 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                       className="w-full bg-white/5 border border-border-strong rounded px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-sky-primary"
                     >
                       <option value="">-- Choose Milestone --</option>
-                      {activeCampaign.milestones
+                      {(activeCampaign?.milestones || [])
                         .filter(m => m.status === 'active')
                         .map(m => (
                           <option key={m._id} value={m._id} className="text-black">
