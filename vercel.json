@@ -2,6 +2,6 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/server.js" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/|favicon.png|.*\\..*).*)", "destination": "/index.html" }
   ]
 }

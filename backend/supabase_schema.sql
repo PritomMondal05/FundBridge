@@ -1,8 +1,17 @@
 -- ========================================================
 -- FUNDBRIDGE COMPLETE SUPABASE DATABASE SCHEMA
 -- ========================================================
+-- This file contains all table schemas, columns, indexes, 
+-- and initial seed data for the FundBridge Web Application.
+-- Compatible with PostgreSQL and Supabase.
+-- ========================================================
 
--- 1. Users Table (Founders, Investors, Admin)
+-- Enable pgcrypto extension for UUID generation if needed
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- ========================================================
+-- 1. USERS TABLE (Founders, Investors, Admin)
+-- ========================================================
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -30,7 +39,30 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Campaigns Table (Startup Pitches)
+-- Migrations & Safe Column Alters for Users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'founder';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vetting_status TEXT DEFAULT 'pending';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS mfs_number TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS university TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS department TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nid TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS dob TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id_card_image TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_card_image TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS affiliation_status TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS institution TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS passing_year TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_or_passport TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_or_mfs TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nid_or_passport_image TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS credentials_image TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS credentials_link TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vetting_date TIMESTAMP WITH TIME ZONE;
+
+-- ========================================================
+-- 2. CAMPAIGNS TABLE (Startup Pitches)
+-- ========================================================
 CREATE TABLE IF NOT EXISTS campaigns (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -53,14 +85,18 @@ CREATE TABLE IF NOT EXISTS campaigns (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Ensure all columns exist if the table was previously created
+-- Migrations & Safe Column Alters for Campaigns
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS tagline TEXT;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS cover_photo TEXT;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS pitch_video_url TEXT;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS escrow_frozen BOOLEAN DEFAULT FALSE;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS milestones JSONB DEFAULT '[]'::jsonb;
 
--- 3. Proposals Table (Investor Backing Offers)
+-- ========================================================
+-- 3. PROPOSALS TABLE (Investor Backing Offers)
+-- ========================================================
 CREATE TABLE IF NOT EXISTS proposals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   campaign_id TEXT REFERENCES campaigns(id) ON DELETE CASCADE,
@@ -75,13 +111,16 @@ CREATE TABLE IF NOT EXISTS proposals (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Ensure all columns exist if proposals table was previously created
+-- Migrations & Safe Column Alters for Proposals
 ALTER TABLE proposals ADD COLUMN IF NOT EXISTS return_structure TEXT;
 ALTER TABLE proposals ADD COLUMN IF NOT EXISTS maturity_period TEXT;
 ALTER TABLE proposals ADD COLUMN IF NOT EXISTS grace_period TEXT;
 ALTER TABLE proposals ADD COLUMN IF NOT EXISTS custom_notes TEXT;
+ALTER TABLE proposals ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
 
--- 4. Payouts Table (Founder Wallet Disbursements)
+-- ========================================================
+-- 4. PAYOUTS TABLE (Founder Wallet Disbursements)
+-- ========================================================
 CREATE TABLE IF NOT EXISTS payouts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   founder_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -94,7 +133,13 @@ CREATE TABLE IF NOT EXISTS payouts (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 5. Disputes Table (User Complaints & Holds)
+-- Migrations & Safe Column Alters for Payouts
+ALTER TABLE payouts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Pending Audit';
+ALTER TABLE payouts ADD COLUMN IF NOT EXISTS hash TEXT NOT NULL DEFAULT '0x0000';
+
+-- ========================================================
+-- 5. DISPUTES TABLE (User Complaints & Escrow Holds)
+-- ========================================================
 CREATE TABLE IF NOT EXISTS disputes (
   id TEXT PRIMARY KEY,
   complainant_name TEXT NOT NULL,
@@ -112,7 +157,13 @@ CREATE TABLE IF NOT EXISTS disputes (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. Audit Logs Table (Cryptographic Receipt Hashes)
+-- Migrations & Safe Column Alters for Disputes
+ALTER TABLE disputes ADD COLUMN IF NOT EXISTS severity TEXT DEFAULT 'High';
+ALTER TABLE disputes ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Open';
+
+-- ========================================================
+-- 6. AUDIT LOGS TABLE (Cryptographic Hash Receipts)
+-- ========================================================
 CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hash TEXT NOT NULL,
@@ -123,7 +174,22 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Disable Row Level Security (RLS) for smooth API access
+-- ========================================================
+-- PERFORMANCE INDEXES
+-- ========================================================
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_campaigns_founder_id ON campaigns(founder_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
+CREATE INDEX IF NOT EXISTS idx_proposals_campaign_id ON proposals(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_proposals_investor_id ON proposals(investor_id);
+CREATE INDEX IF NOT EXISTS idx_payouts_founder_id ON payouts(founder_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+
+-- ========================================================
+-- ROW LEVEL SECURITY (RLS)
+-- Disable RLS for simple direct backend API connectivity
+-- ========================================================
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE campaigns DISABLE ROW LEVEL SECURITY;
 ALTER TABLE proposals DISABLE ROW LEVEL SECURITY;
@@ -131,7 +197,9 @@ ALTER TABLE payouts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE disputes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs DISABLE ROW LEVEL SECURITY;
 
--- SEED DATA (Default Admin, Founder, Investor, Campaigns, & Disputes)
+-- ========================================================
+-- SEED DATA (Default Entities for Immediate Platform Setup)
+-- ========================================================
 
 -- 1. Default Admin User
 INSERT INTO users (name, email, password, role, vetting_status, mfs_number)
@@ -149,7 +217,7 @@ VALUES ('Vantage Ventures Dhaka', 'investor@firm.com', 'investorpassword', 'inve
 ON CONFLICT (email) DO NOTHING;
 
 -- 4. Default Seed Campaign
-INSERT INTO campaigns (id, title, university, location, category, stage, goal, raised, equity_offer, tagline, description, verified, status)
+INSERT INTO campaigns (id, title, university, location, category, stage, goal, raised, equity_offer, tagline, description, verified, status, milestones)
 VALUES (
   'campusbites',
   'CampusBites',
@@ -163,7 +231,8 @@ VALUES (
   'Smart Canteen Ordering & Pre-Meal Reservation App for University Campuses',
   'CampusBites eliminates long queues at university cafeterias by enabling pre-ordering via Mobile Financial Services (bKash/Nagad). Fully integrated with student ID cards.',
   TRUE,
-  'verified'
+  'verified',
+  '[{"title": "MVP Launch", "target": "Month 1", "status": "done"}, {"title": "First 100 Users", "target": "Month 2", "status": "pending"}, {"title": "Revenue ৳50K", "target": "Month 4", "status": "locked"}]'::jsonb
 )
 ON CONFLICT (id) DO NOTHING;
 
@@ -186,6 +255,5 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 6. Default Audit Hash Entry
 INSERT INTO audit_logs (hash, category, title, status, latency)
-VALUES ('0x8f2a99c4b1d09e1a', 'DISBURSEMENT', 'Escrow Tranche #1 Release', 'VERIFIED', '14ms');
-
-
+VALUES ('0x8f2a99c4b1d09e1a', 'DISBURSEMENT', 'Escrow Tranche #1 Release', 'VERIFIED', '14ms')
+ON CONFLICT DO NOTHING;

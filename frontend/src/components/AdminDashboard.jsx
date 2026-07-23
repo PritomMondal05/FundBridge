@@ -33,10 +33,14 @@ import landingImage from '../assets/images/landing_image.webp';
 export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert }) {
   // Authentication & Session State
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
-    const saved = localStorage.getItem('fundbridge_user');
-    if (saved) {
-      const u = JSON.parse(saved);
-      return u.role === 'admin';
+    try {
+      const saved = localStorage.getItem('fundbridge_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        return u && u.role === 'admin';
+      }
+    } catch (e) {
+      console.warn("Failed to parse fundbridge_user in AdminDashboard", e);
     }
     return false;
   });

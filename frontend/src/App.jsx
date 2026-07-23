@@ -101,23 +101,34 @@ export default function App() {
 
   // Authentication & Session State
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('fundbridge_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('fundbridge_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.warn("Failed to parse fundbridge_user from localStorage", e);
+      return null;
+    }
   });
   const [token, setToken] = useState(() => {
-    return localStorage.getItem('fundbridge_token') || null;
+    try {
+      return localStorage.getItem('fundbridge_token') || null;
+    } catch (e) {
+      return null;
+    }
   });
 
   // Navigation & Modals State
   const [activeModal, setActiveModal] = useState(null); // 'login' | 'register' | null
   const [registerRole, setRegisterRole] = useState('founder'); // 'founder' | 'investor'
   const [currentView, setCurrentView] = useState(() => {
-    const saved = localStorage.getItem('fundbridge_user');
-    if (saved) {
-      const u = JSON.parse(saved);
-      return u.role; // 'admin', 'founder', or 'investor'
-    }
-    if (window.location.hostname.startsWith('admin') || window.location.pathname.startsWith('/admin') || window.location.hash === '#admin') {
+    try {
+      const saved = localStorage.getItem('fundbridge_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        if (u && u.role) return u.role; // 'admin', 'founder', or 'investor'
+      }
+    } catch (e) {}
+    if (typeof window !== 'undefined' && (window.location.hostname.startsWith('admin') || window.location.pathname.startsWith('/admin') || window.location.hash === '#admin')) {
       return 'admin';
     }
     return 'landing';
