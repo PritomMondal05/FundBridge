@@ -294,23 +294,6 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- 5. Default Seed Complaint Dispute
-INSERT INTO disputes (id, complainant_name, complainant_role, reported_user, reported_role, campaign_title, campaign_id, issue_type, description, severity, status)
-VALUES (
-  'CMP-801',
-  'Vantage Ventures Dhaka',
-  'investor',
-  'Anika Rahman',
-  'student',
-  'CampusBites',
-  'campusbites',
-  'Late Milestone Delivery',
-  'Founder has failed to submit Milestone 2 proof documents past the agreed 30-day timeline despite receiving seed funding tranche.',
-  'Critical',
-  'Open'
-)
-ON CONFLICT (id) DO NOTHING;
-
 -- 6. Default Audit Hash Entry
 INSERT INTO audit_logs (hash, category, title, status, latency)
 VALUES ('0x8f2a99c4b1d09e1a', 'DISBURSEMENT', 'Escrow Tranche #1 Release', 'VERIFIED', '14ms')
