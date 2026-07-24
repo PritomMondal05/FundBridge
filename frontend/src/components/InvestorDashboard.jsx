@@ -50,8 +50,32 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   const [walletLedger, setWalletLedger] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [showChatDrawer, setShowChatDrawer] = useState(false);
+  const [chatTarget, setChatTarget] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInputText, setChatInputText] = useState('');
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+
+  const handleSendChatMessage = async (e) => {
+    if (e) e.preventDefault();
+    if (!chatInputText.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/chat/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: currentUser?.id || currentUser?._id || user.id,
+          senderName: profileUser.name || user.name || 'Investor',
+          receiverId: chatTarget?._id || chatTarget?.id || 'all',
+          text: chatInputText
+        })
+      });
+      if (res.ok) {
+        setChatInputText('');
+      }
+    } catch (err) {}
+  };
 
   // Search & Filter state for Campaigns
   const [campaignSearch, setCampaignSearch] = useState('');
@@ -299,14 +323,6 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
               </div>
             )}
           </div>
-
-          <button
-            onClick={() => setIsChatDrawerOpen(true)}
-            className="p-2 text-slate-500 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
-            title="Messages"
-          >
-            <MessageSquare className="w-4.5 h-4.5" />
-          </button>
 
           <div className="h-6 w-px bg-slate-200 my-auto"></div>
 

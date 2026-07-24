@@ -58,9 +58,33 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
     vettingStatus: user.vettingStatus || 'verified'
   });
 
-  // Notifications State (Real database notifications)
+  // Notifications & Chat State
   const [notifications, setNotifications] = useState([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [showChatDrawer, setShowChatDrawer] = useState(false);
+  const [chatTarget, setChatTarget] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInputText, setChatInputText] = useState('');
+
+  const handleSendChatMessage = async (e) => {
+    if (e) e.preventDefault();
+    if (!chatInputText.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/chat/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: currentUser?.id || currentUser?._id || user.id,
+          senderName: profileUser.name || user.name || 'Founder',
+          receiverId: chatTarget?._id || chatTarget?.id || 'all',
+          text: chatInputText
+        })
+      });
+      if (res.ok) {
+        setChatInputText('');
+      }
+    } catch (err) {}
+  };
 
   // Database State (Only real records loaded from backend)
   const [campaigns, setCampaigns] = useState([]);
@@ -607,13 +631,6 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                 </div>
               )}
             </div>
-
-            <button 
-              onClick={() => setIsChatDrawerOpen(true)}
-              className="p-2 text-slate-500 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              <MessageSquare className="w-4.5 h-4.5" />
-            </button>
 
             <div className="h-6 w-px bg-slate-200 my-auto"></div>
 
@@ -2019,62 +2036,6 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                   Submit Request
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* FR-7: DIRECT REAL-TIME CHAT DRAWER */}
-      {showChatDrawer && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end">
-          <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs">
-                  {chatTarget?.name?.[0] || 'I'}
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm">{chatTarget?.name || 'Angel Investor'}</h4>
-                  <span className="text-[10px] text-emerald-400 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Direct Messaging Active (FR-7)
-                  </span>
-                </div>
-              </div>
-              <button onClick={() => setShowChatDrawer(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50">
-              {chatMessages.length === 0 ? (
-                <div className="text-center py-10 text-xs text-slate-400">
-                  <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>No messages yet. Start discussing deal terms!</p>
-                </div>
-              ) : (
-                chatMessages.map((m, idx) => (
-                  <div key={idx} className={`flex flex-col ${m.sender_id === (currentUser?.id || user.id) ? 'items-end' : 'items-start'}`}>
-                    <div className={`max-w-[80%] p-3 rounded-2xl text-xs ${m.sender_id === (currentUser?.id || user.id) ? 'bg-[#047857] text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-xs'}`}>
-                      <p>{m.text}</p>
-                    </div>
-                    <span className="text-[9px] text-slate-400 mt-1 px-1">{m.sender_name || 'User'}</span>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <form onSubmit={handleSendChatMessage} className="p-3 bg-white border-t border-slate-200 flex gap-2">
-              <input
-                type="text"
-                value={chatInputText}
-                onChange={(e) => setChatInputText(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
-              <button type="submit" className="px-4 py-2 bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs rounded-xl shadow-xs cursor-pointer">
-                Send
-              </button>
             </form>
           </div>
         </div>
