@@ -247,6 +247,33 @@ const normalizeProposal = (p) => {
   };
 };
 
+// Helper function to create and broadcast real-time notifications
+async function createAndDispatchNotification(userId, title, message, type = 'info') {
+  const notifObj = {
+    id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    user_id: userId,
+    title,
+    message,
+    type,
+    is_read: false,
+    created_at: new Date().toISOString()
+  };
+  fallbackNotifications.unshift(notifObj);
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      await supabase.from('notifications').insert([notifObj]);
+    } catch (e) {}
+  }
+
+  // Socket.io real-time broadcast
+  if (typeof io !== 'undefined' && io) {
+    io.to(userId).emit('receive_notification', notifObj);
+    io.emit('new_notification_broadcast', notifObj);
+  }
+  return notifObj;
+}
+
 // Health Check API
 app.get('/api/health', async (req, res) => {
   let dbStatus = 'disconnected';
@@ -1193,30 +1220,11 @@ app.put('/api/notifications/:id/read', async (req, res) => {
     }
     const notif = fallbackNotifications.find(n => n.id === id);
     if (notif) notif.is_read = true;
-// Helper function to create and broadcast real-time notifications
-async function createAndDispatchNotification(userId, title, message, type = 'info') {
-  const notifObj = {
-    id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-    user_id: userId,
-    title,
-    message,
-    type,
-    is_read: false,
-    created_at: new Date().toISOString()
-  };
-  fallbackNotifications.unshift(notifObj);
-
-  if (isSupabaseConfigured && supabase) {
-    try {
-      await supabase.from('notifications').insert([notifObj]);
-    } catch (e) {}
+    res.status(200).json({ message: 'Notification marked as read.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error marking notification read.' });
   }
-
-  // Socket.io real-time broadcast
-  io.to(userId).emit('receive_notification', notifObj);
-  io.emit('new_notification_broadcast', notifObj);
-  return notifObj;
-}
+});
 
 app.post('/api/notifications', async (req, res) => {
   try {
