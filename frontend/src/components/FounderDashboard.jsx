@@ -58,6 +58,10 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
     vettingStatus: user.vettingStatus || 'verified'
   });
 
+  // Notifications State (Real database notifications)
+  const [notifications, setNotifications] = useState([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
   // Database State (Only real records loaded from backend)
   const [campaigns, setCampaigns] = useState([]);
   const [allCampaigns, setAllCampaigns] = useState([]);
@@ -182,6 +186,13 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
         setAuditLogs(auditData);
       }
 
+      // 6. Fetch Real-Time Notifications from DB
+      const notifRes = await fetch(`${API_BASE_URL}/api/notifications?userId=${userId}`);
+      if (notifRes.ok) {
+        const notifData = await notifRes.json();
+        setNotifications(notifData || []);
+      }
+
       setLoading(false);
     } catch (err) {
       console.error('Database fetch error:', err);
@@ -191,6 +202,31 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
 
   useEffect(() => {
     fetchDatabaseData();
+
+    // Socket.io real-time listener for instant notifications
+    const newSocket = io(API_BASE_URL);
+    const userId = currentUser?.id || currentUser?._id || user.id;
+
+    if (userId) {
+      newSocket.emit('join_room', userId);
+    }
+
+    newSocket.on('receive_notification', (newNotif) => {
+      if (newNotif.user_id === userId || newNotif.user_id === 'all') {
+        setNotifications(prev => [newNotif, ...prev]);
+        showToast(`🔔 ${newNotif.title}: ${newNotif.message}`, 'info');
+      }
+    });
+
+    newSocket.on('new_notification_broadcast', (newNotif) => {
+      if (!newNotif.user_id || newNotif.user_id === userId || newNotif.user_id === 'all') {
+        setNotifications(prev => [newNotif, ...prev]);
+      }
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
   }, [currentUser]);
 
   // Active Campaign Object
@@ -517,14 +553,65 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
             />
           </div>
 
-          {/* Right User Bar (Clicking opens Settings) */}
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-slate-500 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors">
-              <Bell className="w-4.5 h-4.5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
-            </button>
+          {/* Right User Bar */}
+          <div className="flex items-center gap-4 relative">
+            <div className="relative">
+              <button 
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="relative p-2 text-slate-500 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <Bell className="w-4.5 h-4.5" />
+                {notifications.filter(n => !n.is_read).length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white animate-pulse"></span>
+                )}
+              </button>
 
-            <button className="p-2 text-slate-500 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors">
+              {/* Notification Popover Dropdown */}
+              {isNotifOpen && (
+                <div className="absolute right-0 top-11 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-4 space-y-3 animate-fadeIn text-left">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <h4 className="text-xs font-bold text-slate-900">System Notifications</h4>
+                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                      {notifications.filter(n => !n.is_read).length} Unread
+                    </span>
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto space-y-2 text-xs">
+                    {notifications.length > 0 ? (
+                      notifications.map(n => (
+                        <div 
+                          key={n.id || n._id}
+                          onClick={async () => {
+                            try {
+                              await fetch(`${API_BASE_URL}/api/notifications/${n.id || n._id}/read`, { method: 'PUT' });
+                              setNotifications(prev => prev.map(x => (x.id === n.id || x._id === n._id ? { ...x, is_read: true } : x)));
+                            } catch(e){}
+                          }}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                            !n.is_read ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-100 opacity-75'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1">
+                            <span className="font-bold text-slate-900 text-[11px] block">{n.title}</span>
+                            <span className="text-[9px] text-slate-400 font-mono whitespace-nowrap">
+                              {n.created_at ? new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-tight mt-1">{n.message}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="py-6 text-center text-xs text-slate-400">No notifications yet.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setIsChatDrawerOpen(true)}
+              className="p-2 text-slate-500 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+            >
               <MessageSquare className="w-4.5 h-4.5" />
             </button>
 

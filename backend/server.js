@@ -514,6 +514,36 @@ app.get('/api/admin/users/investors', async (req, res) => {
   }
 });
 
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    let fc = fallbackUsers.filter(u => u.role === 'founder').length;
+    let ic = fallbackUsers.filter(u => u.role === 'investor').length;
+    if (isSupabaseConfigured && supabase) {
+      const { data: usersData } = await supabase.from('users').select('role');
+      if (usersData) {
+        fc = usersData.filter(u => u.role === 'founder').length;
+        ic = usersData.filter(u => u.role === 'investor').length;
+      }
+    }
+    res.status(200).json({ totalFounders: fc, totalInvestors: ic });
+  } catch (err) {
+    res.status(200).json({ totalFounders: 1, totalInvestors: 1 });
+  }
+});
+
+app.get('/api/disputes', async (req, res) => {
+  try {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('disputes').select('*').order('created_at', { ascending: false });
+      if (!error && data) return res.status(200).json(data);
+    }
+    res.status(200).json([]);
+  } catch (err) {
+    res.status(200).json([]);
+  }
+});
+
+
 // CAMPAIGN MANAGEMENT APIS
 app.get('/api/campaigns', async (req, res) => {
   try {
@@ -668,6 +698,16 @@ app.post('/api/campaigns/:id/proposals', async (req, res) => {
 
     fallbackProposals.unshift(normalizeProposal(proposalObj));
 
+    // Send real-time notification to Founder
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    const targetFounderId = cmp?.founder_id || cmp?.founder?._id || cmp?.founder?.id || 'usr_founder_1';
+    await createAndDispatchNotification(
+      targetFounderId,
+      'New Investment Proposal Received! 💰',
+      `${investorName || 'An investor'} submitted a BDT ৳${Number(amount).toLocaleString()} funding proposal for your startup.`,
+      'info'
+    );
+
     res.status(201).json({ message: 'Investment proposal submitted to Founder.', proposal: createdProp || proposalObj });
   } catch (err) {
     console.error('Error submitting proposal:', err);
@@ -734,6 +774,17 @@ app.post('/api/campaigns/:id/proposals/:proposalId/status', async (req, res) => 
 
     const fp = fallbackProposals.find(p => p.id === proposalId || p._id === proposalId);
     if (fp) fp.status = status;
+
+    if (fp && (fp.investorId || fp.investor_id)) {
+      const targetInvId = fp.investorId || fp.investor_id;
+      const type = status === 'accepted' ? 'success' : 'warning';
+      await createAndDispatchNotification(
+        targetInvId,
+        `Proposal ${status.toUpperCase()}! 📄`,
+        `The founder has ${status} your investment proposal.`,
+        type
+      );
+    }
 
     res.status(200).json({ message: `Proposal status updated to ${status}.` });
   } catch (err) {
@@ -1142,9 +1193,40 @@ app.put('/api/notifications/:id/read', async (req, res) => {
     }
     const notif = fallbackNotifications.find(n => n.id === id);
     if (notif) notif.is_read = true;
-    res.status(200).json({ message: 'Notification marked as read.' });
+// Helper function to create and broadcast real-time notifications
+async function createAndDispatchNotification(userId, title, message, type = 'info') {
+  const notifObj = {
+    id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    user_id: userId,
+    title,
+    message,
+    type,
+    is_read: false,
+    created_at: new Date().toISOString()
+  };
+  fallbackNotifications.unshift(notifObj);
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      await supabase.from('notifications').insert([notifObj]);
+    } catch (e) {}
+  }
+
+  // Socket.io real-time broadcast
+  io.to(userId).emit('receive_notification', notifObj);
+  io.emit('new_notification_broadcast', notifObj);
+  return notifObj;
+}
+
+app.post('/api/notifications', async (req, res) => {
+  try {
+    const { userId, title, message, type } = req.body;
+    if (!userId || !title) return res.status(400).json({ error: 'User ID and title required.' });
+
+    const notif = await createAndDispatchNotification(userId, title, message || '', type || 'info');
+    res.status(201).json(notif);
   } catch (err) {
-    res.status(500).json({ error: 'Error marking notification read.' });
+    res.status(500).json({ error: 'Error sending notification.' });
   }
 });
 

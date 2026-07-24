@@ -103,63 +103,8 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   const [campaignRejectionReason, setCampaignRejectionReason] = useState('');
   const [docPreviewModal, setDocPreviewModal] = useState(null); // { title, filename, size }
 
-  // Initial realistic demo complaints for Disputes & Holds Management
-  const initialComplaints = [
-    {
-      id: 'CMP-801',
-      complainant: 'Vantage Ventures Dhaka',
-      complainantRole: 'investor',
-      reportedUser: 'Anika Rahman',
-      reportedUserId: 'founder-anika',
-      reportedRole: 'student',
-      campaignTitle: 'CampusBites',
-      campaignId: 'campusbites',
-      issueType: 'Late Milestone Delivery',
-      description: 'Founder has failed to submit Milestone 2 proof documents past the agreed 30-day timeline despite receiving seed funding tranche.',
-      evidenceFile: 'milestone_delay_notice_q3.pdf',
-      evidenceSize: '1.4 MB',
-      severity: 'Critical',
-      status: 'Open',
-      createdAt: '2026-07-22 11:30'
-    },
-    {
-      id: 'CMP-802',
-      complainant: 'Tariqul Islam',
-      complainantRole: 'student',
-      reportedUser: 'Siddique Rahman',
-      reportedUserId: 'investor-siddique',
-      reportedRole: 'investor',
-      campaignTitle: 'SolarGrid AI',
-      campaignId: 'solargrid',
-      issueType: 'Payment Issues',
-      description: 'Investor wire transfer transaction hash failed confirmation on bKash merchant ledger. Pending investment terms remain unpaid.',
-      evidenceFile: 'mfs_bank_transfer_receipt.pdf',
-      evidenceSize: '850 KB',
-      severity: 'High',
-      status: 'Open',
-      createdAt: '2026-07-23 09:15'
-    },
-    {
-      id: 'CMP-803',
-      complainant: 'Dhaka Angel Syndicate',
-      complainantRole: 'investor',
-      reportedUser: 'Tariqul Islam',
-      reportedUserId: 'founder-tariqul',
-      reportedRole: 'student',
-      campaignTitle: 'EcoThread',
-      campaignId: 'ecothread',
-      issueType: 'Fake Information',
-      description: 'Discrepancy detected between uploaded trade license scan and official Registrar of Joint Stock Companies database record.',
-      evidenceFile: 'audit_verification_mismatch.pdf',
-      evidenceSize: '2.1 MB',
-      severity: 'Critical',
-      status: 'Open',
-      createdAt: '2026-07-23 14:40'
-    }
-  ];
-
-  // Disputes & Holds state
-  const [disputesList, setDisputesList] = useState(initialComplaints);
+  // Real disputes list fetched from database API (No dummy data)
+  const [disputesList, setDisputesList] = useState([]);
   const [selectedUserToBlockRole, setSelectedUserToBlockRole] = useState('student'); // 'student' | 'investor'
   const [selectedUserToBlockId, setSelectedUserToBlockId] = useState('');
   const [selectedControlCampaignId, setSelectedControlCampaignId] = useState('');
@@ -281,7 +226,35 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       const healthRes = await fetch(`${API_BASE_URL}/api/health`);
       if (healthRes.ok) {
         const healthData = await healthRes.json();
-        setDbConnected(healthData.database === 'connected' || healthData.database === 'supabase_active' || healthData.database === 'mongodb_connected');
+        setDbConnected(healthData.database === 'connected' || healthData.database === 'supabase' || healthData.database === 'mongodb' || healthData.database === 'supabase_active' || healthData.database === 'mongodb_connected');
+      }
+
+      // 7. Fetch real database disputes (No dummy data)
+      const dispRes = await fetch(`${API_BASE_URL}/api/disputes`);
+      if (dispRes.ok) {
+        const dispData = await dispRes.json();
+        setDisputesList(dispData || []);
+      } else {
+        setDisputesList([]);
+      }
+
+      // 8. Fetch real audit logs (No dummy data)
+      const auditRes = await fetch(`${API_BASE_URL}/api/audit-logs`);
+      if (auditRes.ok) {
+        const auditData = await auditRes.json();
+        if (Array.isArray(auditData) && auditData.length > 0) {
+          const formatted = auditData.map(log => ({
+            timestamp: log.created_at ? new Date(log.created_at).toISOString().replace('T', ' ').substring(0, 19) : new Date().toISOString().substring(0, 10),
+            actor: log.actor || 'ADMIN_PRITOM',
+            initials: 'AP',
+            color: log.category === 'DISBURSEMENT' ? 'bg-[#111613] text-purple-400 border-purple-500/30' : 'bg-[#111613] text-[#00E676] border-[#00E676]/30',
+            action: log.action || log.category || 'ADMIN ACTION',
+            target: log.title || log.target || 'Platform Entity',
+            rationale: log.rationale || log.status || 'Verified administrative operation.',
+            hash: log.hash || '0x' + Math.random().toString(36).substring(2, 10)
+          }));
+          setActivityLogs(formatted);
+        }
       }
 
       setDbLoading(false);
@@ -325,54 +298,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }
   }, [activeTab]);
 
-  // Tab 6: Activity Log state
+  // Activity Log state (No dummy data - initialized from real DB audit logs)
   const [activitySearch, setActivitySearch] = useState('');
   const [activityFilter, setActivityFilter] = useState('ALL');
-
-  const initialActivityLogs = [
-    {
-      timestamp: '2023-10-27 14:22:10',
-      actor: 'J. Donovan',
-      initials: 'JD',
-      color: 'bg-indigo-900 text-indigo-200 border-indigo-500/30',
-      action: 'APPROVED CAMPAIGN',
-      target: 'CampusBites',
-      rationale: 'Approved Milestone 1 disbursement.',
-      hash: 'fb_a982...3e12'
-    },
-    {
-      timestamp: '2023-10-27 13:05:41',
-      actor: 'S. Kothari',
-      initials: 'SK',
-      color: 'bg-emerald-900 text-emerald-200 border-emerald-500/30',
-      action: 'FLAGGED FRAUD',
-      target: 'EcoThread',
-      rationale: 'Suspicious payment activity detected.',
-      hash: 'fb_d3c1...8f90'
-    },
-    {
-      timestamp: '2023-10-27 09:12:00',
-      actor: 'J. Donovan',
-      initials: 'JD',
-      color: 'bg-indigo-900 text-indigo-200 border-indigo-500/30',
-      action: 'SYSTEM UPDATE',
-      target: 'Security Protocol',
-      rationale: 'Activated L3 Manual Review queue.',
-      hash: 'fb_e762...11a2'
-    },
-    {
-      timestamp: '2023-10-26 18:45:15',
-      actor: 'S. Kothari',
-      initials: 'SK',
-      color: 'bg-emerald-900 text-emerald-200 border-emerald-500/30',
-      action: 'SYSTEM UPDATE',
-      target: 'Escrow Engine',
-      rationale: 'Synchronized mainnet node buffers.',
-      hash: 'fb_c98a...56b7'
-    }
-  ];
-
-  const [activityLogs, setActivityLogs] = useState(initialActivityLogs);
+  const [activityLogs, setActivityLogs] = useState([]);
 
   // Authentication Submission Handler (Screen 1 to Screen 2 transition)
   const handleAdminLoginSubmit = async (e) => {
@@ -1174,94 +1103,91 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       <div className="flex-1 flex flex-col md:flex-row relative z-10">
 
         {/* Sidebar Navigation */}
-        <aside className="w-full md:w-72 bg-[#050806] border-r border-[#1F2922] p-6 flex flex-col justify-between text-left flex-shrink-0">
+        <aside className="w-full md:w-64 bg-[#050806] border-r border-[#1F2922] p-6 flex flex-col justify-between text-left flex-shrink-0">
 
           <div className="space-y-8">
-            {/* Brand Header: Logo size scaled to fit sidebar */}
+            {/* Brand Header */}
             <div className="flex items-center">
-              <img src={adminLogoUrl} alt="FundBridge Admin Logo" className="h-20 w-auto object-contain" />
+              <img src={adminLogoUrl} alt="FundBridge Admin Logo" className="h-16 w-auto object-contain" />
             </div>
 
-            <nav className="space-y-1">
-              <span className="text-[9px] font-mono tracking-widest text-[#8E9B93]/60 uppercase block mb-3 pl-2">NAVIGATION_STATE</span>
+            <nav className="space-y-1.5">
+              <span className="text-[10px] font-mono tracking-widest text-[#8E9B93]/60 uppercase block mb-3 pl-2">ADMIN MENU</span>
 
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'overview'
-                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                className={`w-full text-left px-4 py-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${activeTab === 'overview'
+                  ? 'bg-[#111613] text-[#00E676] border-l-4 border-[#00E676]'
                   : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
                   }`}
               >
-                <span>OVERVIEW</span>
+                <span>Overview</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('verification')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'verification'
-                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                className={`w-full text-left px-4 py-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${activeTab === 'verification'
+                  ? 'bg-[#111613] text-[#00E676] border-l-4 border-[#00E676]'
                   : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
                   }`}
               >
-                <span>USER VERIFICATION</span>
+                <span>User Verification</span>
                 {vettingQueue.length > 0 && (
-                  <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">
-                    ({vettingQueue.length})
+                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-mono">
+                    {vettingQueue.length}
                   </span>
                 )}
               </button>
 
               <button
                 onClick={() => setActiveTab('audits')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'audits'
-                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                className={`w-full text-left px-4 py-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${activeTab === 'audits'
+                  ? 'bg-[#111613] text-[#00E676] border-l-4 border-[#00E676]'
                   : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
                   }`}
               >
-                <span>CAMPAIGN AUDITS</span>
+                <span>Campaign Audit</span>
                 {campaignsList.length > 0 && (
-                  <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">
-                    ({campaignsList.length})
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-mono">
+                    {campaignsList.length}
                   </span>
                 )}
               </button>
 
               <button
                 onClick={() => setActiveTab('disputes')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'disputes'
-                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                className={`w-full text-left px-4 py-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${activeTab === 'disputes'
+                  ? 'bg-[#111613] text-[#00E676] border-l-4 border-[#00E676]'
                   : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
                   }`}
               >
-                <span>DISPUTES & HOLDS</span>
+                <span>Reports & Complaints</span>
                 {disputesList.length > 0 && (
-                  <span className="text-[10px] text-[#8E9B93]/50 font-mono font-normal">
-                    ({disputesList.length})
+                  <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded font-mono">
+                    {disputesList.length}
                   </span>
                 )}
               </button>
 
               <button
                 onClick={() => setActiveTab('logs')}
-                className={`w-full text-left px-4 py-3 rounded text-xs font-mono font-medium transition-all cursor-pointer flex items-center justify-between ${activeTab === 'logs'
-                  ? 'bg-[#111613] text-[#00E676] border-l-2 border-[#00E676]'
+                className={`w-full text-left px-4 py-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${activeTab === 'logs'
+                  ? 'bg-[#111613] text-[#00E676] border-l-4 border-[#00E676]'
                   : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
                   }`}
               >
-                <span>ACTIVITY LOG</span>
+                <span>Activity Log</span>
               </button>
             </nav>
           </div>
 
-          <div className="border border-[#1F2922] bg-[#111613] rounded p-4 flex items-center gap-3">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-[#1F2922] border border-[#00E676]/30 flex items-center justify-center text-xs font-mono text-[#00E676]">
-                AP
-              </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#00E676] border-2 border-[#111613] rounded-full"></span>
+          <div className="border border-[#1F2922] bg-[#111613] rounded-xl p-3.5 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-[#1F2922] border border-[#00E676]/30 flex items-center justify-center text-xs font-bold text-[#00E676]">
+              AP
             </div>
             <div>
-              <div className="font-mono text-xs text-[#E2E8F0] tracking-wide">ADMIN_PRITOM</div>
-              <div className="text-[10px] font-mono text-[#8E9B93] uppercase">Security Level 4</div>
+              <div className="text-xs font-bold text-[#E2E8F0]">Admin Account</div>
+              <div className="text-[10px] text-[#8E9B93]">admin@fundbridge.com</div>
             </div>
           </div>
         </aside>
@@ -1270,10 +1196,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
         <main className="flex-1 p-6 md:p-8 bg-[#0B0F0C] overflow-y-auto max-w-7xl mx-auto w-full space-y-8">
 
           {dbLoading && activeTab !== 'logs' && (
-            <div className="py-2 px-4 rounded bg-[#111613] border border-[#1F2922] flex items-center justify-between font-mono text-xs text-[#8E9B93]">
+            <div className="py-2.5 px-4 rounded-xl bg-[#111613] border border-[#1F2922] flex items-center justify-between text-xs text-[#8E9B93]">
               <span className="flex items-center gap-2">
-                <span className="w-3 h-3 border-2 border-[#00E676] border-t-transparent rounded-full animate-spin"></span>
-                Syncing mainnet Atlas cluster buffers...
+                <span className="w-3.5 h-3.5 border-2 border-[#00E676] border-t-transparent rounded-full animate-spin"></span>
+                Loading database records...
               </span>
             </div>
           )}
@@ -1282,286 +1208,178 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
           {activeTab === 'overview' && (
             <div className="space-y-8 animate-fadeIn text-left">
               <div className="space-y-1">
-                <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                  DASHBOARD OVERVIEW
-                </span>
-                <h2 className="text-2xl font-mono text-[#E2E8F0] tracking-tight font-medium">
-                  Welcome back, Admin!
+                <h2 className="text-2xl font-bold text-[#E2E8F0] tracking-tight">
+                  Admin Dashboard Overview
                 </h2>
+                <p className="text-xs text-[#8E9B93]">Manage user verifications, review pitch submissions, and monitor platform operations.</p>
               </div>
 
-              {/* Metrics Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* 1. Total Capital in Escrow (Spans 2 columns on desktop) */}
-                <div className="border border-emerald-500/20 bg-emerald-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] lg:col-span-2 sm:col-span-2 hover:border-[#00E676]/30 transition-colors">
-                  <span className="font-mono text-xs text-emerald-400 tracking-wider uppercase block">
-                    Total Capital in Escrow
-                  </span>
-                  <div className="flex items-baseline justify-between mt-4">
-                    <span className="font-mono text-2xl font-medium text-[#E2E8F0] tracking-tight">
-                      {formattedEscrowCapital}
-                    </span>
-                    <span className="text-[10px] font-sans font-medium px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                      Live Escrow Vault
-                    </span>
+              {/* 4 Clean Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-5 space-y-2">
+                  <span className="text-xs text-[#8E9B93] font-medium block">Total Users</span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-bold text-[#E2E8F0] font-mono">{totalFounders + totalInvestors}</span>
+                    <span className="text-[11px] text-emerald-400">{totalFounders} Founders / {totalInvestors} Investors</span>
                   </div>
                 </div>
 
-                {/* 2. Pending Verifications */}
-                <div className="border border-amber-500/20 bg-amber-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-amber-500/40 transition-colors">
-                  <span className="font-mono text-xs text-amber-400 tracking-wider uppercase block">
-                    Pending Verifications
-                  </span>
-                  <div className="flex items-baseline justify-between mt-4">
-                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
-                      {vettingQueue.length}
-                    </span>
-                    <span className="font-sans text-[11px] text-[#8E9B93]">
-                      Awaiting Vetting
-                    </span>
+                <div className="border border-amber-500/20 bg-amber-950/10 rounded-2xl p-5 space-y-2">
+                  <span className="text-xs text-amber-400 font-medium block">Pending User Verifications</span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-bold text-amber-400 font-mono">{vettingQueue.length}</span>
+                    <span className="text-[11px] text-amber-400/80">Action Needed</span>
                   </div>
                 </div>
 
-                {/* 3. Active Disputes */}
-                <div className="border border-red-500/20 bg-red-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-red-500/40 transition-colors">
-                  <span className="font-mono text-xs text-red-400 tracking-wider uppercase block">
-                    Active Disputes
-                  </span>
-                  <div className="flex items-baseline justify-between mt-4">
-                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
-                      {disputesList.length < 10 ? `0${disputesList.length}` : disputesList.length}
-                    </span>
-                    {disputesList.length > 0 ? (
-                      <span className="font-mono text-[11px] text-red-400 animate-pulse font-medium tracking-wide">
-                        Action Needed
-                      </span>
-                    ) : (
-                      <span className="font-sans text-[11px] text-emerald-400 font-medium">
-                        System Clear
-                      </span>
-                    )}
+                <div className="border border-emerald-500/20 bg-emerald-950/10 rounded-2xl p-5 space-y-2">
+                  <span className="text-xs text-emerald-400 font-medium block">Pending Campaign Audits</span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-bold text-emerald-400 font-mono">{campaignsList.length}</span>
+                    <span className="text-[11px] text-emerald-400/80">Campaigns to Audit</span>
                   </div>
                 </div>
 
-                {/* 4. Total Founders */}
-                <div className="border border-blue-500/20 bg-blue-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-blue-500/40 transition-colors">
-                  <span className="font-mono text-xs text-blue-400 tracking-wider uppercase block">
-                    Total Founders
-                  </span>
-                  <div className="flex items-baseline justify-between mt-4">
-                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
-                      {totalFounders}
-                    </span>
-                    <span className="font-sans text-[11px] text-[#8E9B93]">
-                      Registered
-                    </span>
-                  </div>
-                </div>
-
-                {/* 5. Total Investors */}
-                <div className="border border-violet-500/20 bg-violet-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-violet-500/40 transition-colors">
-                  <span className="font-mono text-xs text-violet-400 tracking-wider uppercase block">
-                    Total Investors
-                  </span>
-                  <div className="flex items-baseline justify-between mt-4">
-                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
-                      {totalInvestors}
-                    </span>
-                    <span className="font-sans text-[11px] text-[#8E9B93]">
-                      Registered
-                    </span>
-                  </div>
-                </div>
-
-                {/* 6. Active Founders */}
-                <div className="border border-cyan-500/20 bg-cyan-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-cyan-500/40 transition-colors">
-                  <span className="font-mono text-xs text-cyan-400 tracking-wider uppercase block">
-                    Active Founders
-                  </span>
-                  <div className="flex items-baseline justify-between mt-4">
-                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
-                      {activeFoundersCount}
-                    </span>
-                    <span className="font-sans text-[11px] text-[#8E9B93]">
-                      With Live Projects
-                    </span>
-                  </div>
-                </div>
-
-                {/* 7. Live Campaigns */}
-                <div className="border border-teal-500/20 bg-teal-950/5 rounded p-6 flex flex-col justify-between min-h-[140px] hover:border-teal-500/40 transition-colors">
-                  <span className="font-mono text-xs text-teal-400 tracking-wider uppercase block">
-                    Live Campaigns
-                  </span>
-                  <div className="flex items-baseline justify-between mt-4">
-                    <span className="font-mono text-3xl font-medium text-[#E2E8F0] tracking-tight">
-                      {liveCampaignsCount}
-                    </span>
-                    <span className="font-sans text-[11px] text-[#8E9B93]">
-                      Active Projects
-                    </span>
+                <div className="border border-sky-500/20 bg-sky-950/10 rounded-2xl p-5 space-y-2">
+                  <span className="text-xs text-sky-400 font-medium block">Pending Payout Requests</span>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-3xl font-bold text-sky-400 font-mono">{escrowQueue.length}</span>
+                    <span className="text-[11px] text-sky-400/80">Wallet Payouts</span>
                   </div>
                 </div>
               </div>
 
-              {/* Split layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
+              {/* 2-Column Action Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                  <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
-                      <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                        ACTIVE AUDIT QUEUE
-                      </span>
-                      <span className="text-[11px] font-mono text-[#00E676] bg-[#00E676]/10 px-2 py-0.5 rounded border border-[#00E676]/30">
-                        {vettingQueue.length} Applicants Pending
-                      </span>
-                    </div>
-                    {vettingQueue.length > 0 ? (
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <div>
-                          <span className="text-[#E2E8F0] block">{vettingQueue[0].name}</span>
-                          <span className="text-[#8E9B93] text-[10px]">
-                            {vettingQueue[0].role === 'founder'
-                              ? `${vettingQueue[0].university} · NID: ${vettingQueue[0].nid || 'N/A'}`
-                              : `${vettingQueue[0].institution || 'Angel Backing'}`}
-                          </span>
-                        </div>
-                        <button
-                          onClick={navigateToVerification}
-                          className="px-3.5 py-1.5 bg-[#00E676]/15 hover:bg-[#00E676]/25 border border-[#00E676]/45 text-[#00E676] rounded transition-colors cursor-pointer"
-                        >
-                          Audit Application
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-xs font-mono text-[#8E9B93]">All vetting queues are empty.</p>
-                    )}
+                {/* Column 1: Pending User Verifications */}
+                <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+                    <h3 className="text-sm font-bold text-[#E2E8F0]">Pending User Verifications</h3>
+                    <span className="text-xs text-[#00E676] bg-[#00E676]/10 px-2.5 py-0.5 rounded-md font-mono">
+                      {vettingQueue.length} Pending
+                    </span>
                   </div>
 
-                  {escrowQueue.length > 0 && (
-                    <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-4">
-                      <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
-                        <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                          Escrow Releases Queue
-                        </span>
-                        <span className="text-[11px] font-mono text-[#00E676] bg-[#00E676]/10 px-2 py-0.5 rounded border border-[#00E676]/30">
-                          {escrowQueue.length} Requests Pending
-                        </span>
-                      </div>
-                      <div className="space-y-3 text-xs font-mono">
-                        {escrowQueue.map((req, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-3 bg-[#0B0F0C] border border-[#1F2922] rounded">
-                            <div>
-                              <span className="text-[#E2E8F0] block">{req.campaignTitle}</span>
-                              <span className="text-[10px] text-[#8E9B93]">Milestone: {req.milestoneTitle} ({req.target})</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-[#00E676] font-medium">৳ {req.amount.toLocaleString()}</span>
-                              <button
-                                onClick={() => handleApproveEscrowRelease(req.campaignObjId, req.milestoneId, req.campaignTitle, req.milestoneTitle)}
-                                className="px-2.5 py-1 bg-[#00E676] hover:bg-[#00E575]/90 text-black rounded text-[10px] font-medium transition-colors"
-                              >
-                                Release
-                              </button>
-                            </div>
+                  {vettingQueue.length > 0 ? (
+                    <div className="space-y-3">
+                      {vettingQueue.slice(0, 4).map((userItem, idx) => (
+                        <div key={userItem._id || idx} className="p-3.5 bg-[#0B0F0C] border border-[#1F2922] rounded-xl flex items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <span className="font-bold text-xs text-[#E2E8F0] block">{userItem.name}</span>
+                            <span className="text-[11px] text-[#8E9B93] block">
+                              {userItem.role === 'founder' ? `${userItem.university || 'University'} (Founder)` : `${userItem.institution || 'Investor'}`}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">ID / NID: {userItem.nid || userItem.studentId || 'Uploaded'}</span>
                           </div>
-                        ))}
-                      </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleApproveVetting(userItem._id, userItem.name)}
+                              className="px-3 py-1.5 bg-[#00E676] hover:bg-[#00E676]/90 text-black text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectVetting(userItem._id, userItem.name)}
+                              className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-xs text-[#8E9B93] bg-[#0B0F0C] rounded-xl">
+                      No pending user verification requests.
                     </div>
                   )}
                 </div>
 
-                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6 flex flex-col justify-between">
-                  <div>
-                    <div className="border-b border-[#1F2922] pb-3">
-                      <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                        Recent Activity Stream
-                      </span>
-                    </div>
-
-                    <div className="space-y-6 font-mono text-xs relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-px before:bg-[#1F2922] mt-6">
-                      {dynamicTimelineEntries.length > 0 ? (
-                        dynamicTimelineEntries.map(entry => (
-                          <div key={entry.id} className="flex items-start gap-4 relative">
-                            <div className={`w-7 h-7 rounded-full bg-[#111613] border flex items-center justify-center z-10 flex-shrink-0 ${entry.type === 'REGISTRATION' ? 'border-[#00E676]' : entry.type === 'DISPUTE' ? 'border-red-500/50' : 'border-[#8E9B93]/50'
-                              }`}>
-                              {entry.type === 'REGISTRATION' ? (
-                                <Users className="w-3.5 h-3.5 text-[#00E676]" />
-                              ) : entry.type === 'DISPUTE' ? (
-                                <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
-                              ) : (
-                                <FileText className="w-3.5 h-3.5 text-[#8E9B93]" />
-                              )}
-                            </div>
-                            <div className="space-y-2 flex-1">
-                              <div className="flex items-center justify-between text-[10px] text-[#8E9B93]">
-                                <span>{entry.time}</span>
-                                <span>{entry.type}</span>
-                              </div>
-                              <p className="text-[#E2E8F0] text-[11px] leading-tight">
-                                {entry.title}
-                              </p>
-                              {entry.file && (
-                                <a
-                                  href="#download"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    addToast(`Downloading compliance file: ${entry.file}`, 'info');
-                                  }}
-                                  className="inline-flex items-center gap-1.5 text-[10px] text-[#00E676] hover:underline"
-                                >
-                                  <Download className="w-3 h-3" />
-                                  <span>{entry.file}</span>
-                                </a>
-                              )}
-                              {entry.actionable && (
-                                <button
-                                  onClick={entry.onClick}
-                                  className="px-2.5 py-1 border border-[#00E676]/50 bg-[#00E676]/10 text-[#00E676] hover:bg-[#00E676]/25 transition-colors rounded text-[10px] cursor-pointer"
-                                >
-                                  Review
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs font-mono text-[#8E9B93] pl-6 pt-2">No operational updates on mainnet.</p>
-                      )}
-                    </div>
+                {/* Column 2: Pending Campaign Audits */}
+                <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+                    <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Campaign Audits</h3>
+                    <span className="text-xs text-[#00E676] bg-[#00E676]/10 px-2.5 py-0.5 rounded-md font-mono">
+                      {campaignsList.length} Pending
+                    </span>
                   </div>
+
+                  {campaignsList.length > 0 ? (
+                    <div className="space-y-3">
+                      {campaignsList.slice(0, 4).map((cmpItem, idx) => (
+                        <div key={cmpItem.id || cmpItem._id || idx} className="p-3.5 bg-[#0B0F0C] border border-[#1F2922] rounded-xl flex items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <span className="font-bold text-xs text-[#E2E8F0] block">{cmpItem.title}</span>
+                            <span className="text-[11px] text-[#8E9B93] block">{cmpItem.university} · {cmpItem.category || 'Startup'}</span>
+                            <span className="text-[10px] text-emerald-400 font-mono">Goal: ৳ {Number(cmpItem.goal || 0).toLocaleString()}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedCampaignId(cmpItem.id || cmpItem._id);
+                                toggleCompliance(cmpItem.id || cmpItem._id, 'smartContractAudit');
+                                toggleCompliance(cmpItem.id || cmpItem._id, 'founderIdentity');
+                                toggleCompliance(cmpItem.id || cmpItem._id, 'regulatoryCompliance');
+                                handlePublishCampaign(cmpItem.id || cmpItem._id, cmpItem.title);
+                              }}
+                              className="px-3 py-1.5 bg-[#00E676] hover:bg-[#00E676]/90 text-black text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Approve Campaign
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedCampaignId(cmpItem.id || cmpItem._id);
+                                setIsRejectModalOpen(true);
+                              }}
+                              className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-xs text-[#8E9B93] bg-[#0B0F0C] rounded-xl">
+                      No pending campaign audits to approve.
+                    </div>
+                  )}
                 </div>
+
               </div>
             </div>
           )}
 
+
           {/* SCREEN [3]: USER VERIFICATION */}
           {activeTab === 'verification' && (
             <div className="space-y-8 animate-fadeIn text-left">
-              <div className="border border-[#1F2922] bg-[#111613] rounded p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <h2 className="text-xl font-mono text-[#E2E8F0] font-medium">User Onboarding & Vetting Registry</h2>
-                  <p className="text-xs text-[#8E9B93] font-mono">
-                    {verificationSubTab === 'pending' ? 'Review active onboarding applications' :
-                     verificationSubTab === 'founders' ? 'Lookup table of verified student founders' :
-                     'Lookup table of vetted capital backers'}
+                  <h2 className="text-xl font-bold text-[#E2E8F0]">User Verification</h2>
+                  <p className="text-xs text-[#8E9B93]">
+                    {verificationSubTab === 'pending' ? 'Review pending registration applications' :
+                     verificationSubTab === 'founders' ? 'List of verified student founders' :
+                     'List of verified investors'}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <div className="flex bg-[#0B0F0C] border border-[#1F2922] p-1 rounded">
+                  <div className="flex bg-[#0B0F0C] border border-[#1F2922] p-1 rounded-xl">
                     <button
                       onClick={() => setVerificationSubTab('pending')}
-                      className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                         verificationSubTab === 'pending' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
                       }`}
                     >
-                      Pending Verification
+                      Pending Verification ({vettingQueue.length})
                     </button>
                     <button
                       onClick={() => setVerificationSubTab('founders')}
-                      className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                         verificationSubTab === 'founders' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
                       }`}
                     >
@@ -1569,7 +1387,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                     </button>
                     <button
                       onClick={() => setVerificationSubTab('investors')}
-                      className={`px-3 py-1 text-xs font-mono font-medium rounded transition-colors cursor-pointer ${
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                         verificationSubTab === 'investors' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
                       }`}
                     >
@@ -1585,8 +1403,8 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   {filteredApplicants.length > 0 && selectedApplicant ? (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       {/* Left: Pending queue list */}
-                      <div className="space-y-3 font-mono text-xs">
-                        <span className="text-[9px] text-[#8E9B93] uppercase tracking-wider block mb-1">Pending queue list</span>
+                      <div className="space-y-3 text-xs">
+                        <span className="text-xs font-bold text-[#8E9B93] block mb-1">Select Pending Applicant</span>
                         {filteredApplicants.map(app => (
                           <button
                             key={app._id}
@@ -1594,14 +1412,14 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                               setSelectedApplicantId(app._id);
                               setVerificationChecklist({ nameMatch: false, idValid: false, mfsMatch: false });
                             }}
-                            className={`w-full p-4 rounded bg-[#111613] border text-left transition-colors cursor-pointer ${
-                              app._id === selectedApplicantId ? 'border-[#00E676] bg-[#111613]/80' : 'border-[#1F2922] hover:border-[#8E9B93]/35'
+                            className={`w-full p-4 rounded-xl bg-[#111613] border text-left transition-colors cursor-pointer ${
+                              app._id === selectedApplicantId ? 'border-[#00E676] bg-[#111613]/90' : 'border-[#1F2922] hover:border-[#8E9B93]/35'
                             }`}
                           >
-                            <div className="text-[#E2E8F0] font-medium">{app.name}</div>
-                            <div className="text-[10px] text-[#8E9B93] mt-1 flex items-center justify-between">
-                              <span>{app.role === 'founder' ? (app.university || 'BRAC University') : (app.institution || 'Angels Hub')}</span>
-                              <span className="px-1.5 py-0.5 rounded text-[8px] bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase font-sans font-semibold">
+                            <div className="text-[#E2E8F0] font-bold text-sm">{app.name}</div>
+                            <div className="text-xs text-[#8E9B93] mt-1 flex items-center justify-between">
+                              <span>{app.role === 'founder' ? (app.university || 'University') : (app.institution || 'Investor')}</span>
+                              <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold uppercase">
                                 {app.role}
                               </span>
                             </div>
@@ -1612,21 +1430,21 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       {/* Middle & Right Workspace (spans 2 columns) */}
                       <div className="lg:col-span-2 space-y-6">
                         <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
-                          <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase">
-                            DOCUMENT_SCAN_VAULT (Side-by-Side)
+                          <span className="text-xs font-bold text-[#8E9B93] uppercase">
+                            Uploaded Verification Documents
                           </span>
-                          <span className="text-[10px] font-sans font-medium px-2.5 py-1 rounded border text-amber-400 border-amber-500/30 bg-amber-500/10">
-                            PENDING_REVIEW
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-md border text-amber-400 border-amber-500/30 bg-amber-500/10">
+                            Pending Review
                           </span>
                         </div>
 
                         {/* Side-by-Side Previews */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="border border-[#1F2922] bg-[#111613] rounded p-4 space-y-3 flex flex-col">
-                            <span className="font-mono text-[10px] text-[#8E9B93] block uppercase pb-1.5 border-b border-[#1F2922]">
+                          <div className="border border-[#1F2922] bg-[#111613] rounded-xl p-4 space-y-3 flex flex-col">
+                            <span className="text-xs font-bold text-[#8E9B93] block pb-1.5 border-b border-[#1F2922]">
                               {selectedApplicant.role === 'founder' ? 'Student ID Card Scan' : 'NID / Passport Scan'}
                             </span>
-                            <div className="flex-1 bg-[#0B0F0C] border border-[#1F2922] rounded overflow-hidden aspect-video relative flex items-center justify-center min-h-[160px]">
+                            <div className="flex-1 bg-[#0B0F0C] border border-[#1F2922] rounded-lg overflow-hidden aspect-video relative flex items-center justify-center min-h-[160px]">
                               {selectedApplicant.role === 'founder' ? (
                                 selectedApplicant.studentIdCardImage ? (
                                   <img 
@@ -1653,11 +1471,11 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             </div>
                           </div>
 
-                          <div className="border border-[#1F2922] bg-[#111613] rounded p-4 space-y-3 flex flex-col">
-                            <span className="font-mono text-[10px] text-[#8E9B93] block uppercase pb-1.5 border-b border-[#1F2922]">
-                              {selectedApplicant.role === 'founder' ? 'National ID (NID) Scan' : 'Professional / Alumni Credentials'}
+                          <div className="border border-[#1F2922] bg-[#111613] rounded-xl p-4 space-y-3 flex flex-col">
+                            <span className="text-xs font-bold text-[#8E9B93] block pb-1.5 border-b border-[#1F2922]">
+                              {selectedApplicant.role === 'founder' ? 'National ID (NID) Scan' : 'Professional Credentials'}
                             </span>
-                            <div className="flex-1 bg-[#0B0F0C] border border-[#1F2922] rounded overflow-hidden aspect-video relative flex items-center justify-center min-h-[160px]">
+                            <div className="flex-1 bg-[#0B0F0C] border border-[#1F2922] rounded-lg overflow-hidden aspect-video relative flex items-center justify-center min-h-[160px]">
                               {selectedApplicant.role === 'founder' ? (
                                 selectedApplicant.nidCardImage ? (
                                   <img 
@@ -1679,7 +1497,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                   />
                                 ) : selectedApplicant.credentialsLink ? (
                                   <div className="p-4 text-center space-y-2">
-                                    <span className="text-[#8E9B93] text-[11px] block">Verified Network Link:</span>
+                                    <span className="text-[#8E9B93] text-[11px] block">Verified Profile Link:</span>
                                     <a 
                                       href={selectedApplicant.credentialsLink} 
                                       target="_blank" 
@@ -1698,22 +1516,22 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         </div>
 
                         {/* Text Details Card */}
-                        <div className="border border-[#1F2922] bg-[#111613] rounded p-5 space-y-4 font-mono text-xs">
-                          <span className="text-[10px] text-[#8E9B93] tracking-widest uppercase block border-b border-[#1F2922] pb-2">
-                            APPLICATION DATA SPECIFICATIONS
+                        <div className="border border-[#1F2922] bg-[#111613] rounded-xl p-5 space-y-4 text-xs">
+                          <span className="text-xs font-bold text-[#8E9B93] block border-b border-[#1F2922] pb-2">
+                            Applicant Information
                           </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-[11px]">
-                            <div><span className="text-[#8E9B93]">Full Name:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.name}</span></div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
+                            <div><span className="text-[#8E9B93]">Full Name:</span> <span className="text-[#E2E8F0] block font-bold mt-0.5">{selectedApplicant.name}</span></div>
                             <div><span className="text-[#8E9B93]">Email Address:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.email}</span></div>
-                            <div><span className="text-[#8E9B93]">Role Type:</span> <span className="text-[#00E676] block uppercase font-medium mt-0.5">{selectedApplicant.role === 'founder' ? 'Student Founder' : 'Investor'}</span></div>
+                            <div><span className="text-[#8E9B93]">Account Role:</span> <span className="text-[#00E676] block font-bold capitalize mt-0.5">{selectedApplicant.role === 'founder' ? 'Student Founder' : 'Investor'}</span></div>
                             {selectedApplicant.role === 'founder' ? (
                               <>
                                 <div><span className="text-[#8E9B93]">Student ID:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.studentId}</span></div>
                                 <div><span className="text-[#8E9B93]">University:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.university}</span></div>
                                 <div><span className="text-[#8E9B93]">Department:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.department}</span></div>
                                 <div><span className="text-[#8E9B93]">Date of Birth:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.dob}</span></div>
-                                <div><span className="text-[#8E9B93]">NID Number:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.nid}</span></div>
-                                <div><span className="text-[#8E9B93]">MFS Number:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.mfsNumber}</span></div>
+                                <div><span className="text-[#8E9B93]">National ID (NID):</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.nid}</span></div>
+                                <div><span className="text-[#8E9B93]">MFS Wallet:</span> <span className="text-[#E2E8F0] block font-medium mt-0.5">{selectedApplicant.mfsNumber}</span></div>
                               </>
                             ) : (
                               <>
@@ -1730,15 +1548,15 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         </div>
 
                         {/* Checklist & Approval Buttons */}
-                        <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6">
-                          <span className="font-mono text-xs text-[#8E9B93] tracking-widest uppercase block border-b border-[#1F2922] pb-2">
-                            COMPLIANCE_CHECKS & SCORING
+                        <div className="border border-[#1F2922] bg-[#111613] rounded-xl p-6 space-y-5">
+                          <span className="text-xs font-bold text-[#8E9B93] block border-b border-[#1F2922] pb-2">
+                            Verification Checklist
                           </span>
                           
-                          <div className="space-y-3 font-mono text-xs">
+                          <div className="space-y-3 text-xs">
                             <button
                               onClick={() => setVerificationChecklist(prev => ({ ...prev, nameMatch: !prev.nameMatch }))}
-                              className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+                              className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
                             >
                               {verificationChecklist.nameMatch ? (
                                 <CheckSquare className="w-4 h-4 text-[#00E676]" />
@@ -1746,14 +1564,14 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                 <Square className="w-4 h-4 text-[#8E9B93]" />
                               )}
                               <div>
-                                <span className="text-[#E2E8F0] block">Name Match Verification</span>
-                                <span className="text-[10px] text-[#8E9B93]">OCR matches name with database.</span>
+                                <span className="text-[#E2E8F0] font-semibold block">Full Name Match</span>
+                                <span className="text-[11px] text-[#8E9B93]">Document name matches registered user name.</span>
                               </div>
                             </button>
 
                             <button
                               onClick={() => setVerificationChecklist(prev => ({ ...prev, idValid: !prev.idValid }))}
-                              className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+                              className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
                             >
                               {verificationChecklist.idValid ? (
                                 <CheckSquare className="w-4 h-4 text-[#00E676]" />
@@ -1761,14 +1579,14 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                 <Square className="w-4 h-4 text-[#8E9B93]" />
                               )}
                               <div>
-                                <span className="text-[#E2E8F0] block">Institution ID Check</span>
-                                <span className="text-[10px] text-[#8E9B93]">Database registrar status check matches.</span>
+                                <span className="text-[#E2E8F0] font-semibold block">Identity Document Legibility</span>
+                                <span className="text-[11px] text-[#8E9B93]">Clear photo and legible text on ID card.</span>
                               </div>
                             </button>
 
                             <button
                               onClick={() => setVerificationChecklist(prev => ({ ...prev, mfsMatch: !prev.mfsMatch }))}
-                              className="w-full flex items-center gap-3 p-3 rounded bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+                              className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
                             >
                               {verificationChecklist.mfsMatch ? (
                                 <CheckSquare className="w-4 h-4 text-[#00E676]" />
@@ -1776,39 +1594,34 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                 <Square className="w-4 h-4 text-[#8E9B93]" />
                               )}
                               <div>
-                                <span className="text-[#E2E8F0] block">MFS Account NID Match</span>
-                                <span className="text-[10px] text-[#8E9B93]">Mobile account matches NID database.</span>
+                                <span className="text-[#E2E8F0] font-semibold block">Payment Account Verification</span>
+                                <span className="text-[11px] text-[#8E9B93]">MFS wallet number provided and ready.</span>
                               </div>
                             </button>
                           </div>
 
-
-
-                          <div className="space-y-4 pt-2">
+                          <div className="space-y-3 pt-2">
                             <div className="grid grid-cols-2 gap-4">
                               <button
                                 onClick={handleApproveApplicant}
-                                className="w-full py-2.5 bg-[#00E676] hover:bg-[#00E575]/90 text-black text-xs font-mono font-medium rounded transition-all cursor-pointer text-center"
+                                className="w-full py-3 bg-[#00E676] hover:bg-[#00E676]/90 text-black text-xs font-bold rounded-lg transition-all cursor-pointer text-center"
                               >
-                                Approve Identity
+                                Approve User
                               </button>
                               <button
                                 onClick={handleRejectApplicant}
-                                className="w-full py-2.5 border border-red-500/50 hover:bg-red-500/10 text-red-400 text-xs font-mono font-medium rounded transition-all cursor-pointer text-center"
+                                className="w-full py-3 border border-rose-500/50 hover:bg-rose-500/10 text-rose-400 text-xs font-bold rounded-lg transition-all cursor-pointer text-center"
                               >
-                                Reject Application
+                                Reject Request
                               </button>
                             </div>
-                            <span className="text-[10px] font-mono text-[#8E9B93]/60 block text-center uppercase tracking-wide">
-                              Decisions are final and logged for audit purposes.
-                            </span>
                           </div>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="border border-[#1F2922] bg-[#111613] rounded p-12 text-center text-[#8E9B93] font-mono text-xs">
-                      All vetting queues are empty. No pending onboarding applications found.
+                    <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-12 text-center text-[#8E9B93] text-xs">
+                      All verification queues are clear. No pending applications found.
                     </div>
                   )}
                 </>
@@ -2272,61 +2085,58 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
             </div>
           )}
 
-          {/* SCREEN [4]: DISPUTES & HOLDS MANAGEMENT REDESIGNED */}
+          {/* SCREEN [4]: REPORTS & COMPLAINTS */}
           {activeTab === 'disputes' && (
             <div className="space-y-8 animate-fadeIn text-left">
               {/* Workspace Header */}
-              <div className="border border-[#1F2922] bg-[#111613] rounded p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <span className="font-mono text-xs text-[#00E676] tracking-widest uppercase block">
-                    SUPERVISORY SECURITY & ESCROW POLICING
-                  </span>
-                  <h2 className="text-2xl font-mono text-[#E2E8F0] tracking-tight font-medium">
-                    Disputes & Holds Management
+                  <h2 className="text-2xl font-bold text-[#E2E8F0] tracking-tight">
+                    Reports & Complaints
                   </h2>
-                  <p className="text-xs text-[#8E9B93] font-mono">
-                    Block fraudulent users, pause funding, block fake campaigns, freeze escrow funds, and investigate user complaints.
+                  <p className="text-xs text-[#8E9B93]">
+                    Review user-submitted reports, manage account restrictions, and control campaign funding.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4 font-mono text-xs">
-                  <div className="bg-[#0B0F0C] border border-[#1F2922] p-3 rounded text-center">
-                    <span className="text-[9px] text-[#8E9B93] block uppercase">ACTIVE COMPLAINTS</span>
-                    <span className="text-lg font-bold text-amber-400">
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="bg-[#0B0F0C] border border-[#1F2922] p-3 rounded-xl text-center">
+                    <span className="text-[10px] text-[#8E9B93] block font-bold uppercase">Active Reports</span>
+                    <span className="text-xl font-bold text-amber-400">
                       {disputesList.filter(d => d.status !== 'Dismissed').length}
                     </span>
                   </div>
-                  <div className="bg-[#0B0F0C] border border-[#1F2922] p-3 rounded text-center">
-                    <span className="text-[9px] text-[#8E9B93] block uppercase">ESCROW RISK STATUS</span>
-                    <span className="text-lg font-bold text-emerald-400">SECURE</span>
+                  <div className="bg-[#0B0F0C] border border-[#1F2922] p-3 rounded-xl text-center">
+                    <span className="text-[10px] text-[#8E9B93] block font-bold uppercase">Escrow Vault</span>
+                    <span className="text-xl font-bold text-emerald-400">SECURE</span>
                   </div>
                 </div>
               </div>
 
               {/* TOP ROW: PANEL 1 & PANEL 2 */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                {/* PANEL 1: BLOCK ANY USER */}
-                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6 flex flex-col justify-between">
+                {/* PANEL 1: BLOCK OR RESTRICT USER */}
+                <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-6 space-y-6 flex flex-col justify-between">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
                       <div>
-                        <span className="text-xs font-mono text-[#00E676] uppercase tracking-wider block">1. BLOCK ANY USER</span>
-                        <h3 className="text-sm font-mono text-[#E2E8F0] font-medium mt-0.5">Account Access & Protocol Revocation</h3>
+                        <h3 className="text-sm font-bold text-[#E2E8F0]">1. User Account Controls</h3>
+                        <p className="text-xs text-[#8E9B93]">Block or unblock user accounts for policy compliance.</p>
                       </div>
-                      <span className="px-2 py-0.5 rounded text-[9px] font-mono border border-red-500/30 bg-red-500/10 text-red-400 uppercase">
-                        SUPERVISOR OVERRIDE
+                      <span className="px-2.5 py-1 rounded-md text-[10px] font-bold border border-rose-500/30 bg-rose-500/10 text-rose-400 uppercase">
+                        Admin Action
                       </span>
                     </div>
 
                     {/* Role Filter Selector */}
-                    <div className="flex gap-2 font-mono text-xs">
+                    <div className="flex gap-2 text-xs">
                       <button
                         type="button"
                         onClick={() => { setSelectedUserToBlockRole('student'); setSelectedUserToBlockId(''); }}
-                        className={`flex-1 py-2 px-3 rounded text-center cursor-pointer transition-colors ${
+                        className={`flex-1 py-2 px-3 rounded-lg text-center cursor-pointer font-semibold transition-colors ${
                           selectedUserToBlockRole === 'student'
-                            ? 'bg-[#00E676] text-black font-semibold'
+                            ? 'bg-[#00E676] text-black'
                             : 'bg-[#0B0F0C] text-[#8E9B93] border border-[#1F2922] hover:text-[#E2E8F0]'
                         }`}
                       >
@@ -2335,9 +2145,9 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       <button
                         type="button"
                         onClick={() => { setSelectedUserToBlockRole('investor'); setSelectedUserToBlockId(''); }}
-                        className={`flex-1 py-2 px-3 rounded text-center cursor-pointer transition-colors ${
+                        className={`flex-1 py-2 px-3 rounded-lg text-center cursor-pointer font-semibold transition-colors ${
                           selectedUserToBlockRole === 'investor'
-                            ? 'bg-[#00E676] text-black font-semibold'
+                            ? 'bg-[#00E676] text-black'
                             : 'bg-[#0B0F0C] text-[#8E9B93] border border-[#1F2922] hover:text-[#E2E8F0]'
                         }`}
                       >
@@ -2346,16 +2156,16 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                     </div>
 
                     {/* Target User Select Dropdown */}
-                    <div className="space-y-2 font-mono text-xs">
-                      <label className="text-[10px] text-[#8E9B93] block uppercase font-semibold">
-                        SELECT TARGET {selectedUserToBlockRole === 'student' ? 'STUDENT FOUNDER' : 'INVESTOR'}:
+                    <div className="space-y-2 text-xs">
+                      <label className="text-xs text-[#8E9B93] block font-semibold">
+                        Select {selectedUserToBlockRole === 'student' ? 'Student Founder' : 'Investor'}:
                       </label>
                       <select
                         value={selectedUserToBlockId}
                         onChange={(e) => setSelectedUserToBlockId(e.target.value)}
-                        className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded p-3 text-[#E2E8F0] text-xs focus:outline-none focus:border-[#00E676]/50"
+                        className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded-xl p-3 text-[#E2E8F0] text-xs focus:outline-none focus:border-[#00E676]/50"
                       >
-                        <option value="">-- Choose User Profile to Inspect / Block --</option>
+                        <option value="">-- Select User Profile --</option>
                         {(selectedUserToBlockRole === 'student' ? verifiedFoundersList : verifiedInvestorsList).map(u => (
                           <option key={u._id || u.id} value={u._id || u.id}>
                             {u.name} ({u.email}) - Status: {(u.vettingStatus || 'verified').toUpperCase()}
@@ -2372,57 +2182,57 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       const isBlocked = selectedUser.vettingStatus === 'blocked';
 
                       return (
-                        <div className="p-4 bg-[#0B0F0C] border border-[#1F2922] rounded space-y-3 font-mono text-xs">
+                        <div className="p-4 bg-[#0B0F0C] border border-[#1F2922] rounded-xl space-y-3 text-xs">
                           <div className="flex items-center justify-between">
                             <div>
                               <span className="text-[#E2E8F0] font-bold block text-sm">{selectedUser.name}</span>
-                              <span className="text-[10px] text-[#8E9B93] block">{selectedUser.email}</span>
+                              <span className="text-[11px] text-[#8E9B93] block">{selectedUser.email}</span>
                             </div>
-                            <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${
-                              isBlocked ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                            <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase font-bold border ${
+                              isBlocked ? 'text-rose-400 border-rose-500/30 bg-rose-500/10' : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
                             }`}>
                               {isBlocked ? 'BLOCKED' : selectedUser.vettingStatus || 'VERIFIED'}
                             </span>
                           </div>
 
-                          <div className="text-[10px] text-[#8E9B93] grid grid-cols-2 gap-2 pt-2 border-t border-[#1F2922]">
+                          <div className="text-xs text-[#8E9B93] grid grid-cols-2 gap-2 pt-2 border-t border-[#1F2922]">
                             <div>
-                              <span className="block text-[9px] uppercase">AFFILIATION</span>
-                              <span className="text-[#E2E8F0]">{selectedUser.university || selectedUser.institution || 'Institutional'}</span>
+                              <span className="block text-[10px] font-bold uppercase text-[#8E9B93]">AFFILIATION</span>
+                              <span className="text-[#E2E8F0] font-medium">{selectedUser.university || selectedUser.institution || 'Institutional'}</span>
                             </div>
                             <div>
-                              <span className="block text-[9px] uppercase">ROLE TYPE</span>
-                              <span className="text-[#E2E8F0] uppercase">{selectedUser.role || selectedUserToBlockRole}</span>
+                              <span className="block text-[10px] font-bold uppercase text-[#8E9B93]">ROLE TYPE</span>
+                              <span className="text-[#E2E8F0] capitalize font-medium">{selectedUser.role || selectedUserToBlockRole}</span>
                             </div>
                           </div>
 
-                          {/* Action Buttons based on User Role */}
+                          {/* Action Buttons */}
                           <div className="pt-2">
                             {selectedUserToBlockRole === 'student' ? (
                               <button
                                 type="button"
                                 onClick={() => handleBlockUserAction(selectedUser._id || selectedUser.id, selectedUser.name, 'Student Founder')}
-                                className={`w-full py-3 px-4 rounded text-xs font-mono font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                                className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                                   isBlocked
-                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-[0_0_12px_rgba(16,185,129,0.2)]'
-                                    : 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.2)]'
+                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black'
+                                    : 'bg-rose-600 hover:bg-rose-500 text-white'
                                 }`}
                               >
                                 <Lock className="w-4 h-4" />
-                                <span>{isBlocked ? 'Unblock Student Account' : 'Block Student (Stop Login & Pause Campaigns)'}</span>
+                                <span>{isBlocked ? 'Unblock Student Account' : 'Block Student Account'}</span>
                               </button>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => handleBlockUserAction(selectedUser._id || selectedUser.id, selectedUser.name, 'Investor')}
-                                className={`w-full py-3 px-4 rounded text-xs font-mono font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                                className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                                   isBlocked
-                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-[0_0_12px_rgba(16,185,129,0.2)]'
-                                    : 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.2)]'
+                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black'
+                                    : 'bg-rose-600 hover:bg-rose-500 text-white'
                                 }`}
                               >
                                 <Lock className="w-4 h-4" />
-                                <span>{isBlocked ? 'Unblock Investor Account' : 'Block Investor (Cancel Offers & Revoke Access)'}</span>
+                                <span>{isBlocked ? 'Unblock Investor Account' : 'Block Investor Account'}</span>
                               </button>
                             )}
                           </div>
@@ -2432,28 +2242,28 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   </div>
                 </div>
 
-                {/* PANEL 2: CONTROL CAMPAIGNS & MONEY */}
-                <div className="border border-[#1F2922] bg-[#111613] rounded p-6 space-y-6 flex flex-col justify-between">
+                {/* PANEL 2: CONTROL CAMPAIGNS & ESCROW */}
+                <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-6 space-y-6 flex flex-col justify-between">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
                       <div>
-                        <span className="text-xs font-mono text-[#00E676] uppercase tracking-wider block">2. CONTROL CAMPAIGNS & MONEY</span>
-                        <h3 className="text-sm font-mono text-[#E2E8F0] font-medium mt-0.5">Escrow Lock & Campaign Policing</h3>
+                        <h3 className="text-sm font-bold text-[#E2E8F0]">2. Campaign & Escrow Controls</h3>
+                        <p className="text-xs text-[#8E9B93]">Pause funding, block pitches, or freeze escrow funds.</p>
                       </div>
-                      <span className="px-2 py-0.5 rounded text-[9px] font-mono border border-sky-500/30 bg-sky-500/10 text-sky-400 uppercase">
-                        ESCROW GUARDIAN
+                      <span className="px-2.5 py-1 rounded-md text-[10px] font-bold border border-sky-500/30 bg-sky-500/10 text-sky-400 uppercase">
+                        Escrow Control
                       </span>
                     </div>
 
                     {/* Campaign Selector */}
-                    <div className="space-y-2 font-mono text-xs">
-                      <label className="text-[10px] text-[#8E9B93] block uppercase font-semibold">
-                        SELECT TARGET CAMPAIGN TO CONTROL:
+                    <div className="space-y-2 text-xs">
+                      <label className="text-xs text-[#8E9B93] block font-semibold">
+                        Select Target Campaign:
                       </label>
                       <select
                         value={selectedControlCampaignId}
                         onChange={(e) => setSelectedControlCampaignId(e.target.value)}
-                        className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded p-3 text-[#E2E8F0] text-xs focus:outline-none focus:border-[#00E676]/50"
+                        className="w-full bg-[#0B0F0C] border border-[#1F2922] rounded-xl p-3 text-[#E2E8F0] text-xs focus:outline-none focus:border-[#00E676]/50"
                       >
                         <option value="">-- Select Campaign --</option>
                         {[...campaignsList, ...verifiedCampaigns].map(c => (
@@ -2475,73 +2285,70 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       const isFrozen = targetCamp.escrowFrozen;
 
                       return (
-                        <div className="p-4 bg-[#0B0F0C] border border-[#1F2922] rounded space-y-3 font-mono text-xs">
+                        <div className="p-4 bg-[#0B0F0C] border border-[#1F2922] rounded-xl space-y-3 text-xs">
                           <div className="flex items-center justify-between border-b border-[#1F2922] pb-2">
                             <div>
                               <span className="text-[#E2E8F0] font-bold block text-sm">{targetCamp.title}</span>
-                              <span className="text-[10px] text-[#8E9B93] block">Goal: ৳{Number(targetCamp.goal || 0).toLocaleString('en-IN')} BDT</span>
+                              <span className="text-xs text-[#8E9B93] block">Goal: ৳{Number(targetCamp.goal || 0).toLocaleString('en-IN')} BDT</span>
                             </div>
                             <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                              {isPaused && <span className="px-2 py-0.5 rounded text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase font-bold">PAUSED</span>}
-                              {isBlocked && <span className="px-2 py-0.5 rounded text-[9px] bg-red-500/10 text-red-400 border border-red-500/30 uppercase font-bold">BLOCKED</span>}
-                              {isFrozen && <span className="px-2 py-0.5 rounded text-[9px] bg-sky-500/10 text-sky-400 border border-sky-500/30 uppercase font-bold">ESCROW FROZEN</span>}
-                              {!isPaused && !isBlocked && !isFrozen && <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/10 text-[#00E676] border border-emerald-500/30 uppercase font-bold">ACTIVE</span>}
+                              {isPaused && <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold">PAUSED</span>}
+                              {isBlocked && <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/30 font-bold">BLOCKED</span>}
+                              {isFrozen && <span className="px-2 py-0.5 rounded text-[10px] bg-sky-500/10 text-sky-400 border border-sky-500/30 font-bold">FROZEN</span>}
+                              {!isPaused && !isBlocked && !isFrozen && <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-[#00E676] border border-emerald-500/30 font-bold">ACTIVE</span>}
                             </div>
                           </div>
 
                           {/* 3 Direct Control Action Buttons */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                            {/* Button 1: Pause Funding */}
                             <button
                               type="button"
                               onClick={() => handlePauseCampaignFunding(targetCamp._id || targetCamp.id, targetCamp.title)}
-                              className={`p-3 rounded border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1 ${
                                 isPaused
                                   ? 'bg-amber-500/20 border-amber-500 text-amber-300'
                                   : 'bg-[#111613] border-[#1F2922] hover:border-amber-500/50 text-[#E2E8F0]'
                               }`}
                             >
-                              <span className="font-bold text-[11px] text-amber-400 flex items-center gap-1">
+                              <span className="font-bold text-xs text-amber-400">
                                 {isPaused ? '▶ Resume Funding' : '⏸ Pause Funding'}
                               </span>
-                              <span className="text-[9px] text-[#8E9B93] leading-tight">
-                                {isPaused ? 'Restore payment processing' : 'Temporarily stop money transfers'}
+                              <span className="text-[10px] text-[#8E9B93]">
+                                {isPaused ? 'Enable payments' : 'Pause transactions'}
                               </span>
                             </button>
 
-                            {/* Button 2: Block / Delete Campaign */}
                             <button
                               type="button"
                               onClick={() => handleBlockCampaignAction(targetCamp._id || targetCamp.id, targetCamp.title)}
-                              className={`p-3 rounded border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1 ${
                                 isBlocked
-                                  ? 'bg-red-500/20 border-red-500 text-red-300'
-                                  : 'bg-[#111613] border-[#1F2922] hover:border-red-500/50 text-[#E2E8F0]'
+                                  ? 'bg-rose-500/20 border-rose-500 text-rose-300'
+                                  : 'bg-[#111613] border-[#1F2922] hover:border-rose-500/50 text-[#E2E8F0]'
                               }`}
                             >
-                              <span className="font-bold text-[11px] text-red-400 flex items-center gap-1">
-                                🚫 Block Campaign
+                              <span className="font-bold text-xs text-rose-400">
+                                🚫 Block Pitch
                               </span>
-                              <span className="text-[9px] text-[#8E9B93] leading-tight">
-                                Hide fake/bad pitch from investor feed
+                              <span className="text-[10px] text-[#8E9B93]">
+                                Hide pitch from feed
                               </span>
                             </button>
 
-                            {/* Button 3: Freeze Escrow Funds */}
                             <button
                               type="button"
                               onClick={() => handleFreezeCampaignFundsAction(targetCamp._id || targetCamp.id, targetCamp.title)}
-                              className={`p-3 rounded border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1 ${
                                 isFrozen
                                   ? 'bg-sky-500/20 border-sky-500 text-sky-300'
                                   : 'bg-[#111613] border-[#1F2922] hover:border-sky-500/50 text-[#E2E8F0]'
                               }`}
                             >
-                              <span className="font-bold text-[11px] text-sky-400 flex items-center gap-1">
-                                🔒 {isFrozen ? 'Unfreeze Funds' : 'Freeze Funds'}
+                              <span className="font-bold text-xs text-sky-400">
+                                🔒 {isFrozen ? 'Unfreeze' : 'Freeze Funds'}
                               </span>
-                              <span className="text-[9px] text-[#8E9B93] leading-tight">
-                                Lock money in Escrow account
+                              <span className="text-[10px] text-[#8E9B93]">
+                                Lock escrow vault
                               </span>
                             </button>
                           </div>
@@ -2552,16 +2359,16 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                 </div>
               </div>
 
-              {/* PANEL 3: MANAGE ALL USER COMPLAINTS */}
-              <div className="border border-[#1F2922] bg-[#111613] rounded overflow-hidden space-y-0">
+              {/* PANEL 3: USER REPORTS & COMPLAINTS LIST */}
+              <div className="border border-[#1F2922] bg-[#111613] rounded-2xl overflow-hidden space-y-0">
                 <div className="p-6 border-b border-[#1F2922] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <span className="text-xs font-mono text-[#00E676] uppercase tracking-wider block">3. MANAGE ALL USER COMPLAINTS</span>
-                    <h3 className="text-lg font-mono text-[#E2E8F0] font-medium">Platform Complaints & Incident Ledger</h3>
+                    <h3 className="text-base font-bold text-[#E2E8F0]">3. Reports & Incident Queue</h3>
+                    <p className="text-xs text-[#8E9B93]">List of submitted reports and flagged cases.</p>
                   </div>
 
-                  <span className="text-xs font-mono text-[#8E9B93]">
-                    Total Registered Cases: <span className="text-[#E2E8F0] font-bold">{disputesList.length}</span>
+                  <span className="text-xs text-[#8E9B93]">
+                    Total Reports: <span className="text-[#E2E8F0] font-bold">{disputesList.length}</span>
                   </span>
                 </div>
 
@@ -2763,78 +2570,86 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 font-mono text-xs">
                 <div className="border border-[#1F2922] bg-[#111613] rounded p-4 space-y-1">
-                  <span className="text-[#8E9B93] block text-[9px] uppercase">Total Actions (24H)</span>
-                  <span className="text-[#E2E8F0] text-lg font-medium">14,209</span>
+                  <span className="text-[#8E9B93] block text-[9px] uppercase font-bold">Total Actions</span>
+                  <span className="text-[#E2E8F0] text-xl font-bold">{activityLogs.length}</span>
                 </div>
                 <div className="border border-[#1F2922] bg-[#111613] rounded p-4 space-y-1">
-                  <span className="text-[#8E9B93] block text-[9px] uppercase">Critical Overrides</span>
-                  <span className="text-red-400 text-lg font-medium">03</span>
+                  <span className="text-[#8E9B93] block text-[9px] uppercase font-bold">Approved Actions</span>
+                  <span className="text-emerald-400 text-xl font-bold">
+                    {activityLogs.filter(l => l.action?.includes('APPROVED')).length}
+                  </span>
                 </div>
                 <div className="border border-[#1F2922] bg-[#111613] rounded p-4 space-y-1">
-                  <span className="text-[#8E9B93] block text-[9px] uppercase">Audit Completion</span>
-                  <span className="text-[#00E676] text-lg font-medium">99.9%</span>
+                  <span className="text-[#8E9B93] block text-[9px] uppercase font-bold">Rejections / Holds</span>
+                  <span className="text-rose-400 text-xl font-bold">
+                    {activityLogs.filter(l => l.action?.includes('REJECTED') || l.action?.includes('REMOVED') || l.action?.includes('HOLD')).length}
+                  </span>
                 </div>
                 <div className="border border-[#1F2922] bg-[#111613] rounded p-4 space-y-1">
-                  <span className="text-[#8E9B93] block text-[9px] uppercase">Last Sync</span>
-                  <span className="text-emerald-400 text-lg font-medium">0.4s ago</span>
+                  <span className="text-[#8E9B93] block text-[9px] uppercase font-bold">Audit Status</span>
+                  <span className="text-[#00E676] text-sm font-bold">100% VERIFIED</span>
                 </div>
               </div>
 
               <div className="border border-[#1F2922] bg-[#111613] rounded overflow-hidden">
                 <div className="overflow-x-auto font-mono text-xs">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-[#050806] border-b border-[#1F2922] text-[#8E9B93] font-medium">
-                        <th className="p-4">Timestamp</th>
-                        <th className="p-4">Admin Actor</th>
-                        <th className="p-4">Action Performed</th>
-                        <th className="p-4">Target Entity</th>
-                        <th className="p-4">Rationale Summary</th>
-                        <th className="p-4 text-center">Cryptographic Hash</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#1F2922]">
-                      {activityLogs
-                        .filter(log => {
-                          if (activityFilter === 'CRITICAL') {
-                            return log.action.includes('FRAUD') || log.action.includes('FREEZE') || log.action.includes('REVOCATION') || log.action.includes('REJECTED');
-                          }
-                          return true;
-                        })
-                        .filter(log => {
-                          const query = activitySearch.toLowerCase();
-                          return log.actor.toLowerCase().includes(query) || log.target.toLowerCase().includes(query) || log.action.toLowerCase().includes(query);
-                        })
-                        .map((log, index) => (
-                          <tr key={index} className="hover:bg-[#111613]/55 transition-colors">
-                            <td className="p-4 text-[#8E9B93] whitespace-nowrap">{log.timestamp}</td>
-                            <td className="p-4">
-                              <div className="flex items-center gap-2">
-                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium border ${log.color}`}>
-                                  {log.initials}
+                  {activityLogs.length > 0 ? (
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#050806] border-b border-[#1F2922] text-[#8E9B93] font-medium">
+                          <th className="p-4 font-semibold uppercase">Timestamp</th>
+                          <th className="p-4 font-semibold uppercase">Admin Actor</th>
+                          <th className="p-4 font-semibold uppercase">Action Performed</th>
+                          <th className="p-4 font-semibold uppercase">Target Entity</th>
+                          <th className="p-4 font-semibold uppercase">Rationale / Status</th>
+                          <th className="p-4 text-center font-semibold uppercase">Audit Hash</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1F2922]">
+                        {activityLogs
+                          .filter(log => {
+                            if (activityFilter === 'CRITICAL') {
+                              return log.action.includes('FRAUD') || log.action.includes('FREEZE') || log.action.includes('REVOCATION') || log.action.includes('REJECTED');
+                            }
+                            return true;
+                          })
+                          .filter(log => {
+                            const query = activitySearch.toLowerCase();
+                            return log.actor.toLowerCase().includes(query) || log.target.toLowerCase().includes(query) || log.action.toLowerCase().includes(query);
+                          })
+                          .map((log, index) => (
+                            <tr key={index} className="hover:bg-[#111613]/55 transition-colors">
+                              <td className="p-4 text-[#8E9B93] whitespace-nowrap">{log.timestamp}</td>
+                              <td className="p-4">
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium border ${log.color}`}>
+                                    {log.initials || 'AP'}
+                                  </span>
+                                  <span className="text-[#E2E8F0] font-semibold">{log.actor}</span>
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <span className={`px-2 py-0.5 rounded text-[10px] border font-medium ${log.action.includes('APPROVED') ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' :
+                                  log.action.includes('FRAUD') || log.action.includes('FREEZE') || log.action.includes('REVOCATION') || log.action.includes('REJECTED') ? 'text-red-400 border-red-500/30 bg-red-500/10' :
+                                    'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                                  }`}>
+                                  {log.action}
                                 </span>
-                                <span className="text-[#E2E8F0]">{log.actor}</span>
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <span className={`px-2 py-0.5 rounded text-[10px] border font-medium ${log.action.includes('APPROVED') ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' :
-                                log.action.includes('FRAUD') || log.action.includes('FREEZE') || log.action.includes('REVOCATION') || log.action.includes('REJECTED') ? 'text-red-400 border-red-500/30 bg-red-500/10' :
-                                  'text-amber-400 border-amber-500/30 bg-amber-500/10'
-                                }`}>
-                                {log.action}
-                              </span>
-                            </td>
-                            <td className="p-4 text-[#E2E8F0]">{log.target}</td>
-                            <td className="p-4 text-[#8E9B93] max-w-[200px] truncate">{log.rationale}</td>
-                            <td className="p-4 text-center">
-                              <span className="text-[10px] text-[#8E9B93]/50 select-all cursor-pointer">
-                                {log.hash}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                              </td>
+                              <td className="p-4 text-[#E2E8F0]">{log.target}</td>
+                              <td className="p-4 text-[#8E9B93] max-w-[200px] truncate">{log.rationale}</td>
+                              <td className="p-4 text-center">
+                                <span className="text-[10px] text-[#8E9B93]/50 select-all cursor-pointer">
+                                  {log.hash}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="p-8 text-center text-[#8E9B93]">No administrative actions logged yet.</div>
+                  )}
                 </div>
               </div>
             </div>
