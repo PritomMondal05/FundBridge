@@ -175,6 +175,55 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 -- ========================================================
+-- 7. MESSAGES TABLE (FR-7: Direct Real-Time Chat)
+-- ========================================================
+CREATE TABLE IF NOT EXISTS messages (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  sender_id TEXT NOT NULL,
+  receiver_id TEXT NOT NULL,
+  sender_name TEXT,
+  campaign_id TEXT,
+  text TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ========================================================
+-- 8. CAMPAIGN UPDATES TABLE (FR-8: Progress Logging & Announcements)
+-- ========================================================
+CREATE TABLE IF NOT EXISTS campaign_updates (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  campaign_id TEXT NOT NULL,
+  founder_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  milestone_tag TEXT DEFAULT 'General Update',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ========================================================
+-- 9. WATCHLIST TABLE (FR-15: Investor Watchlist Pins)
+-- ========================================================
+CREATE TABLE IF NOT EXISTS watchlist (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id TEXT NOT NULL,
+  campaign_id TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ========================================================
+-- 10. NOTIFICATIONS TABLE (FR-22: Automated System Notifications)
+-- ========================================================
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  type TEXT DEFAULT 'info',
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ========================================================
 -- PERFORMANCE INDEXES
 -- ========================================================
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -185,6 +234,10 @@ CREATE INDEX IF NOT EXISTS idx_proposals_campaign_id ON proposals(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_proposals_investor_id ON proposals(investor_id);
 CREATE INDEX IF NOT EXISTS idx_payouts_founder_id ON payouts(founder_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_receiver ON messages(sender_id, receiver_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_updates_campaign ON campaign_updates(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 
 -- ========================================================
 -- ROW LEVEL SECURITY (RLS)
@@ -196,6 +249,11 @@ ALTER TABLE proposals DISABLE ROW LEVEL SECURITY;
 ALTER TABLE payouts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE disputes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_updates DISABLE ROW LEVEL SECURITY;
+ALTER TABLE watchlist DISABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
+
 
 -- ========================================================
 -- SEED DATA (Default Entities for Immediate Platform Setup)

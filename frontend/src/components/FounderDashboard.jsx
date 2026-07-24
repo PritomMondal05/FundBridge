@@ -1936,6 +1936,136 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
           </div>
         </div>
       )}
+
+      {/* FR-7: DIRECT REAL-TIME CHAT DRAWER */}
+      {showChatDrawer && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end">
+          <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs">
+                  {chatTarget?.name?.[0] || 'I'}
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm">{chatTarget?.name || 'Angel Investor'}</h4>
+                  <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Direct Messaging Active (FR-7)
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setShowChatDrawer(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50">
+              {chatMessages.length === 0 ? (
+                <div className="text-center py-10 text-xs text-slate-400">
+                  <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>No messages yet. Start discussing deal terms!</p>
+                </div>
+              ) : (
+                chatMessages.map((m, idx) => (
+                  <div key={idx} className={`flex flex-col ${m.sender_id === (currentUser?.id || user.id) ? 'items-end' : 'items-start'}`}>
+                    <div className={`max-w-[80%] p-3 rounded-2xl text-xs ${m.sender_id === (currentUser?.id || user.id) ? 'bg-[#047857] text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-xs'}`}>
+                      <p>{m.text}</p>
+                    </div>
+                    <span className="text-[9px] text-slate-400 mt-1 px-1">{m.sender_name || 'User'}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handleSendChatMessage} className="p-3 bg-white border-t border-slate-200 flex gap-2">
+              <input
+                type="text"
+                value={chatInputText}
+                onChange={(e) => setChatInputText(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-1 px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+              <button type="submit" className="px-4 py-2 bg-[#047857] hover:bg-[#065f46] text-white font-semibold text-xs rounded-xl shadow-xs cursor-pointer">
+                Send
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* FR-8: PUBLISH ANNOUNCEMENT MODAL */}
+      {showAnnouncementModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-emerald-600" />
+                <span>Publish Campaign Progress Update</span>
+              </h3>
+              <button onClick={() => setShowAnnouncementModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePublishAnnouncement} className="space-y-4 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Update Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Milestone 1 Completed - MVP Live for Beta Testing!"
+                  value={announcementTitle}
+                  onChange={(e) => setAnnouncementTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Milestone Tag</label>
+                <select
+                  value={announcementTag}
+                  onChange={(e) => setAnnouncementTag(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-medium text-slate-800"
+                >
+                  <option value="Milestone 1 Achieved">Milestone 1 Achieved</option>
+                  <option value="Milestone 2 In Progress">Milestone 2 In Progress</option>
+                  <option value="Product Launch">Product Launch Announcement</option>
+                  <option value="Financial Milestone">Financial / Revenue Report</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Announcement Narrative / Log Details</label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Share latest development logs, metric achievements, and user feedback with your backers..."
+                  value={announcementContent}
+                  onChange={(e) => setAnnouncementContent(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAnnouncementModal(false)}
+                  className="flex-1 py-2.5 border border-slate-300 text-slate-700 font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white font-semibold rounded-xl shadow-sm cursor-pointer"
+                >
+                  Publish Announcement
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

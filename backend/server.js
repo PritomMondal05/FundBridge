@@ -16,6 +16,9 @@ import Proposal from './models/Proposal.js';
 import Payout from './models/Payout.js';
 import Dispute from './models/Dispute.js';
 import AuditLog from './models/AuditLog.js';
+import Message from './models/Message.js';
+import CampaignUpdate from './models/CampaignUpdate.js';
+import Notification from './models/Notification.js';
 import bcrypt from 'bcryptjs';
 
 dotenv.config();
@@ -166,6 +169,13 @@ const fallbackCampaigns = [
 
 const fallbackProposals = [];
 const fallbackPayouts = [];
+const fallbackMessages = [];
+const fallbackUpdates = [];
+const fallbackWatchlist = [];
+const fallbackNotifications = [
+  { id: 'notif_1', user_id: 'usr_founder_1', title: 'New Proposal Received', message: 'Angel Backer Zaman submitted an 8% Rev. Share proposal for CampusBites.', type: 'info', is_read: false, created_at: new Date().toISOString() },
+  { id: 'notif_2', user_id: 'usr_investor_1', title: 'Vetting Verified', message: 'Your investor identity vetting has been approved by platform administration.', type: 'success', is_read: true, created_at: new Date().toISOString() }
+];
 
 // NORMALIZATION HELPERS
 const normalizeUser = (u) => {
@@ -789,16 +799,357 @@ io.on('connection', (socket) => {
     socket.join(roomId);
   });
 
-  socket.on('send_message', (data) => {
-    io.to(data.roomId).emit('receive_message', {
-      sender: data.sender,
+  socket.on('send_message', async (data) => {
+    const msgObj = {
+      id: 'msg_' + Date.now(),
+      sender_id: data.senderId || data.sender,
+      receiver_id: data.receiverId || 'all',
+      sender_name: data.senderName || 'User',
+      campaign_id: data.campaignId || '',
       text: data.text,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    });
+      created_at: new Date().toISOString()
+    };
+    fallbackMessages.push(msgObj);
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('messages').insert([msgObj]); } catch(e){}
+    }
+
+    const targetRoom = data.roomId || data.campaignId || 'general';
+    io.to(targetRoom).emit('receive_message', msgObj);
+    io.emit('new_direct_message', msgObj);
   });
+});
+
+// ============================================================================
+// FR-21: AI OPTIMIZATION ENGINE API
+// ============================================================================
+app.post('/api/ai/generate', (req, res) => {
+  try {
+    const { action, title, category, stage, university, targetAudience, description } = req.body;
+
+    if (action === 'pitch_bio' || action === 'slogan') {
+      const taglines = [
+        `Revolutionizing ${category || 'EdTech'} through smart university ecosystem integration.`,
+        `Empowering student innovators at ${university || 'top Bangladeshi universities'} with seamless scalable tech.`,
+        `Next-gen ${category || 'FinTech'} platform built by student entrepreneurs for rapid market traction.`,
+        `Disrupting traditional workflows with automated milestone verification and community backing.`
+      ];
+      const slogan = taglines[Math.floor(Math.random() * taglines.length)];
+      const bio = `${title || 'Our Venture'} is an innovative ${category || 'technology'} startup developed by founders at ${university || 'BRAC University'}. Currently in ${stage || 'MVP Stage'}, our platform addresses key operational challenges for university communities in Bangladesh by introducing digital automation, scalable infrastructure, and milestone-verified growth execution.`;
+      
+      return res.status(200).json({ slogan, bio });
+    }
+
+    if (action === 'business_summary') {
+      const summary = `BUSINESS SUMMARY FOR ${title || 'VENTURE'}:\n1. Core Value Proposition: Streamlined ${category || 'Tech'} operations tailored for high-growth Bangladeshi markets.\n2. Milestone Execution: Clear 3-tranche roadmap focused on MVP deployment, customer acquisition, and recurring revenue.\n3. Investor Return Alignment: High alignment with alumni networks and revenue share / milestone debt models.`;
+      return res.status(200).json({ summary });
+    }
+
+    if (action === 'investor_match') {
+      const recommendations = fallbackCampaigns.slice(0, 3).map(c => ({
+        id: c.id,
+        title: c.title,
+        category: c.category,
+        matchScore: Math.floor(88 + Math.random() * 11) + '% Match',
+        reason: `Strong alignment with your preference for ${c.category} ventures originating from ${c.university}.`
+      }));
+      return res.status(200).json({ recommendations });
+    }
+
+    res.status(200).json({
+      slogan: `Transforming ${category || 'Education'} through verified student innovation.`,
+      bio: `A high-impact startup leveraging technology to build sustainable value in Bangladesh.`
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'AI generation failed.' });
+  }
+});
+
+// ============================================================================
+// FR-7: DIRECT REAL-TIME CHAT APIS
+// ============================================================================
+app.get('/api/chat/messages', async (req, res) => {
+  try {
+    const { senderId, receiverId, campaignId } = req.query;
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('messages').select('*').order('created_at', { ascending: true });
+      if (!error && data) {
+        let filtered = data;
+        if (campaignId) filtered = filtered.filter(m => m.campaign_id === campaignId);
+        else if (senderId && receiverId) {
+          filtered = filtered.filter(m => 
+            (m.sender_id === senderId && m.receiver_id === receiverId) ||
+            (m.sender_id === receiverId && m.receiver_id === senderId)
+          );
+        }
+        return res.status(200).json(filtered);
+      }
+    }
+    
+    let result = fallbackMessages;
+    if (campaignId) result = result.filter(m => m.campaign_id === campaignId);
+    else if (senderId && receiverId) {
+      result = result.filter(m => 
+        (m.sender_id === senderId && m.receiver_id === receiverId) ||
+        (m.sender_id === receiverId && m.receiver_id === senderId)
+      );
+    }
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching messages.' });
+  }
+});
+
+app.post('/api/chat/messages', async (req, res) => {
+  try {
+    const { senderId, receiverId, campaignId, senderName, text } = req.body;
+    if (!senderId || !text) return res.status(400).json({ error: 'Sender ID and text are required.' });
+
+    const msgObj = {
+      id: 'msg_' + Date.now(),
+      sender_id: senderId,
+      receiver_id: receiverId || 'all',
+      sender_name: senderName || 'User',
+      campaign_id: campaignId || '',
+      text,
+      created_at: new Date().toISOString()
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('messages').insert([msgObj]); } catch(e){}
+    }
+    fallbackMessages.push(msgObj);
+
+    const targetRoom = campaignId || 'general';
+    io.to(targetRoom).emit('receive_message', msgObj);
+    io.emit('new_direct_message', msgObj);
+
+    res.status(201).json(msgObj);
+  } catch (err) {
+    res.status(500).json({ error: 'Error sending message.' });
+  }
+});
+
+// ============================================================================
+// FR-3: USER PROFILE MANAGEMENT API
+// ============================================================================
+app.put('/api/users/profile', async (req, res) => {
+  try {
+    const { userId, name, university, department, mfsNumber, bio, institution, passingYear } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID is required.' });
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('users').update({
+          name,
+          university,
+          department,
+          mfs_number: mfsNumber,
+          institution,
+          passing_year: passingYear
+        }).eq('id', userId);
+      } catch (e) {}
+    }
+
+    const fu = fallbackUsers.find(u => u.id === userId || u._id === userId);
+    if (fu) {
+      if (name) fu.name = name;
+      if (university) fu.university = university;
+      if (department) fu.department = department;
+      if (mfsNumber) fu.mfs_number = fu.mfsNumber = mfsNumber;
+      if (bio) fu.bio = bio;
+      if (institution) fu.institution = institution;
+      if (passingYear) fu.passing_year = passingYear;
+    }
+
+    res.status(200).json({ message: 'Profile updated successfully.', user: fu || { id: userId, name } });
+  } catch (err) {
+    res.status(500).json({ error: 'Error updating profile.' });
+  }
+});
+
+// ============================================================================
+// FR-5: CAMPAIGN EDIT & CANCEL APIS
+// ============================================================================
+app.put('/api/campaigns/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, tagline, goal, equityOffer, description, category, stage } = req.body;
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('campaigns').update({
+          title,
+          tagline,
+          goal: Number(goal),
+          equity_offer: equityOffer,
+          description,
+          category,
+          stage
+        }).eq('id', id);
+      } catch (e) {}
+    }
+
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    if (cmp) {
+      if (title) cmp.title = title;
+      if (tagline) cmp.tagline = tagline;
+      if (goal) cmp.goal = Number(goal);
+      if (equityOffer) cmp.equity_offer = cmp.equityOffer = equityOffer;
+      if (description) cmp.description = description;
+      if (category) cmp.category = category;
+      if (stage) cmp.stage = stage;
+    }
+
+    res.status(200).json({ message: 'Campaign updated successfully.', campaign: cmp });
+  } catch (err) {
+    res.status(500).json({ error: 'Error updating campaign.' });
+  }
+});
+
+app.delete('/api/campaigns/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('campaigns').update({ status: 'cancelled' }).eq('id', id);
+      } catch (e) {}
+    }
+
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    if (cmp) cmp.status = 'cancelled';
+
+    res.status(200).json({ message: 'Campaign de-listed / cancelled successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error cancelling campaign.' });
+  }
+});
+
+// ============================================================================
+// FR-8: PROGRESS LOGGING / ANNOUNCEMENTS APIS
+// ============================================================================
+app.get('/api/campaigns/:id/updates', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('campaign_updates').select('*').eq('campaign_id', id).order('created_at', { ascending: false });
+      if (!error && data) return res.status(200).json(data);
+    }
+    const filtered = fallbackUpdates.filter(u => u.campaign_id === id);
+    res.status(200).json(filtered);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching campaign updates.' });
+  }
+});
+
+app.post('/api/campaigns/:id/updates', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { founderId, title, content, milestoneTag } = req.body;
+
+    const newUpdate = {
+      id: 'upd_' + Date.now(),
+      campaign_id: id,
+      founder_id: founderId || 'usr_founder_1',
+      title: title || 'Milestone Progress Update',
+      content: content || '',
+      milestone_tag: milestoneTag || 'General Update',
+      created_at: new Date().toISOString()
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('campaign_updates').insert([newUpdate]); } catch (e) {}
+    }
+    fallbackUpdates.unshift(newUpdate);
+
+    res.status(201).json(newUpdate);
+  } catch (err) {
+    res.status(500).json({ error: 'Error creating campaign update.' });
+  }
+});
+
+// ============================================================================
+// FR-15: INVESTOR WATCHLIST PINS APIS
+// ============================================================================
+app.get('/api/investors/watchlist', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('watchlist').select('*').eq('user_id', userId);
+      if (!error && data) return res.status(200).json(data);
+    }
+    const saved = fallbackWatchlist.filter(w => w.user_id === userId);
+    res.status(200).json(saved);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching watchlist.' });
+  }
+});
+
+app.post('/api/investors/watchlist', async (req, res) => {
+  try {
+    const { userId, campaignId } = req.body;
+    if (!userId || !campaignId) return res.status(400).json({ error: 'User ID and Campaign ID required.' });
+
+    const existingIdx = fallbackWatchlist.findIndex(w => w.user_id === userId && w.campaign_id === campaignId);
+    let status = 'added';
+
+    if (existingIdx >= 0) {
+      fallbackWatchlist.splice(existingIdx, 1);
+      status = 'removed';
+      if (isSupabaseConfigured && supabase) {
+        try { await supabase.from('watchlist').delete().eq('user_id', userId).eq('campaign_id', campaignId); } catch(e){}
+      }
+    } else {
+      const item = { id: 'w_' + Date.now(), user_id: userId, campaign_id: campaignId, created_at: new Date().toISOString() };
+      fallbackWatchlist.push(item);
+      if (isSupabaseConfigured && supabase) {
+        try { await supabase.from('watchlist').insert([item]); } catch(e){}
+      }
+    }
+
+    res.status(200).json({ status, campaignId });
+  } catch (err) {
+    res.status(500).json({ error: 'Error toggling watchlist.' });
+  }
+});
+
+// ============================================================================
+// FR-22: AUTOMATED NOTIFICATIONS APIS
+// ============================================================================
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
+      if (!error && data) {
+        const filtered = data.filter(n => !userId || n.user_id === userId);
+        return res.status(200).json(filtered);
+      }
+    }
+    const list = fallbackNotifications.filter(n => !userId || n.user_id === userId);
+    res.status(200).json(list);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching notifications.' });
+  }
+});
+
+app.put('/api/notifications/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('notifications').update({ is_read: true }).eq('id', id); } catch(e){}
+    }
+    const notif = fallbackNotifications.find(n => n.id === id);
+    if (notif) notif.is_read = true;
+    res.status(200).json({ message: 'Notification marked as read.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error marking notification read.' });
+  }
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+

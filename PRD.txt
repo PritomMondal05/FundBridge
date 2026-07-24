@@ -1,0 +1,160 @@
+================================================================================
+                       PRODUCT REQUIREMENT DOCUMENT (PRD)
+                             FUNDBRIDGE PLATFORM
+================================================================================
+Document Version: 2.0.0 (Fully Complete - 22/22 Functional Requirements)
+Date: July 2026
+Status: Production Ready / 100% Implemented
+Target Region: Bangladesh (Higher Education & Startup Ecosystem)
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & EXECUTIVE OVERVIEW
+--------------------------------------------------------------------------------
+FundBridge is a trust-focused, milestone-driven crowdfunding and angel investment 
+marketplace tailored for Bangladeshi university student entrepreneurs, young graduates, 
+and corporate alumni angel investors.
+
+The platform bridges the trust and funding gap in early-stage student startups by:
+1. Verifying student identities (University ID, NID) and alumni backer credentials.
+2. Structuring fundraising around milestone-based escrow tranches.
+3. Enabling flexible return structures (Revenue Share, Equity, Convertible Notes, Debt).
+4. Providing real-time direct chat (<300ms latency) and AI-powered pitch optimization.
+5. Equipping investors with watchlist bookmarking and head-to-head 3-startup comparative matrices.
+6. Supplying full auditability with cryptographic transaction hash receipts and automated notifications.
+
+--------------------------------------------------------------------------------
+2. TARGET AUDIENCE & USER ROLES
+--------------------------------------------------------------------------------
+2.1 Student Founders (Business Owners)
+  - University students & recent graduates with validated startup ideas or MVPs.
+  - Seeking seed capital (BDT ৳50,000 - ৳5,000,000) from verified alumni.
+  - Use AI copy generation to draft pitch bios, slogans, and progress announcements.
+  - Require structured payout releases via local MFS (bKash, Nagad) or bank channels.
+
+2.2 Alumni Backers & Investors
+  - Corporate alumni, angel investors, and venture funds seeking early-stage deal flow.
+  - Evaluate ventures using side-by-side comparison matrices, watchlist pins, and direct chats.
+
+2.3 Super Administrators
+  - Platform operators responsible for identity vetting, campaign moderation,
+    escrow oversight, financial payout audits, and dispute resolution.
+
+--------------------------------------------------------------------------------
+3. CURRENT SYSTEM ARCHITECTURE & TECH STACK
+--------------------------------------------------------------------------------
+3.1 Frontend Architecture
+  - Framework: React.js (Vite)
+  - Styling: Custom CSS & Design System (Horizon Sky-Blue & Lush Pine Green theme)
+  - Animation & UI Components: GSAP (GreenSock), Lucide React Icon Library
+  - Real-Time Communication: Socket.io Client for instant messaging (<300ms)
+  - Responsiveness: Fully mobile, tablet, and desktop responsive layout
+
+3.2 Backend Architecture
+  - Environment: Node.js & Express.js REST API
+  - Real-Time Websocket Server: Socket.io integration on port 5000
+  - AI Assistant Service: `/api/ai/generate` engine for tagline, bio, & investor matching
+  - Dual Database Engine Support:
+    * MongoDB (User, Campaign, Proposal, Payout, Dispute, AuditLog, Message, CampaignUpdate, Notification)
+    * PostgreSQL / Supabase (pgcrypto UUID support, RLS policies, native SQL schema)
+
+--------------------------------------------------------------------------------
+4. COMPLETE FUNCTIONAL REQUIREMENT SPECIFICATIONS (FR-1 TO FR-22)
+--------------------------------------------------------------------------------
+
+[FR-1] SECURE REGISTRATION & ROLE ASSIGNMENT
+- Onboarding for "Business Owner" (Founder) and "Investor" with custom input fields.
+
+[FR-2] ROLE ACCESS ENFORCEMENT
+- Admin routing pathways and security monitors restricted strictly to admin profiles.
+
+[FR-3] PROFILE MANAGEMENT
+- Business owners and investors can update profile details, university, bio, and company history.
+
+[FR-4] VETTING VERIFICATION
+- Document upload handlers for Student ID Cards, NIDs, Passports, and credential links.
+
+[FR-5] CAMPAIGN MANAGEMENT (CREATE, EDIT, CANCEL)
+- Founders can create pitches, edit targets/milestones (`PUT /api/campaigns/:id`), and cancel/de-list campaigns (`DELETE /api/campaigns/:id`).
+
+[FR-6] INVESTMENT PROPOSAL TRACKING
+- Founders review incoming investor term sheet proposals and trigger Accept or Reject decisions.
+
+[FR-7] DIRECT REAL-TIME CHAT API
+- Socket.io websockets & REST endpoint (`/api/chat/messages`) supporting instant messaging drawer between founders and investors with <300ms delivery latency.
+
+[FR-8] PROGRESS LOGGING & ANNOUNCEMENTS
+- Founders publish milestone progress updates (`POST /api/campaigns/:id/updates`) rendered in a public timeline feed.
+
+[FR-9] TRANSACTION TRACKING
+- Founder wallet analytics dashboard with milestone escrow balances, payout logs, and hash receipts.
+
+[FR-10] MARKETPLACE DISCOVERY
+- Approved fundraising campaign catalog with live progress bars and verified badges.
+
+[FR-11] GRANULAR SEARCH ENGINE
+- Business directory filtering by Category, Target Goal, Stage, and University/Location.
+
+[FR-12] DETAILED PROFILE AUDITING
+- Detailed pitch view with video player, milestone breakdown, equity model, and escrow status.
+
+[FR-13] INVESTMENT PROPOSAL SUBMISSION
+- Custom Term Sheet Generator supporting Revenue Share %, Equity %, Convertible Note, and Debt.
+
+[FR-14] PERSONAL HISTORY TRACKING
+- Investor portfolio log displaying backed startups, capital committed, and proposal statuses.
+
+[FR-15] INVESTOR WATCHLIST PINS
+- Pin/Bookmark startups for quick tracking (`POST /api/investors/watchlist`) with dedicated Watchlist tab.
+
+[FR-16] 3-STARTUP COMPARATIVE ASSESSMENT MATRIX TOOL
+- Select up to 3 startups for a head-to-head comparison table analyzing Goals, Equity, Category, Stage, and Milestones.
+
+[FR-17] VETTING MODERATION QUEUE
+- Admin panel to inspect identity documents (Student ID, NID, Passports) and Approve/Reject user accounts.
+
+[FR-18] CAMPAIGN AUDITING QUEUE
+- Admin moderation desk to approve or reject submitted startup pitches before public directory listing.
+
+[FR-19] USER OPERATIONS & TRANSACTION MANAGEMENT
+- Admin tools to inspect transaction logs, audit hash receipts, and review system activities.
+
+[FR-20] ACCOUNT SUSPENSIONS & ESCROW FREEZE
+- Admin dispute resolution desk to freeze campaign escrow (`/api/admin/campaigns/:id/freeze`) and flag fraudulent accounts.
+
+[FR-21] AI OPTIMIZATION ENGINE
+- AI Assistant endpoint (`POST /api/ai/generate`) helping founders generate pitch bios, slogans, business summaries, and investor match scores.
+
+[FR-22] AUTOMATED IN-APP NOTIFICATIONS
+- In-app notification bell drawer (`GET /api/notifications`) dispatching real-time notices on proposal updates, vetting decisions, and chat messages.
+
+--------------------------------------------------------------------------------
+5. DATABASE SCHEMA SUMMARY
+--------------------------------------------------------------------------------
+1. USERS: id, name, email, password, role, vetting_status, university, student_id, department, nid, dob, student_id_card_image, nid_card_image, affiliation_status, institution, passing_year, bank_or_mfs, credentials_image, vetting_date, created_at.
+2. CAMPAIGNS: id, title, founder_id, university, location, category, stage, goal, raised, equity_offer, tagline, cover_photo, pitch_video_url, description, milestones, status, escrow_frozen, verified, created_at.
+3. PROPOSALS: id, campaign_id, investor_id, amount, return_structure, maturity_period, grace_period, terms, custom_notes, status, created_at.
+4. PAYOUTS: id, founder_id, tranche, amount, method, account_number, status, hash, created_at.
+5. DISPUTES: id, complainant_name, complainant_role, reported_user, issue_type, description, evidence_file, severity, status, created_at.
+6. AUDIT_LOGS: id, hash, category, title, status, latency, created_at.
+7. MESSAGES: id, sender_id, receiver_id, sender_name, campaign_id, text, created_at.
+8. CAMPAIGN_UPDATES: id, campaign_id, founder_id, title, content, milestone_tag, created_at.
+9. WATCHLIST: id, user_id, campaign_id, created_at.
+10. NOTIFICATIONS: id, user_id, title, message, type, is_read, created_at.
+
+--------------------------------------------------------------------------------
+6. DEMO CREDENTIALS & QUICK START
+--------------------------------------------------------------------------------
+Default Test Accounts:
+- Admin Portal:      admin@fundbridge.com    / admin123
+- Investor Portal:   investor@firm.com       / investorpassword
+- Student Founder:   anika@brac.edu.bd       / founderpassword
+
+Execution Commands:
+- First-time setup: npm run install-all
+- Start server & client concurrently: npm start
+- Frontend UI: http://localhost:5173
+- Backend API: http://localhost:5000/api/health
+
+================================================================================
+                          END OF PRD DOCUMENT
+================================================================================

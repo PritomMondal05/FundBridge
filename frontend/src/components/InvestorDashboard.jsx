@@ -863,3 +863,4 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
     </div>
   );
 }
+
