@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
 import {
   LayoutGrid,
   Rocket,
@@ -121,6 +122,12 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState('');
   const [payoutMethod, setPayoutMethod] = useState('bkash');
+
+  // Progress Announcement Modal State (FR-8)
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementTag, setAnnouncementTag] = useState('Milestone 1 Achieved');
+  const [announcementContent, setAnnouncementContent] = useState('');
 
   // Milestones Upload State
   const [selectedMilestone, setSelectedMilestone] = useState('');
@@ -405,6 +412,44 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
       }
     } catch (err) {
       showToast('Error submitting payout request.', 'error');
+    }
+  };
+
+  // Publish Progress Announcement (FR-8)
+  const handlePublishAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!announcementTitle.trim() || !announcementContent.trim()) {
+      showToast('Please fill out the announcement title and narrative content.', 'error');
+      return;
+    }
+
+    const activeCamp = campaigns.length > 0 ? campaigns[0] : null;
+    const campId = activeCamp?.id || activeCamp?._id || 'campusbites';
+    const userId = currentUser?.id || currentUser?._id || user.id;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/campaigns/${campId}/updates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          founderId: userId,
+          title: announcementTitle,
+          content: announcementContent,
+          milestoneTag: announcementTag
+        })
+      });
+
+      if (res.ok) {
+        setShowAnnouncementModal(false);
+        setAnnouncementTitle('');
+        setAnnouncementContent('');
+        showToast('Campaign progress announcement published to database!', 'success');
+        fetchDatabaseData();
+      } else {
+        showToast('Failed to publish announcement update.', 'error');
+      }
+    } catch (err) {
+      showToast('Error publishing progress announcement.', 'error');
     }
   };
 

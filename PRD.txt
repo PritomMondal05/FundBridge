@@ -46,16 +46,13 @@ The platform bridges the trust and funding gap in early-stage student startups b
   - Framework: React.js (Vite)
   - Styling: Custom CSS & Design System (Horizon Sky-Blue & Lush Pine Green theme)
   - Animation & UI Components: GSAP (GreenSock), Lucide React Icon Library
-  - Real-Time Communication: Socket.io Client for instant messaging (<300ms)
   - Responsiveness: Fully mobile, tablet, and desktop responsive layout
 
 3.2 Backend Architecture
-  - Environment: Node.js & Express.js REST API
-  - Real-Time Websocket Server: Socket.io integration on port 5000
+  - Environment: Node.js & Express.js Serverless REST API
+  - Serverless Function Entrypoint: `api/server.js` for Vercel Cloud Serverless functions
   - AI Assistant Service: `/api/ai/generate` engine for tagline, bio, & investor matching
-  - Dual Database Engine Support:
-    * MongoDB (User, Campaign, Proposal, Payout, Dispute, AuditLog, Message, CampaignUpdate, Notification)
-    * PostgreSQL / Supabase (pgcrypto UUID support, RLS policies, native SQL schema)
+  - Database Engine: 100% Supabase Cloud PostgreSQL Database (`backend/supabase_schema.sql` native schema)
 
 --------------------------------------------------------------------------------
 4. COMPLETE FUNCTIONAL REQUIREMENT SPECIFICATIONS (FR-1 TO FR-22)
@@ -79,8 +76,8 @@ The platform bridges the trust and funding gap in early-stage student startups b
 [FR-6] INVESTMENT PROPOSAL TRACKING
 - Founders review incoming investor term sheet proposals and trigger Accept or Reject decisions.
 
-[FR-7] DIRECT REAL-TIME CHAT API
-- Socket.io websockets & REST endpoint (`/api/chat/messages`) supporting instant messaging drawer between founders and investors with <300ms delivery latency.
+[FR-7] DIRECT CHAT API BACKBONE
+- REST endpoints (`/api/chat/messages`) supporting messaging between founders and investors.
 
 [FR-8] PROGRESS LOGGING & ANNOUNCEMENTS
 - Founders publish milestone progress updates (`POST /api/campaigns/:id/updates`) rendered in a public timeline feed.
@@ -125,10 +122,10 @@ The platform bridges the trust and funding gap in early-stage student startups b
 - AI Assistant endpoint (`POST /api/ai/generate`) helping founders generate pitch bios, slogans, business summaries, and investor match scores.
 
 [FR-22] AUTOMATED IN-APP NOTIFICATIONS
-- In-app notification bell drawer (`GET /api/notifications`) dispatching real-time notices on proposal updates, vetting decisions, and chat messages.
+- In-app notification bell drawer (`GET /api/notifications`) dispatching notices on proposal updates and vetting decisions.
 
 --------------------------------------------------------------------------------
-5. DATABASE SCHEMA SUMMARY
+5. DATABASE SCHEMA SUMMARY (SUPABASE CLOUD POSTGRESQL)
 --------------------------------------------------------------------------------
 1. USERS: id, name, email, password, role, vetting_status, university, student_id, department, nid, dob, student_id_card_image, nid_card_image, affiliation_status, institution, passing_year, bank_or_mfs, credentials_image, vetting_date, created_at.
 2. CAMPAIGNS: id, title, founder_id, university, location, category, stage, goal, raised, equity_offer, tagline, cover_photo, pitch_video_url, description, milestones, status, escrow_frozen, verified, created_at.
@@ -142,7 +139,34 @@ The platform bridges the trust and funding gap in early-stage student startups b
 10. NOTIFICATIONS: id, user_id, title, message, type, is_read, created_at.
 
 --------------------------------------------------------------------------------
-6. DEMO CREDENTIALS & QUICK START
+6. VERCEL DEPLOYMENT & PRODUCTION HOSTING GUIDE (SUPABASE DATABASE)
+--------------------------------------------------------------------------------
+Step 1: Execute Supabase Database Schema
+  1. Log into your Supabase Dashboard (https://supabase.com).
+  2. Create a new project named "FundBridge".
+  3. Open the "SQL Editor" in Supabase.
+  4. Paste the entire contents of `backend/supabase_schema.sql` and click "Run".
+  5. Copy your Project URL and Anon/Service Key from Settings -> API.
+
+Step 2: Deploy to Vercel
+  1. Push your repository to GitHub / GitLab.
+  2. Log into Vercel (https://vercel.com) and click "Add New Project".
+  3. Import your FundBridge repository.
+  4. Configure Project Settings:
+     - Framework Preset: Vite
+     - Build Command: `npm run build`
+     - Output Directory: `frontend/dist`
+  5. Add Environment Variables in Vercel Project Settings:
+     - `SUPABASE_URL` = <Your Supabase Project URL>
+     - `SUPABASE_ANON_KEY` = <Your Supabase Anon / Service Role Key>
+  6. Click "Deploy".
+
+Step 3: Serverless Routing Verification
+  - Serverless API Function: Automatically routed via `api/server.js`.
+  - Frontend SPA Rewrites: Configured via `vercel.json`.
+
+--------------------------------------------------------------------------------
+7. DEMO CREDENTIALS & LOCAL QUICK START
 --------------------------------------------------------------------------------
 Default Test Accounts:
 - Admin Portal:      admin@fundbridge.com    / admin123
@@ -150,10 +174,9 @@ Default Test Accounts:
 - Student Founder:   anika@brac.edu.bd       / founderpassword
 
 Execution Commands:
-- First-time setup: npm run install-all
-- Start server & client concurrently: npm start
-- Frontend UI: http://localhost:5173
-- Backend API: http://localhost:5000/api/health
+- Local Serverless & Client: npm start
+- Local Frontend UI: http://localhost:5173
+- Production URL: Provided automatically by Vercel upon deployment.
 
 ================================================================================
                           END OF PRD DOCUMENT
