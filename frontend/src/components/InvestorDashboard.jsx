@@ -296,10 +296,11 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   }, [currentUser]);
 
   // Execute Submit Proposal
-  const executeCreateProposal = async () => {
-    if (!selectedProposalCampaign) return;
+  const executeCreateProposal = async (targetCampaign) => {
+    const camp = targetCampaign || selectedProposalCampaign;
+    if (!camp) return;
     try {
-      const campId = selectedProposalCampaign.id || selectedProposalCampaign._id;
+      const campId = camp.id || camp._id;
       const res = await fetch(`${API_BASE_URL}/api/campaigns/${campId}/proposals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -326,20 +327,21 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
     }
   };
 
-  // Submit Proposal Form Trigger (Prompts Confirmation First)
+  // Submit Proposal Form Trigger (Prompts Automated Confirmation First)
   const handleCreateProposal = (e) => {
     e.preventDefault();
     if (!selectedProposalCampaign) return;
 
+    const campaignToSubmit = selectedProposalCampaign;
     setConfirmModal({
       title: 'Confirm Investment Offer Submission',
-      message: `Are you sure you want to submit an investment proposal of ৳ ${Number(proposalAmount).toLocaleString()} with terms "${proposalTerms}" for "${selectedProposalCampaign.title}"?`,
+      message: `Are you sure you want to submit an investment proposal of ৳ ${Number(proposalAmount).toLocaleString()} with terms "${proposalTerms}" for "${campaignToSubmit.title}"?`,
       warning: 'This will issue a formal term sheet to the student founder for review.',
       confirmText: 'Yes, Submit Offer',
       confirmColor: 'bg-[#047857] hover:bg-[#065f46]',
       onConfirm: () => {
         setConfirmModal(null);
-        executeCreateProposal();
+        executeCreateProposal(campaignToSubmit);
       }
     });
   };

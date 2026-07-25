@@ -720,7 +720,7 @@ app.post('/api/campaigns/:id/proposals', async (req, res) => {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data: supaProp } = await supabase.from('proposals').insert([{
+        const { data: supaProp, error } = await supabase.from('proposals').insert([{
           campaign_id: id,
           investor_id: investorId,
           amount: Number(amount),
@@ -730,12 +730,34 @@ app.post('/api/campaigns/:id/proposals', async (req, res) => {
           status: 'pending'
         }]).select().single();
         if (supaProp) createdProp = normalizeProposal(supaProp);
+        if (error) console.warn('Supabase proposal insert warning:', error.message);
       } catch (e) {
         console.warn('Supabase proposal insert warning:', e.message);
       }
     }
 
-    fallbackProposals.unshift(normalizeProposal(proposalObj));
+    if (!createdProp && mongoose.connection.readyState === 1) {
+      try {
+        const mongoProp = await Proposal.create({
+          campaign: id,
+          investor: investorId,
+          amount: Number(amount),
+          terms,
+          status: 'pending'
+        });
+        if (mongoProp) createdProp = normalizeProposal(mongoProp);
+      } catch (e) {
+        console.warn('MongoDB proposal insert warning:', e.message);
+      }
+    }
+
+    const finalProp = createdProp || normalizeProposal(proposalObj);
+    const existingIdx = fallbackProposals.findIndex(p => p.id === finalProp.id || p._id === finalProp.id);
+    if (existingIdx >= 0) {
+      fallbackProposals[existingIdx] = finalProp;
+    } else {
+      fallbackProposals.unshift(finalProp);
+    }
 
     // Send real-time notification to Founder
     const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
@@ -747,7 +769,7 @@ app.post('/api/campaigns/:id/proposals', async (req, res) => {
       'info'
     );
 
-    res.status(201).json({ message: 'Investment proposal submitted to Founder.', proposal: createdProp || proposalObj });
+    res.status(201).json({ message: 'Investment proposal submitted to Founder.', proposal: finalProp });
   } catch (err) {
     console.error('Error submitting proposal:', err);
     res.status(500).json({ error: 'Server error submitting backing proposal.' });
@@ -757,16 +779,37 @@ app.post('/api/campaigns/:id/proposals', async (req, res) => {
 app.get('/api/proposals/campaign/:campaignId', async (req, res) => {
   try {
     const { campaignId } = req.params;
+    let proposalsList = [];
 
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.from('proposals').select('*').eq('campaign_id', campaignId);
-      if (!error && data) {
-        return res.status(200).json(data.map(normalizeProposal));
-      }
+      try {
+        const { data, error } = await supabase.from('proposals').select('*').eq('campaign_id', campaignId);
+        if (!error && Array.isArray(data)) {
+          proposalsList.push(...data.map(normalizeProposal));
+        }
+      } catch (e) {}
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const dbProps = await Proposal.find({ campaign: campaignId });
+        if (dbProps && dbProps.length > 0) {
+          proposalsList.push(...dbProps.map(normalizeProposal));
+        }
+      } catch (e) {}
     }
 
     const fp = fallbackProposals.filter(p => p.campaign_id === campaignId || p.campaignId === campaignId);
-    res.status(200).json(fp.map(normalizeProposal));
+    proposalsList.push(...fp.map(normalizeProposal));
+
+    const uniqueMap = new Map();
+    proposalsList.forEach(p => {
+      if (p && p.id && !uniqueMap.has(p.id)) {
+        uniqueMap.set(p.id, p);
+      }
+    });
+
+    res.status(200).json(Array.from(uniqueMap.values()));
   } catch (err) {
     res.status(200).json([]);
   }
@@ -775,16 +818,37 @@ app.get('/api/proposals/campaign/:campaignId', async (req, res) => {
 app.get('/api/proposals/investor/:investorId', async (req, res) => {
   try {
     const { investorId } = req.params;
+    let proposalsList = [];
 
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.from('proposals').select('*').eq('investor_id', investorId);
-      if (!error && data) {
-        return res.status(200).json(data.map(normalizeProposal));
-      }
+      try {
+        const { data, error } = await supabase.from('proposals').select('*').eq('investor_id', investorId);
+        if (!error && Array.isArray(data)) {
+          proposalsList.push(...data.map(normalizeProposal));
+        }
+      } catch (e) {}
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const dbProps = await Proposal.find({ investor: investorId });
+        if (dbProps && dbProps.length > 0) {
+          proposalsList.push(...dbProps.map(normalizeProposal));
+        }
+      } catch (e) {}
     }
 
     const fp = fallbackProposals.filter(p => p.investor_id === investorId || p.investorId === investorId);
-    res.status(200).json(fp.map(normalizeProposal));
+    proposalsList.push(...fp.map(normalizeProposal));
+
+    const uniqueMap = new Map();
+    proposalsList.forEach(p => {
+      if (p && p.id && !uniqueMap.has(p.id)) {
+        uniqueMap.set(p.id, p);
+      }
+    });
+
+    res.status(200).json(Array.from(uniqueMap.values()));
   } catch (err) {
     res.status(200).json([]);
   }
@@ -811,8 +875,21 @@ app.post('/api/campaigns/:id/proposals/:proposalId/status', async (req, res) => 
       } catch (e) {}
     }
 
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await Proposal.findByIdAndUpdate(proposalId, { status });
+      } catch (e) {}
+    }
+
     const fp = fallbackProposals.find(p => p.id === proposalId || p._id === proposalId);
     if (fp) fp.status = status;
+
+    if (status === 'accepted') {
+      const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+      if (cmp) {
+        cmp.raised = Number(cmp.raised || 0) + (fp ? Number(fp.amount || 0) : 100000);
+      }
+    }
 
     if (fp && (fp.investorId || fp.investor_id)) {
       const targetInvId = fp.investorId || fp.investor_id;
@@ -828,6 +905,31 @@ app.post('/api/campaigns/:id/proposals/:proposalId/status', async (req, res) => 
     res.status(200).json({ message: `Proposal status updated to ${status}.` });
   } catch (err) {
     res.status(500).json({ error: 'Server error updating proposal status.' });
+  }
+});
+
+app.post('/api/proposals/:proposalId/withdraw', async (req, res) => {
+  try {
+    const { proposalId } = req.params;
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('proposals').update({ status: 'withdrawn' }).eq('id', proposalId);
+      } catch (e) {}
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await Proposal.findByIdAndUpdate(proposalId, { status: 'withdrawn' });
+      } catch (e) {}
+    }
+
+    const fp = fallbackProposals.find(p => p.id === proposalId || p._id === proposalId);
+    if (fp) fp.status = 'withdrawn';
+
+    res.status(200).json({ message: 'Proposal withdrawn successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error withdrawing proposal.' });
   }
 });
 
