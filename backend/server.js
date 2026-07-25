@@ -135,6 +135,7 @@ try {
   }
 } catch (e) {
   console.warn('Seed campaigns read warning:', e.message);
+}
 const fallbackProposals = [];
 const fallbackPayouts = [];
 const fallbackMessages = [];
