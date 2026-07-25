@@ -93,8 +93,24 @@ const cpUpload = upload.fields([
 ]);
 
 // IN-MEMORY FALLBACK STORE
-const fallbackUsers = [
-  {
+const fallbackUsers = [];
+
+// Populate generated 30 investors and 100 student founders into fallback store
+try {
+  const seedPath = path.join(__dirname, 'seed_generated.json');
+  if (fs.existsSync(seedPath)) {
+    const rawData = fs.readFileSync(seedPath, 'utf8');
+    const parsedSeed = JSON.parse(rawData);
+    if (Array.isArray(parsedSeed.founders)) fallbackUsers.push(...parsedSeed.founders);
+    if (Array.isArray(parsedSeed.investors)) fallbackUsers.push(...parsedSeed.investors);
+  }
+} catch (e) {
+  console.warn('Seed generated JSON read warning:', e.message);
+}
+
+// Add Default Admin User if missing
+if (!fallbackUsers.some(u => u.email === 'admin@fundbridge.com')) {
+  fallbackUsers.unshift({
     _id: 'usr_admin_1',
     id: 'usr_admin_1',
     name: 'ADMIN_PRITOM',
@@ -104,74 +120,28 @@ const fallbackUsers = [
     vettingStatus: 'verified',
     vetting_status: 'verified',
     mfsNumber: '01799999999'
-  },
-  {
-    _id: 'usr_investor_1',
-    id: 'usr_investor_1',
-    name: 'Angel Backer Zaman',
-    email: 'investor@firm.com',
-    password: 'investorpassword',
-    role: 'investor',
-    vettingStatus: 'verified',
-    vetting_status: 'verified',
-    mfsNumber: '01711111111',
-    institution: 'Vantage Ventures Dhaka',
-    designation: 'Syndicate Lead'
-  },
-  {
-    _id: 'usr_founder_1',
-    id: 'usr_founder_1',
-    name: 'Anika Rahman',
-    email: 'anika@brac.edu.bd',
-    password: 'founderpassword',
-    role: 'founder',
-    vettingStatus: 'verified',
-    vetting_status: 'verified',
-    mfsNumber: '01712345678',
-    university: 'BRAC University',
-    nid: '554092183201'
-  }
-];
+  });
+}
 
-const fallbackCampaigns = [
-  {
-    _id: 'campusbites',
-    id: 'campusbites',
-    title: 'CampusBites',
-    founder: {
-      _id: 'usr_founder_1',
-      id: 'usr_founder_1',
-      name: 'Anika Rahman',
-      email: 'anika@brac.edu.bd',
-      university: 'BRAC University'
-    },
-    founder_id: 'usr_founder_1',
-    founderId: 'usr_founder_1',
-    university: 'BRAC University',
-    location: 'Dhaka, Bangladesh',
-    category: 'FoodTech / SaaS',
-    stage: 'MVP',
-    goal: 500000,
-    raised: 450000,
-    equityOffer: '8% Rev. Share',
-    equity_offer: '8% Rev. Share',
-    tagline: 'Smart Canteen Ordering & Pre-Meal Reservation App for University Campuses',
-    verified: true,
-    status: 'verified',
-    milestones: [
-      { id: 'm1', title: 'MVP Launch', target: 'Month 1', status: 'done' },
-      { id: 'm2', title: 'First 100 Users', target: 'Month 2', status: 'active' },
-      { id: 'm3', title: 'Revenue ৳50K', target: 'Month 4', status: 'locked' }
-    ],
-    description: 'CampusBites eliminates long queues at university cafeterias by enabling pre-ordering via MFS.'
-  }
-];
+const fallbackCampaigns = [];
 
+// Populate 50 generated campaigns into fallback store
+try {
+  const seedPath = path.join(__dirname, 'seed_generated.json');
+  if (fs.existsSync(seedPath)) {
+    const rawData = fs.readFileSync(seedPath, 'utf8');
+    const parsedSeed = JSON.parse(rawData);
+    if (Array.isArray(parsedSeed.campaigns)) fallbackCampaigns.push(...parsedSeed.campaigns);
+  }
+} catch (e) {
+  console.warn('Seed campaigns read warning:', e.message);
 const fallbackProposals = [];
 const fallbackPayouts = [];
 const fallbackMessages = [];
 const fallbackUpdates = [];
 const fallbackWatchlist = [];
+const fallbackConnections = [];
+const fallbackBookmarkedFounders = [];
 const fallbackNotifications = [
   { id: 'notif_1', user_id: 'usr_founder_1', title: 'New Proposal Received', message: 'Angel Backer Zaman submitted an 8% Rev. Share proposal for CampusBites.', type: 'info', is_read: false, created_at: new Date().toISOString() },
   { id: 'notif_2', user_id: 'usr_investor_1', title: 'Vetting Verified', message: 'Your investor identity vetting has been approved by platform administration.', type: 'success', is_read: true, created_at: new Date().toISOString() }
@@ -202,14 +172,39 @@ const normalizeUser = (u) => {
 
 const normalizeCampaign = (c) => {
   if (!c) return null;
+  const fId = c.founder_id || c.founderId || (typeof c.founder === 'object' ? (c.founder?._id || c.founder?.id) : c.founder);
+  const foundUser = fallbackUsers.find(u => u.id === fId || u._id === fId);
+  const founderObj = (typeof c.founder === 'object' && c.founder?.name && c.founder?.university) ? c.founder : (foundUser ? {
+    _id: foundUser.id || foundUser._id,
+    id: foundUser.id || foundUser._id,
+    name: foundUser.name,
+    email: foundUser.email,
+    university: foundUser.university,
+    department: foundUser.department,
+    studentId: foundUser.studentId || foundUser.student_id,
+    mfsNumber: foundUser.mfsNumber || foundUser.mfs_number,
+    vettingStatus: foundUser.vettingStatus || foundUser.vetting_status || 'verified',
+    bio: foundUser.bio || ''
+  } : {
+    _id: fId || 'usr_founder_1',
+    id: fId || 'usr_founder_1',
+    name: 'Anika Rahman',
+    email: 'anika@brac.edu.bd',
+    university: c.university || 'BRAC University',
+    department: 'Computer Science & Engineering',
+    studentId: '20101452',
+    mfsNumber: '01711223344',
+    vettingStatus: 'verified'
+  });
+
   return {
     _id: c.id || c._id,
     id: c.id || c._id,
     title: c.title,
-    founderId: c.founder_id || c.founderId || (typeof c.founder === 'object' ? c.founder?._id : c.founder),
-    founder_id: c.founder_id || c.founderId || (typeof c.founder === 'object' ? c.founder?._id : c.founder),
-    founder: c.founder || { _id: c.founder_id || c.founderId, name: 'Student Founder' },
-    university: c.university || '',
+    founderId: fId,
+    founder_id: fId,
+    founder: founderObj,
+    university: c.university || founderObj.university || '',
     location: c.location || 'Dhaka, Bangladesh',
     category: c.category || 'Startup Venture',
     stage: c.stage || 'MVP Stage',
@@ -510,6 +505,22 @@ app.post('/api/admin/login', async (req, res) => {
 });
 
 app.get('/api/admin/users/founders', async (req, res) => {
+  try {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('users').select('*').eq('role', 'founder');
+      if (!error && data) return res.status(200).json(data.map(normalizeUser));
+    }
+    if (mongoose.connection.readyState === 1) {
+      const founders = await User.find({ role: 'founder' });
+      if (founders) return res.status(200).json(founders.map(normalizeUser));
+    }
+    res.status(200).json(fallbackUsers.filter(u => u.role === 'founder').map(normalizeUser));
+  } catch (err) {
+    res.status(200).json(fallbackUsers.filter(u => u.role === 'founder').map(normalizeUser));
+  }
+});
+
+app.get('/api/users/founders', async (req, res) => {
   try {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('users').select('*').eq('role', 'founder');
@@ -1235,6 +1246,144 @@ app.post('/api/notifications', async (req, res) => {
     res.status(201).json(notif);
   } catch (err) {
     res.status(500).json({ error: 'Error sending notification.' });
+  }
+});
+
+// ============================================================================
+// INVESTOR DASHBOARD SYSTEM ENDPOINTS (FR-23 to FR-28)
+// ============================================================================
+
+// PROPOSAL WITHDRAWAL
+app.post('/api/proposals/:id/withdraw', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('proposals').update({ status: 'withdrawn' }).eq('id', id);
+      } catch (e) {}
+    }
+    const prop = fallbackProposals.find(p => p.id === id || p._id === id);
+    if (prop) prop.status = 'withdrawn';
+    res.status(200).json({ message: 'Proposal withdrawn successfully.', proposalId: id });
+  } catch (err) {
+    res.status(500).json({ error: 'Error withdrawing proposal.' });
+  }
+});
+
+app.delete('/api/proposals/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('proposals').update({ status: 'withdrawn' }).eq('id', id);
+      } catch (e) {}
+    }
+    const prop = fallbackProposals.find(p => p.id === id || p._id === id);
+    if (prop) prop.status = 'withdrawn';
+    res.status(200).json({ message: 'Proposal withdrawn successfully.', proposalId: id });
+  } catch (err) {
+    res.status(500).json({ error: 'Error withdrawing proposal.' });
+  }
+});
+
+// CO-INVESTOR CONNECTIONS APIS
+app.get('/api/investors/connections', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('investor_connections').select('*');
+      if (!error && data) {
+        const filtered = data.filter(c => !userId || c.requester_id === userId || c.receiver_id === userId);
+        return res.status(200).json(filtered);
+      }
+    }
+    const list = fallbackConnections.filter(c => !userId || c.requester_id === userId || c.receiver_id === userId);
+    res.status(200).json(list);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching investor connections.' });
+  }
+});
+
+app.post('/api/investors/connect', async (req, res) => {
+  try {
+    const { requesterId, receiverId } = req.body;
+    if (!requesterId || !receiverId) return res.status(400).json({ error: 'Requester ID and Receiver ID required.' });
+
+    const existing = fallbackConnections.find(c =>
+      (c.requester_id === requesterId && c.receiver_id === receiverId) ||
+      (c.requester_id === receiverId && c.receiver_id === requesterId)
+    );
+
+    if (existing) {
+      return res.status(200).json({ message: 'Connection request already exists.', connection: existing });
+    }
+
+    const conn = {
+      id: 'conn_' + Date.now(),
+      requester_id: requesterId,
+      receiver_id: receiverId,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('investor_connections').insert([conn]); } catch(e){}
+    }
+    fallbackConnections.push(conn);
+
+    await createAndDispatchNotification(
+      receiverId,
+      'New Co-Investor Connection Request! 🤝',
+      'An alumni angel investor wants to connect with your investment network.',
+      'info'
+    );
+
+    res.status(201).json({ message: 'Connection request sent.', connection: conn });
+  } catch (err) {
+    res.status(500).json({ error: 'Error sending connection request.' });
+  }
+});
+
+// BOOKMARKED FOUNDERS APIS
+app.get('/api/investors/bookmarked-founders', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('bookmarked_founders').select('*').eq('investor_id', userId);
+      if (!error && data) return res.status(200).json(data);
+    }
+    const list = fallbackBookmarkedFounders.filter(b => b.investor_id === userId);
+    res.status(200).json(list);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching bookmarked founders.' });
+  }
+});
+
+app.post('/api/investors/bookmark-founder', async (req, res) => {
+  try {
+    const { investorId, founderId } = req.body;
+    if (!investorId || !founderId) return res.status(400).json({ error: 'Investor ID and Founder ID required.' });
+
+    const existingIdx = fallbackBookmarkedFounders.findIndex(b => b.investor_id === investorId && b.founder_id === founderId);
+    let status = 'bookmarked';
+
+    if (existingIdx >= 0) {
+      fallbackBookmarkedFounders.splice(existingIdx, 1);
+      status = 'unbookmarked';
+      if (isSupabaseConfigured && supabase) {
+        try { await supabase.from('bookmarked_founders').delete().eq('investor_id', investorId).eq('founder_id', founderId); } catch(e){}
+      }
+    } else {
+      const item = { id: 'bf_' + Date.now(), investor_id: investorId, founder_id: founderId, created_at: new Date().toISOString() };
+      fallbackBookmarkedFounders.push(item);
+      if (isSupabaseConfigured && supabase) {
+        try { await supabase.from('bookmarked_founders').insert([item]); } catch(e){}
+      }
+    }
+
+    res.status(200).json({ status, founderId });
+  } catch (err) {
+    res.status(500).json({ error: 'Error toggling bookmarked founder.' });
   }
 });
 

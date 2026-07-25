@@ -1,235 +1,11 @@
 -- ========================================================
--- FUNDBRIDGE COMPLETE SUPABASE DATABASE SCHEMA
--- ========================================================
--- Compatible with PostgreSQL and Supabase.
--- Contains 30 Verified Investors, 100 Verified Student Founders & 50 Startup Campaigns.
--- ========================================================
-
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- ========================================================
--- 1. USERS TABLE (Founders, Investors, Admin)
--- ========================================================
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL,
-  role TEXT DEFAULT 'founder',
-  vetting_status TEXT DEFAULT 'pending',
-  mfs_number TEXT,
-  university TEXT,
-  student_id TEXT,
-  department TEXT,
-  nid TEXT,
-  dob TEXT,
-  student_id_card_image TEXT,
-  nid_card_image TEXT,
-  affiliation_status TEXT,
-  institution TEXT,
-  passing_year TEXT,
-  nid_or_passport TEXT,
-  bank_or_mfs TEXT,
-  nid_or_passport_image TEXT,
-  credentials_image TEXT,
-  credentials_link TEXT,
-  vetting_date TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'founder';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS vetting_status TEXT DEFAULT 'pending';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS mfs_number TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS university TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS department TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS nid TEXT;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS dob TEXT;
-
--- ========================================================
--- 2. CAMPAIGNS TABLE (Startup Pitches)
--- ========================================================
-CREATE TABLE IF NOT EXISTS campaigns (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  founder_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-  university TEXT NOT NULL,
-  location TEXT NOT NULL,
-  category TEXT NOT NULL,
-  stage TEXT NOT NULL,
-  goal NUMERIC NOT NULL,
-  raised NUMERIC DEFAULT 0,
-  equity_offer TEXT NOT NULL,
-  tagline TEXT,
-  cover_photo TEXT,
-  pitch_video_url TEXT,
-  description TEXT NOT NULL,
-  milestones JSONB DEFAULT '[]'::jsonb,
-  status TEXT DEFAULT 'pending',
-  escrow_frozen BOOLEAN DEFAULT FALSE,
-  verified BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ========================================================
--- 3. PROPOSALS TABLE (Investor Backing Offers)
--- ========================================================
-CREATE TABLE IF NOT EXISTS proposals (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  campaign_id TEXT REFERENCES campaigns(id) ON DELETE CASCADE,
-  investor_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-  amount NUMERIC NOT NULL,
-  return_structure TEXT,
-  maturity_period TEXT,
-  grace_period TEXT,
-  terms TEXT NOT NULL,
-  custom_notes TEXT,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ========================================================
--- 4. PAYOUTS TABLE (Founder Wallet Disbursements)
--- ========================================================
-CREATE TABLE IF NOT EXISTS payouts (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  founder_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-  tranche TEXT NOT NULL,
-  amount NUMERIC NOT NULL,
-  method TEXT NOT NULL,
-  account_number TEXT NOT NULL,
-  status TEXT DEFAULT 'Pending Audit',
-  hash TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ========================================================
--- 5. DISPUTES TABLE (User Complaints & Escrow Holds)
--- ========================================================
-CREATE TABLE IF NOT EXISTS disputes (
-  id TEXT PRIMARY KEY,
-  complainant_name TEXT NOT NULL,
-  complainant_role TEXT NOT NULL,
-  reported_user TEXT NOT NULL,
-  reported_user_id TEXT,
-  reported_role TEXT NOT NULL,
-  campaign_title TEXT,
-  campaign_id TEXT,
-  issue_type TEXT NOT NULL,
-  description TEXT NOT NULL,
-  evidence_file TEXT,
-  severity TEXT DEFAULT 'High',
-  status TEXT DEFAULT 'Open',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ========================================================
--- 6. AUDIT LOGS TABLE
--- ========================================================
-CREATE TABLE IF NOT EXISTS audit_logs (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  hash TEXT NOT NULL,
-  category TEXT NOT NULL,
-  title TEXT NOT NULL,
-  status TEXT DEFAULT 'VERIFIED',
-  latency TEXT DEFAULT '14ms',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ========================================================
--- 7. MESSAGES TABLE
--- ========================================================
-CREATE TABLE IF NOT EXISTS messages (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  sender_id TEXT NOT NULL,
-  receiver_id TEXT NOT NULL,
-  sender_name TEXT,
-  campaign_id TEXT,
-  text TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ========================================================
--- 8. WATCHLIST & CONNECTIONS & BOOKMARKS TABLES
--- ========================================================
-CREATE TABLE IF NOT EXISTS watchlist (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  user_id TEXT NOT NULL,
-  campaign_id TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS notifications (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  user_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  type TEXT DEFAULT 'info',
-  is_read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS investor_connections (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  requester_id TEXT NOT NULL,
-  receiver_id TEXT NOT NULL,
-  status TEXT DEFAULT 'pending',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS bookmarked_founders (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  investor_id TEXT NOT NULL,
-  founder_id TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ========================================================
--- ROW LEVEL SECURITY (RLS)
--- ========================================================
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE campaigns DISABLE ROW LEVEL SECURITY;
-ALTER TABLE proposals DISABLE ROW LEVEL SECURITY;
-ALTER TABLE payouts DISABLE ROW LEVEL SECURITY;
-ALTER TABLE disputes DISABLE ROW LEVEL SECURITY;
-ALTER TABLE audit_logs DISABLE ROW LEVEL SECURITY;
-ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
-ALTER TABLE watchlist DISABLE ROW LEVEL SECURITY;
-ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
-ALTER TABLE investor_connections DISABLE ROW LEVEL SECURITY;
-ALTER TABLE bookmarked_founders DISABLE ROW LEVEL SECURITY;
-
--- ========================================================
--- SAFE TYPE CONVERSION MIGRATIONS
--- ========================================================
-ALTER TABLE proposals DROP CONSTRAINT IF EXISTS proposals_investor_id_fkey;
-ALTER TABLE payouts DROP CONSTRAINT IF EXISTS payouts_founder_id_fkey;
-ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_founder_id_fkey;
-
-ALTER TABLE users ALTER COLUMN id TYPE TEXT USING id::text;
-ALTER TABLE users ALTER COLUMN id SET DEFAULT gen_random_uuid()::text;
-ALTER TABLE campaigns ALTER COLUMN founder_id TYPE TEXT USING founder_id::text;
-ALTER TABLE proposals ALTER COLUMN investor_id TYPE TEXT USING investor_id::text;
-ALTER TABLE payouts ALTER COLUMN founder_id TYPE TEXT USING founder_id::text;
-
-ALTER TABLE campaigns ADD CONSTRAINT campaigns_founder_id_fkey FOREIGN KEY (founder_id) REFERENCES users(id) ON DELETE SET NULL;
-ALTER TABLE proposals ADD CONSTRAINT proposals_investor_id_fkey FOREIGN KEY (investor_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE payouts ADD CONSTRAINT payouts_founder_id_fkey FOREIGN KEY (founder_id) REFERENCES users(id) ON DELETE CASCADE;
-
-
--- ========================================================
--- SEED DATA (30 INVESTORS, 100 STUDENT FOUNDERS & 50 CAMPAIGNS)
+-- 30 INVESTORS, 100 STUDENT FOUNDERS & 50 CAMPAIGNS SEED DATA
 -- ========================================================
 
 -- Clean up any legacy conflicting emails before re-seeding
 DELETE FROM users WHERE email IN ('admin@fundbridge.com', 'investor@firm.com', 'anika@brac.edu.bd', 'tanvir@buet.ac.bd', 'nabila@northsouth.edu', 'samiul@du.ac.bd') AND id NOT LIKE 'usr_%';
 
--- 1. Default Admin User
-INSERT INTO users (id, name, email, password, role, vetting_status, mfs_number)
-VALUES ('usr_admin_1', 'ADMIN_PRITOM', 'admin@fundbridge.com', 'admin123', 'admin', 'verified', '01799999999')
-ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, password = EXCLUDED.password;
-
--- 2. STUDENT FOUNDERS (100 Verified Student Entrepreneurs)
+-- 1. STUDENT FOUNDERS (100 Verified Student Entrepreneurs)
 INSERT INTO users (id, name, email, password, role, vetting_status, university, student_id, department, mfs_number)
 VALUES
   ('usr_founder_1', 'Ashraf Khan', 'ashraf.khan1@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'BUET', '20100037', 'Electrical & Electronic Engineering', '01710008371'),
@@ -334,7 +110,7 @@ VALUES
   ('usr_founder_100', 'Aarif Ahmed', 'aarif.ahmed100@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'BRAC University', '20103700', 'Business Administration', '01710837100')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email, university = EXCLUDED.university, student_id = EXCLUDED.student_id, department = EXCLUDED.department, mfs_number = EXCLUDED.mfs_number;
 
--- 3. INVESTORS (30 Verified Alumni & Angel Partners)
+-- 2. INVESTORS (30 Verified Alumni & Angel Partners)
 INSERT INTO users (id, name, email, password, role, vetting_status, institution, bank_or_mfs, mfs_number)
 VALUES
   ('usr_investor_1', 'Angel Backer Zaman', 'investor1@firm.com', 'investorpassword', 'investor', 'verified', 'Vantage Capital LLC', 'City Bank - ACC# 1000004921', '01820009182'),
@@ -369,7 +145,7 @@ VALUES
   ('usr_investor_30', 'Habibullah N Karim', 'investor30@firm.com', 'investorpassword', 'investor', 'verified', 'SBK Tech Ventures', 'City Bank - ACC# 1000147630', '01820275460')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email, institution = EXCLUDED.institution, bank_or_mfs = EXCLUDED.bank_or_mfs, mfs_number = EXCLUDED.mfs_number;
 
--- 4. 50 STARTUP CAMPAIGNS
+-- 3. 50 STARTUP CAMPAIGNS
 INSERT INTO campaigns (id, title, founder_id, university, location, category, stage, goal, raised, equity_offer, tagline, description, verified, status, milestones)
 VALUES
   ('campusbites_1', 'CampusBites', 'usr_founder_1', 'BUET', 'Dhaka, Bangladesh', 'FoodTech / SaaS', 'MVP', 435000, 174000, '5% Equity', 'Innovative Bangladeshi FoodTech / SaaS startup solving key campus and enterprise challenges.', 'CampusBites is a student-led FoodTech / SaaS startup founded at BUET. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"pending"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
@@ -423,8 +199,3 @@ VALUES
   ('shebapoint_49', 'ShebaPoint', 'usr_founder_49', 'AIUB', 'Dhaka, Bangladesh', 'AI / Robotics', 'MVP', 2115000, 846000, '5% Equity', 'Innovative Bangladeshi AI / Robotics startup solving key campus and enterprise challenges.', 'ShebaPoint is a student-led AI / Robotics startup founded at AIUB. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"pending"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
   ('deshizone_50', 'DeshiZone', 'usr_founder_50', 'MIST', 'Chittagong, Bangladesh', 'Biotech', 'Prototype', 2150000, 1075000, '8% Rev. Share', 'Innovative Bangladeshi Biotech startup solving key campus and enterprise challenges.', 'DeshiZone is a student-led Biotech startup founded at MIST. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"done"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb)
 ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, goal = EXCLUDED.goal, raised = EXCLUDED.raised, equity_offer = EXCLUDED.equity_offer;
-
--- 5. Default Audit Hash Entry
-INSERT INTO audit_logs (hash, category, title, status, latency)
-VALUES ('0x8f2a99c4b1d09e1a', 'DISBURSEMENT', 'Escrow Tranche #1 Release', 'VERIFIED', '14ms')
-ON CONFLICT DO NOTHING;
