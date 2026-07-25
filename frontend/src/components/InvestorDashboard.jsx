@@ -603,7 +603,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   // Campaigns I Invested In & Submitted Proposals
   const mySubmittedProposals = proposals;
   const fundedCampaigns = campaigns.filter(c => 
-    proposals.some(p => (p.campaign_id === c.id || p.campaign_id === c._id) && (p.status === 'accepted' || p.status === 'pending'))
+    proposals.some(p => (p.campaign_id === c.id || p.campaign_id === c._id || p.campaignId === c.id || p.campaignId === c._id) && p.status === 'accepted')
   );
 
   // Filtered Co-Investors
@@ -1567,7 +1567,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                       <Briefcase className="w-10 h-10 text-slate-300 mx-auto" />
                       <div>
                         <h3 className="font-bold text-slate-800 text-sm">No Active Funded Investments Yet</h3>
-                        <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Explore campaigns and submit your first investment offer to start building your university startup portfolio.</p>
+                        <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">Submitted offers remain under "Submitted Proposals" while pending. Once a student founder accepts your offer, the startup will automatically be added to your active investments portfolio here.</p>
                       </div>
                       <button
                         onClick={() => setActiveTab('campaigns')}
