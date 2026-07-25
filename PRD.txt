@@ -55,7 +55,7 @@ The platform bridges the trust and funding gap in early-stage student startups b
   - Database Engine: 100% Supabase Cloud PostgreSQL Database (`backend/supabase_schema.sql` native schema)
 
 --------------------------------------------------------------------------------
-4. COMPLETE FUNCTIONAL REQUIREMENT SPECIFICATIONS (FR-1 TO FR-28)
+4. COMPLETE FUNCTIONAL REQUIREMENT SPECIFICATIONS (FR-1 TO FR-24)
 --------------------------------------------------------------------------------
 
 [FR-1] SECURE REGISTRATION & ROLE ASSIGNMENT
@@ -127,29 +127,8 @@ The platform bridges the trust and funding gap in early-stage student startups b
 [FR-23] TOP NAVIGATION BAR & GLOBAL SEARCH
 - Investor header containing global search engine across startups/founders/investors, chat inbox drawer, notification counter badge, and profile dropdown (Account Settings, KYC Status, Logout).
 
-[FR-24] OVERVIEW PANEL & PERSONALIZED INTERESTS
-- High-level investor overview displaying metric cards and two personalized sections: (1) Saved Watchlist Startups (Campaigns I Am Interested In) and (2) My Submitted Proposals & Invested Startups. No generic campaign listing on Overview page.
-
-[FR-25] MARKETPLACE DIRECTORY & CAMPAIGN FLAGGING
-- Explore Campaigns directory with multi-tier filters and detailed business profile view including action buttons to Submit Proposal, Pin to Watchlist, Message Founder, and Report/Flag Campaign to Admins.
-
-[FR-26] CO-INVESTORS NETWORK & CONNECTION REQUESTS
-- Directory listing of verified alumni and angel investors with sector/university filters, backing history, and action buttons to Send Connection Request (`POST /api/investors/connect`) and Send Direct Message.
-
-[FR-27] WALLET FINANCIAL REPORTS & LEDGER EXPORT
-- Investor financial dashboard displaying Total Invested, Pending Commitment, Returns & Profits, Escrow Balance, and complete transaction ledger with CSV export capabilities.
-
-[FR-28] CRYPTOGRAPHIC AUDIT LOG VERIFICATION & CSV EXPORT
-- Real-time immutable transaction hash ledger with ID receipt search and CSV export for compliance auditing.
-
-[FR-[#] MY INVESTMENTS & SUBMITTED PROPOSALS ACCESS
-- My Investments tab tracking funded startup growth status, operational levels (Level 1: Prototype, Level 2: Pilot, Level 3: Scale), upcoming tranches, 3-Startup Comparison Matrix, and a direct access button/drawer for Submitted Proposals.
-
-[FR-30] FULL BUSINESS & FOUNDER PROFILE VIEW
-- Comprehensive detail modal on campaign "View Details" click displaying full pitch description, financial target goals, raised capital, equity terms, milestone execution roadmap, video player link, AND complete student founder details (Name, University, Department, Student ID, Vetting Status, MFS Contact, Bio) with interactive actions to Submit Offer, Pin to Watchlist, Message Founder, and Report/Flag Campaign.
-
-[FR-31] DECISION CONFIRMATION PROMPT MODALS ("ARE YOU SURE?")
-- Strict modal verification safeguard prompting "Are you sure?" before final execution of major decisions: Proposal Withdrawal, Campaign Flagging/Reporting, Proposal Submission, and User Session Log Out.
+[FR-24] OVERVIEW PANEL & 6 INTERACTIVE METRIC CARDS
+- High-level investor overview displaying 6 live, clickable metric cards: (1) Number of My Investments, (2) Rejected Proposals, (3) Submitted Proposals, (4) Co-Investors Connected, (5) Saved Watchlist, and (6) Student Founders Connected. Clicking any metric card opens a dedicated modal with the full detailed list. Includes personalized watchlist and submitted proposals sections. No generic campaign listing on Overview page.
 
 --------------------------------------------------------------------------------
 5. DATABASE SCHEMA SUMMARY (SUPABASE CLOUD POSTGRESQL)

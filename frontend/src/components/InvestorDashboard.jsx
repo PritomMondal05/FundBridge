@@ -37,7 +37,8 @@ import {
   Phone,
   Mail,
   User,
-  AlertCircle
+  AlertCircle,
+  XCircle
 } from 'lucide-react';
 
 import logoUrl from '../assets/images/FundBridge Logo.svg';
@@ -111,6 +112,13 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   // Proposals Table Modal (Opened via My Investments tab)
   const [showProposalsModal, setShowProposalsModal] = useState(false);
   const [proposalDetailModal, setProposalDetailModal] = useState(null);
+
+  // Modals for Overview 6 Metric Cards
+  const [showInvestmentsModal, setShowInvestmentsModal] = useState(false);
+  const [showRejectedProposalsModal, setShowRejectedProposalsModal] = useState(false);
+  const [showConnectedInvestorsModal, setShowConnectedInvestorsModal] = useState(false);
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+  const [showBookmarkedFoundersModal, setShowBookmarkedFoundersModal] = useState(false);
 
   // View All Registered Founders Modal (Directory of 100 founders to mark interest)
   const [showAllFoundersModal, setShowAllFoundersModal] = useState(false);
@@ -602,6 +610,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
   // Campaigns I Invested In & Submitted Proposals
   const mySubmittedProposals = proposals;
+  const rejectedProposals = proposals.filter(p => p.status === 'declined' || p.status === 'rejected' || p.status === 'withdrawn');
   const fundedCampaigns = campaigns.filter(c => 
     proposals.some(p => (p.campaign_id === c.id || p.campaign_id === c._id || p.campaignId === c.id || p.campaignId === c._id) && p.status === 'accepted')
   );
@@ -921,11 +930,48 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                     <p className="text-xs text-slate-500 mt-1">High-level live dashboard displaying your interested watchlist, submitted proposals, and bookmarked student founders.</p>
                   </div>
 
-                  {/* 4 LIVE METRIC CARDS */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* 6 LIVE INTERACTIVE METRIC CARDS */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Card 1: My Investments */}
+                    <div
+                      onClick={() => setShowInvestmentsModal(true)}
+                      className="bg-white border border-slate-200 hover:border-emerald-500 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-2 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">MY INVESTMENTS</span>
+                        <Briefcase className="w-4 h-4 text-emerald-700 group-hover:scale-110 transition-transform" />
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-3xl font-extrabold text-emerald-800 font-mono">{fundedCampaigns.length}</span>
+                        <span className="text-[10px] text-emerald-700 font-semibold group-hover:underline flex items-center gap-0.5 font-sans">
+                          View List ({fundedCampaigns.length}) <ChevronRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-tight font-sans">Active & accepted startup investments</p>
+                    </div>
+
+                    {/* Card 2: Rejected Proposals */}
+                    <div
+                      onClick={() => setShowRejectedProposalsModal(true)}
+                      className="bg-white border border-slate-200 hover:border-rose-500 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-2 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">REJECTED PROPOSALS</span>
+                        <XCircle className="w-4 h-4 text-rose-600 group-hover:scale-110 transition-transform" />
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-3xl font-extrabold text-rose-600 font-mono">{rejectedProposals.length}</span>
+                        <span className="text-[10px] text-rose-600 font-semibold group-hover:underline flex items-center gap-0.5 font-sans">
+                          View List ({rejectedProposals.length}) <ChevronRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-tight font-sans">Declined, rejected or withdrawn offers</p>
+                    </div>
+
+                    {/* Card 3: Submitted Proposals */}
                     <div
                       onClick={() => setShowProposalsModal(true)}
-                      className="bg-white border border-slate-200 hover:border-emerald-500 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-2 group"
+                      className="bg-white border border-slate-200 hover:border-sky-500 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-2 group"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">SUBMITTED PROPOSALS</span>
@@ -934,56 +980,64 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                       <div className="flex items-baseline justify-between">
                         <span className="text-3xl font-extrabold text-sky-700 font-mono">{proposals.length}</span>
                         <span className="text-[10px] text-sky-600 font-semibold group-hover:underline flex items-center gap-0.5 font-sans">
-                          View Table <ChevronRight className="w-3 h-3" />
+                          View Table ({proposals.length}) <ChevronRight className="w-3 h-3" />
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-tight font-sans">Active & pending offers sent to startups</p>
+                      <p className="text-[11px] text-slate-500 leading-tight font-sans">All investment offers sent to startups</p>
                     </div>
 
+                    {/* Card 4: Co-Investors Connected */}
                     <div
-                      onClick={() => setActiveTab('investors')}
-                      className="bg-white border border-slate-200 hover:border-emerald-500 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-2 group"
+                      onClick={() => setShowConnectedInvestorsModal(true)}
+                      className="bg-white border border-slate-200 hover:border-indigo-500 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-2 group"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">CO-INVESTORS NETWORK</span>
-                        <Users className="w-4 h-4 text-emerald-700 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">CO-INVESTORS CONNECTED</span>
+                        <Users className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
                       </div>
                       <div className="flex items-baseline justify-between">
-                        <span className="text-3xl font-extrabold text-emerald-700 font-mono">{coInvestors.length}</span>
-                        <span className="text-[10px] text-emerald-700 font-semibold group-hover:underline flex items-center gap-0.5 font-sans">
-                          View Network <ChevronRight className="w-3 h-3" />
+                        <span className="text-3xl font-extrabold text-indigo-700 font-mono">{coInvestors.length}</span>
+                        <span className="text-[10px] text-indigo-600 font-semibold group-hover:underline flex items-center gap-0.5 font-sans">
+                          View Network ({coInvestors.length}) <ChevronRight className="w-3 h-3" />
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-tight font-sans">Connected alumni & angel backers</p>
+                      <p className="text-[11px] text-slate-500 leading-tight font-sans">Alumni & angel co-investors in network</p>
                     </div>
 
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
+                    {/* Card 5: Saved Watchlist */}
+                    <div
+                      onClick={() => setShowWatchlistModal(true)}
+                      className="bg-white border border-slate-200 hover:border-amber-500 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-2 group"
+                    >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">SAVED WATCHLIST</span>
-                        <Bookmark className="w-4 h-4 text-amber-600" />
+                        <Bookmark className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
                       </div>
                       <div className="flex items-baseline justify-between">
-                        <span className="text-3xl font-extrabold text-amber-600 font-mono">{watchlist.length}</span>
-                        <span className="text-[10px] text-amber-600 font-semibold font-mono">Pinned</span>
+                        <span className="text-3xl font-extrabold text-amber-600 font-mono">{watchlistCampaigns.length}</span>
+                        <span className="text-[10px] text-amber-600 font-semibold group-hover:underline flex items-center gap-0.5 font-sans">
+                          View Watchlist ({watchlistCampaigns.length}) <ChevronRight className="w-3 h-3" />
+                        </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-tight font-sans">Startups pinned for evaluation</p>
+                      <p className="text-[11px] text-slate-500 leading-tight font-sans">Startups pinned for ongoing evaluation</p>
                     </div>
 
+                    {/* Card 6: Student Founders Connected */}
                     <div
-                      onClick={() => setShowAllFoundersModal(true)}
+                      onClick={() => setShowBookmarkedFoundersModal(true)}
                       className="bg-white border border-slate-200 hover:border-emerald-500 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all cursor-pointer space-y-2 group"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">REGISTERED FOUNDERS</span>
-                        <GraduationCap className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">CONNECTED FOUNDERS</span>
+                        <GraduationCap className="w-4 h-4 text-emerald-700 group-hover:scale-110 transition-transform" />
                       </div>
                       <div className="flex items-baseline justify-between">
-                        <span className="text-3xl font-extrabold text-indigo-600 font-mono">{foundersList.length}</span>
-                        <span className="text-[10px] text-indigo-600 font-semibold group-hover:underline flex items-center gap-0.5 font-sans">
-                          View All ({foundersList.length}) <ChevronRight className="w-3 h-3" />
+                        <span className="text-3xl font-extrabold text-emerald-800 font-mono">{interestedFoundersList.length}</span>
+                        <span className="text-[10px] text-emerald-700 font-semibold group-hover:underline flex items-center gap-0.5 font-sans">
+                          View Founders ({interestedFoundersList.length}) <ChevronRight className="w-3 h-3" />
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-tight font-sans">Click to browse & mark interest</p>
+                      <p className="text-[11px] text-slate-500 leading-tight font-sans">Bookmarked student entrepreneurs</p>
                     </div>
                   </div>
 
@@ -2298,6 +2352,337 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
               </div>
             ) : (
               <p className="py-8 text-center text-xs text-slate-400">No proposals submitted yet.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MY INVESTMENTS FULL LIST MODAL */}
+      {showInvestmentsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-emerald-700" />
+                <h3 className="font-bold text-slate-900 text-base">My Active Funded Investments ({fundedCampaigns.length})</h3>
+              </div>
+              <button onClick={() => setShowInvestmentsModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {fundedCampaigns.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {fundedCampaigns.map((c, idx) => (
+                  <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded uppercase">
+                          {c.category || 'Startup'}
+                        </span>
+                        <h4 className="font-bold text-slate-900 text-sm mt-1">{c.title}</h4>
+                        <span className="text-xs text-emerald-700 font-semibold block">{c.university}</span>
+                      </div>
+                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold rounded-lg font-mono uppercase">
+                        {c.stage || 'MVP'} Stage
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-xs font-mono pt-1 border-t border-slate-200">
+                      <span className="text-slate-500">Target Budget: <strong>৳ {Number(c.goal || 0).toLocaleString()}</strong></span>
+                      <span className="text-emerald-700 font-bold">Raised: ৳ {Number(c.raised || 0).toLocaleString()}</span>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          setShowInvestmentsModal(false);
+                          setSelectedCampaignDetail(c);
+                        }}
+                        className="flex-1 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-lg cursor-pointer"
+                      >
+                        View Details
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowInvestmentsModal(false);
+                          setChatTarget({ name: c.founder?.name || 'Founder', id: c.founder_id || 'usr_founder_1' });
+                          setShowChatDrawer(true);
+                        }}
+                        className="flex-1 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Message</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center bg-slate-50 rounded-xl space-y-2">
+                <Briefcase className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs text-slate-500 font-medium">No active accepted investments yet.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* REJECTED & DECLINED PROPOSALS FULL LIST MODAL */}
+      {showRejectedProposalsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <XCircle className="w-5 h-5 text-rose-600" />
+                <h3 className="font-bold text-slate-900 text-base">Rejected & Declined Proposals ({rejectedProposals.length})</h3>
+              </div>
+              <button onClick={() => setShowRejectedProposalsModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {rejectedProposals.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 font-mono uppercase text-[10px] tracking-wider">
+                      <th className="pb-3 font-semibold">STARTUP CAMPAIGN</th>
+                      <th className="pb-3 font-semibold">SUBMISSION DATE</th>
+                      <th className="pb-3 font-semibold">PROPOSED AMOUNT</th>
+                      <th className="pb-3 font-semibold">OFFERED TERMS</th>
+                      <th className="pb-3 font-semibold">STATUS</th>
+                      <th className="pb-3 font-semibold text-right">DETAILS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rejectedProposals.map((p, idx) => {
+                      const cmp = campaigns.find(c => c.id === p.campaign_id || c._id === p.campaign_id);
+
+                      return (
+                        <tr key={idx} className="hover:bg-slate-50/80">
+                          <td className="py-4 font-semibold text-slate-900">{cmp ? cmp.title : p.campaign_id || 'CampusBites'}</td>
+                          <td className="py-4 text-slate-500 font-mono">{p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Recent'}</td>
+                          <td className="py-4 font-mono font-bold text-slate-900">৳ {Number(p.amount || 0).toLocaleString()}</td>
+                          <td className="py-4 text-slate-700">{p.terms || '8% Rev Share'}</td>
+                          <td className="py-4">
+                            <span className="px-2.5 py-1 text-[10px] font-extrabold rounded-md uppercase bg-rose-500 text-white">
+                              {p.status || 'DECLINED'}
+                            </span>
+                          </td>
+                          <td className="py-4 text-right">
+                            <button
+                              onClick={() => {
+                                setShowRejectedProposalsModal(false);
+                                setProposalDetailModal(p);
+                              }}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold rounded-lg cursor-pointer"
+                            >
+                              View Offer Detail
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-12 text-center bg-slate-50 rounded-xl space-y-2">
+                <XCircle className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs text-slate-500 font-medium">No rejected or declined proposals found.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* CONNECTED CO-INVESTORS FULL LIST MODAL */}
+      {showConnectedInvestorsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-slate-900 text-base">Connected Co-Investors Network ({coInvestors.length})</h3>
+              </div>
+              <button onClick={() => setShowConnectedInvestorsModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {coInvestors.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {coInvestors.map((inv, idx) => (
+                  <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                    <div className="flex items-center gap-3">
+                      <InitialsAvatar name={inv.name} className="w-10 h-10 text-xs bg-indigo-700" />
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-xs">{inv.name}</h4>
+                        <span className="text-[11px] text-slate-500 block">{inv.institution || inv.university || 'Syndicate Member'}</span>
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[9px] font-bold rounded uppercase mt-1 inline-block">Connected Co-Investor</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setShowConnectedInvestorsModal(false);
+                        setChatTarget({ name: inv.name, id: inv.id || inv._id || `inv_${idx}` });
+                        setShowChatDrawer(true);
+                      }}
+                      className="w-full py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-semibold rounded-lg cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Message Co-Investor</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center bg-slate-50 rounded-xl space-y-2">
+                <Users className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs text-slate-500 font-medium">No connected co-investors in network.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SAVED WATCHLIST STARTUPS FULL LIST MODAL */}
+      {showWatchlistModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Bookmark className="w-5 h-5 text-amber-600 fill-current" />
+                <h3 className="font-bold text-slate-900 text-base">Saved Watchlist Startups ({watchlistCampaigns.length})</h3>
+              </div>
+              <button onClick={() => setShowWatchlistModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {watchlistCampaigns.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {watchlistCampaigns.map((c, idx) => (
+                  <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-start">
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded uppercase">
+                          {c.category || 'Startup'}
+                        </span>
+                        <button
+                          onClick={() => handleToggleWatchlist(c.id || c._id)}
+                          className="text-[10px] text-rose-600 hover:underline font-semibold cursor-pointer"
+                        >
+                          Unpin
+                        </button>
+                      </div>
+                      <h4 className="font-bold text-slate-900 text-sm">{c.title}</h4>
+                      <span className="text-xs font-semibold text-emerald-700 block">{c.university}</span>
+                      <p className="text-xs text-slate-600 line-clamp-2">{c.tagline || c.description}</p>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200 space-y-2">
+                      <div className="flex justify-between text-xs font-mono">
+                        <span className="text-slate-500">Goal: <strong>৳ {Number(c.goal || 0).toLocaleString()}</strong></span>
+                        <span className="text-emerald-700 font-bold">{c.equityOffer || c.equity_offer || 'Rev Share'}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setShowWatchlistModal(false);
+                            setSelectedCampaignDetail(c);
+                          }}
+                          className="flex-1 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-lg cursor-pointer"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowWatchlistModal(false);
+                            setSelectedProposalCampaign(c);
+                          }}
+                          className="flex-1 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-lg cursor-pointer"
+                        >
+                          Submit Offer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center bg-slate-50 rounded-xl space-y-2">
+                <Bookmark className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs text-slate-500 font-medium">No startups pinned to watchlist yet.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* CONNECTED STUDENT FOUNDERS FULL LIST MODAL */}
+      {showBookmarkedFoundersModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-emerald-700" />
+                <h3 className="font-bold text-slate-900 text-base">Connected Student Founders ({interestedFoundersList.length})</h3>
+              </div>
+              <button onClick={() => setShowBookmarkedFoundersModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {interestedFoundersList.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {interestedFoundersList.map((founder, idx) => {
+                  const founderId = founder.id || founder._id || idx;
+
+                  return (
+                    <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <InitialsAvatar name={founder.name} className="w-10 h-10 text-xs bg-indigo-700" />
+                          <button
+                            onClick={() => handleToggleBookmarkFounder(founderId)}
+                            className="text-[10px] text-rose-600 hover:underline font-semibold cursor-pointer"
+                          >
+                            Unbookmark
+                          </button>
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-sm">{founder.name}</h4>
+                          <span className="text-xs font-semibold text-emerald-700 block">{founder.university} • {founder.department || 'CSE'}</span>
+                        </div>
+                        <div className="p-2 bg-white rounded border border-slate-200 text-[11px] font-mono text-slate-600 space-y-0.5">
+                          <div><span className="text-slate-400">ID:</span> <strong>{founder.studentId || founder.student_id || '20101452'}</strong></div>
+                          <div><span className="text-slate-400">MFS / Phone:</span> <strong>{founder.mfsNumber || founder.mfs_number || '01711223344'}</strong></div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setShowBookmarkedFoundersModal(false);
+                          setChatTarget({ name: founder.name, id: founderId });
+                          setShowChatDrawer(true);
+                        }}
+                        className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Message Founder</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-12 text-center bg-slate-50 rounded-xl space-y-2">
+                <GraduationCap className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs text-slate-500 font-medium">No bookmarked student founders yet.</p>
+              </div>
             )}
           </div>
         </div>
