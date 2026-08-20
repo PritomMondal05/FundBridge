@@ -137,18 +137,6 @@ npm start
 
 ---
 
-## 🔑 Demo Login Credentials
-
-You can use the following default accounts to test different user portals:
-
-| Portal | Email | Password | Role |
-| :--- | :--- | :--- | :--- |
-| **Admin Portal** | `admin@fundbridge.com` | `admin123` | Super Admin |
-| **Investor Portal** | `investor@firm.com` | `investorpassword` | Alumni Backer |
-| **Founder Portal** | `anika@brac.edu.bd` | `founderpassword` | Student Founder |
-
----
-
 ## 📜 Available NPM Scripts
 
 From the workspace root directory, you can run:
