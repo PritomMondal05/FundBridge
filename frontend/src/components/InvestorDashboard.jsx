@@ -340,6 +340,11 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
     e.preventDefault();
     if (!selectedProposalCampaign) return;
 
+    if (profileUser.vettingStatus === 'pending' || profileUser.vetting_status === 'pending') {
+      showToast('Your investor profile is pending Admin approval. You cannot submit investment proposals until your profile is verified by Super Admin.', 'error');
+      return;
+    }
+
     const campaignToSubmit = selectedProposalCampaign;
     setConfirmModal({
       title: 'Confirm Investment Offer Submission',
@@ -657,6 +662,17 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
         }`}>
           <Info className="w-4 h-4 shrink-0" />
           <span>{toast.message}</span>
+        </div>
+      )}
+
+      {/* Pending Vetting Status Banner */}
+      {(profileUser.vettingStatus === 'pending' || profileUser.vetting_status === 'pending') && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-900 px-6 py-2.5 flex items-center justify-between text-xs font-medium sticky top-0 z-40">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span><strong>Identity Vetting Pending:</strong> Your investor profile is awaiting Super Admin verification. Term sheet proposals are restricted until approved.</span>
+          </div>
+          <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded font-mono uppercase">PENDING VETTING</span>
         </div>
       )}
 

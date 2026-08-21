@@ -313,6 +313,10 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
   // Save/Create Campaign Form Submit
   const handleSaveCampaign = async (e) => {
     if (e) e.preventDefault();
+    if (profileUser.vettingStatus === 'pending' || profileUser.vetting_status === 'pending') {
+      showToast('Your founder profile is pending Admin approval. You cannot launch a campaign until your profile is verified by Super Admin.', 'error');
+      return;
+    }
     if (!campaignForm.title || campaignForm.title.trim() === '') {
       showToast('Please enter a Startup Name for your campaign.', 'error');
       setWizardStep(1);
@@ -694,6 +698,17 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
           </div>
         </header>
 
+        {/* Pending Vetting Status Banner */}
+        {(profileUser.vettingStatus === 'pending' || profileUser.vetting_status === 'pending') && (
+          <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-900 px-8 py-2.5 flex items-center justify-between text-xs font-medium sticky top-16 z-15">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span><strong>Identity Vetting Pending:</strong> Your student founder profile is awaiting Super Admin verification. Campaign launching is restricted until approved.</span>
+            </div>
+            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded font-mono uppercase">PENDING VETTING</span>
+          </div>
+        )}
+
         {/* TAB PAGE CONTENT CONTAINER */}
         <main className="flex-1 p-8 space-y-8 max-w-7xl w-full mx-auto">
           {loading ? (
@@ -888,9 +903,16 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                                 <h3 className="font-bold text-slate-900 text-sm">{c.title}</h3>
                                 <span className="text-xs text-slate-500">{c.university} • {c.category || 'Startup'}</span>
                               </div>
-                              <span className={`px-2.5 py-1 text-[10px] font-bold rounded uppercase ${c.verified || c.status === 'verified' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                              <span className={`px-2.5 py-1 text-[10px] font-bold rounded uppercase ${
+                                (c.verified || c.status === 'verified') ? 'bg-emerald-100 text-emerald-800' :
+                                c.status === 'revisions' ? 'bg-purple-100 text-purple-800' :
+                                c.status === 'rejected' ? 'bg-rose-100 text-rose-800' :
+                                'bg-amber-100 text-amber-800'
                                 }`}>
-                                {c.verified || c.status === 'verified' ? 'Verified ✓' : 'Pending Review'}
+                                {(c.verified || c.status === 'verified') ? 'Verified & Live ✓' :
+                                 c.status === 'revisions' ? 'Revisions Requested 📝' :
+                                 c.status === 'rejected' ? 'Rejected by Admin ❌' :
+                                 'Pending Admin Verification ⏳'}
                               </span>
                             </div>
 

@@ -151,14 +151,15 @@ const fallbackNotifications = [
 // NORMALIZATION HELPERS
 const normalizeUser = (u) => {
   if (!u) return null;
+  const status = u.vetting_status || u.vettingStatus || (u.role === 'admin' ? 'verified' : 'pending');
   return {
     _id: u.id || u._id,
     id: u.id || u._id,
     name: u.name,
     email: u.email,
     role: u.role || 'founder',
-    vettingStatus: u.vetting_status || u.vettingStatus || 'verified',
-    vetting_status: u.vetting_status || u.vettingStatus || 'verified',
+    vettingStatus: status,
+    vetting_status: status,
     mfsNumber: u.mfs_number || u.mfsNumber || '',
     mfs_number: u.mfs_number || u.mfsNumber || '',
     university: u.university || '',
@@ -175,6 +176,8 @@ const normalizeCampaign = (c) => {
   if (!c) return null;
   const fId = c.founder_id || c.founderId || (typeof c.founder === 'object' ? (c.founder?._id || c.founder?.id) : c.founder);
   const foundUser = fallbackUsers.find(u => u.id === fId || u._id === fId);
+  const status = c.status || (c.verified === true ? 'verified' : 'pending');
+  const isVerified = c.verified !== undefined ? Boolean(c.verified) : (status === 'verified');
   const founderObj = (typeof c.founder === 'object' && c.founder?.name && c.founder?.university) ? c.founder : (foundUser ? {
     _id: foundUser.id || foundUser._id,
     id: foundUser.id || foundUser._id,
@@ -218,8 +221,8 @@ const normalizeCampaign = (c) => {
     pitchVideoUrl: c.pitch_video_url || c.pitchVideoUrl || '',
     description: c.description || '',
     milestones: c.milestones || [],
-    verified: c.verified !== undefined ? c.verified : true,
-    status: c.status || 'verified',
+    verified: isVerified,
+    status: status,
     escrowFrozen: c.escrow_frozen || c.escrowFrozen || false,
     escrow_frozen: c.escrow_frozen || c.escrowFrozen || false
   };
@@ -505,6 +508,145 @@ app.post('/api/admin/login', async (req, res) => {
   }
 });
 
+// VETTING QUEUE & USER CONTROL APIS
+app.get('/api/vetting/applicants', async (req, res) => {
+  try {
+    let pendingUsers = [];
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('users').select('*').eq('vetting_status', 'pending');
+      if (!error && data) pendingUsers = data.map(normalizeUser);
+    } else if (mongoose.connection.readyState === 1) {
+      const users = await User.find({ vettingStatus: 'pending' });
+      if (users) pendingUsers = users.map(normalizeUser);
+    } else {
+      pendingUsers = fallbackUsers.filter(u => u.role !== 'admin' && (u.vettingStatus === 'pending' || u.vetting_status === 'pending')).map(normalizeUser);
+    }
+
+    // Fallback seed if queue empty for demo testing
+    if (pendingUsers.length === 0 && fallbackUsers.length > 0) {
+      const demoApplicant = fallbackUsers.find(u => u.email === 'anika@brac.edu.bd') || fallbackUsers.find(u => u.role === 'founder');
+      if (demoApplicant) {
+        demoApplicant.vettingStatus = 'pending';
+        demoApplicant.vetting_status = 'pending';
+        pendingUsers.push(normalizeUser(demoApplicant));
+      }
+    }
+    res.status(200).json(pendingUsers);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching vetting applicants.' });
+  }
+});
+
+app.post('/api/vetting/status', async (req, res) => {
+  try {
+    const { userId, status } = req.body;
+    if (!userId || !status) return res.status(400).json({ error: 'User ID and status are required.' });
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('users').update({ vetting_status: status, vetting_date: new Date().toISOString() }).eq('id', userId);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await User.findByIdAndUpdate(userId, { vettingStatus: status });
+      } catch (e) {}
+    }
+
+    const fu = fallbackUsers.find(u => u.id === userId || u._id === userId);
+    if (fu) {
+      fu.vettingStatus = status;
+      fu.vetting_status = status;
+      fu.vettingDate = new Date().toISOString();
+    }
+
+    await createAndDispatchNotification(
+      userId,
+      `Trust Vetting Status Updated! 🛡️`,
+      `Your FundBridge user profile vetting status has been updated to "${status.toUpperCase()}".`,
+      status === 'verified' ? 'success' : 'warning'
+    );
+
+    res.status(200).json({ message: `Applicant status updated to ${status}.`, user: fu ? normalizeUser(fu) : { id: userId, vettingStatus: status } });
+  } catch (err) {
+    res.status(500).json({ error: 'Error updating vetting status.' });
+  }
+});
+
+app.post('/api/admin/users/:userId/hold', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const fu = fallbackUsers.find(u => u.id === userId || u._id === userId);
+    let newStatus = 'hold';
+    if (fu) {
+      newStatus = (fu.vettingStatus === 'hold' || fu.vetting_status === 'hold') ? 'verified' : 'hold';
+      fu.vettingStatus = newStatus;
+      fu.vetting_status = newStatus;
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('users').update({ vetting_status: newStatus }).eq('id', userId); } catch (e) {}
+    }
+
+    res.status(200).json({ message: `User hold status toggled to ${newStatus}.`, vettingStatus: newStatus });
+  } catch (err) {
+    res.status(500).json({ error: 'Error toggling user hold status.' });
+  }
+});
+
+app.post('/api/admin/users/:userId/block', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const fu = fallbackUsers.find(u => u.id === userId || u._id === userId);
+    let newStatus = 'blocked';
+    if (fu) {
+      newStatus = (fu.vettingStatus === 'blocked' || fu.vetting_status === 'blocked') ? 'verified' : 'blocked';
+      fu.vettingStatus = newStatus;
+      fu.vetting_status = newStatus;
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('users').update({ vetting_status: newStatus }).eq('id', userId); } catch (e) {}
+    }
+
+    res.status(200).json({ message: `User status set to ${newStatus}.`, user: fu ? normalizeUser(fu) : { id: userId, vettingStatus: newStatus } });
+  } catch (err) {
+    res.status(500).json({ error: 'Error blocking user.' });
+  }
+});
+
+app.put('/api/admin/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const updates = req.body;
+    const fu = fallbackUsers.find(u => u.id === userId || u._id === userId);
+    if (fu) {
+      Object.assign(fu, updates);
+    }
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('users').update(updates).eq('id', userId); } catch (e) {}
+    }
+    res.status(200).json({ message: 'User profile updated by admin.', user: fu ? normalizeUser(fu) : { id: userId } });
+  } catch (err) {
+    res.status(500).json({ error: 'Error updating user profile.' });
+  }
+});
+
+app.delete('/api/admin/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const idx = fallbackUsers.findIndex(u => u.id === userId || u._id === userId);
+    if (idx >= 0) fallbackUsers.splice(idx, 1);
+
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('users').delete().eq('id', userId); } catch (e) {}
+    }
+    res.status(200).json({ message: 'User deleted from database.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error removing user.' });
+  }
+});
+
 app.get('/api/admin/users/founders', async (req, res) => {
   try {
     if (isSupabaseConfigured && supabase) {
@@ -583,22 +725,269 @@ app.get('/api/disputes', async (req, res) => {
 });
 
 
-// CAMPAIGN MANAGEMENT APIS
+// CAMPAIGN MANAGEMENT & ADMIN AUDIT APIS
 app.get('/api/campaigns', async (req, res) => {
   try {
+    let rawList = [];
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('campaigns').select('*');
-      if (!error && data) {
-        return res.status(200).json(data.map(normalizeCampaign));
-      }
+      if (!error && data) rawList = data.map(normalizeCampaign);
+    } else if (mongoose.connection.readyState === 1) {
+      const campaigns = await Campaign.find();
+      if (campaigns) rawList = campaigns.map(normalizeCampaign);
+    } else {
+      rawList = fallbackCampaigns.map(normalizeCampaign);
+    }
+    // Filter public listing to verified campaigns only
+    const verifiedPublic = rawList.filter(c => c && (c.status === 'verified' || c.verified === true));
+    res.status(200).json(verifiedPublic);
+  } catch (err) {
+    const verifiedPublic = fallbackCampaigns.map(normalizeCampaign).filter(c => c && (c.status === 'verified' || c.verified === true));
+    res.status(200).json(verifiedPublic);
+  }
+});
+
+app.get('/api/admin/campaigns/pending', async (req, res) => {
+  try {
+    let allCampaigns = [];
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('campaigns').select('*');
+      if (!error && data) allCampaigns = data.map(normalizeCampaign);
+    } else if (mongoose.connection.readyState === 1) {
+      const campaigns = await Campaign.find();
+      if (campaigns) allCampaigns = campaigns.map(normalizeCampaign);
+    } else {
+      allCampaigns = fallbackCampaigns.map(normalizeCampaign);
+    }
+
+    const pending = allCampaigns.filter(c => c && (c.status === 'pending' || c.status === 'revisions' || !c.verified));
+    
+    // Ensure demo pending campaign exists for testing if queue is empty
+    if (pending.length === 0 && fallbackCampaigns.length > 0) {
+      const firstCamp = fallbackCampaigns[0];
+      firstCamp.status = 'pending';
+      firstCamp.verified = false;
+      pending.push(normalizeCampaign(firstCamp));
+    }
+    
+    res.status(200).json(pending);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching pending campaigns.' });
+  }
+});
+
+app.post('/api/admin/campaigns/:id/verify', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('campaigns').update({ status: 'verified', verified: true }).eq('id', id);
+      } catch (e) {}
     }
     if (mongoose.connection.readyState === 1) {
-      const campaigns = await Campaign.find();
-      if (campaigns) return res.status(200).json(campaigns.map(normalizeCampaign));
+      try {
+        await Campaign.findOneAndUpdate({ id }, { status: 'verified', verified: true });
+      } catch (e) {}
     }
-    res.status(200).json(fallbackCampaigns.map(normalizeCampaign));
+
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    if (cmp) {
+      cmp.status = 'verified';
+      cmp.verified = true;
+    }
+
+    const founderId = cmp?.founder_id || cmp?.founder?._id || 'usr_founder_1';
+    await createAndDispatchNotification(
+      founderId,
+      `Startup Pitch Approved! 🚀`,
+      `Your campaign "${cmp?.title || 'pitch'}" has passed Super Admin verification and is now LIVE in the public investment directory.`,
+      'success'
+    );
+
+    res.status(200).json({ message: 'Campaign verified and published successfully.', campaign: cmp ? normalizeCampaign(cmp) : null });
   } catch (err) {
-    res.status(200).json(fallbackCampaigns.map(normalizeCampaign));
+    res.status(500).json({ error: 'Error verifying campaign.' });
+  }
+});
+
+app.post('/api/admin/campaigns/:id/reject', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('campaigns').update({ status: 'rejected', verified: false }).eq('id', id);
+      } catch (e) {}
+    }
+
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    if (cmp) {
+      cmp.status = 'rejected';
+      cmp.verified = false;
+      cmp.rejectionReason = reason;
+    }
+
+    const founderId = cmp?.founder_id || cmp?.founder?._id || 'usr_founder_1';
+    await createAndDispatchNotification(
+      founderId,
+      `Campaign Audit Status: Rejected ❌`,
+      `Your pitch "${cmp?.title || 'campaign'}" was not approved by Admin. Reason: ${reason || 'Compliance threshold mismatch'}.`,
+      'warning'
+    );
+
+    res.status(200).json({ message: 'Campaign rejected.', campaign: cmp ? normalizeCampaign(cmp) : null });
+  } catch (err) {
+    res.status(500).json({ error: 'Error rejecting campaign.' });
+  }
+});
+
+app.post('/api/admin/campaigns/:id/reupload', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { feedbackNotes } = req.body;
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('campaigns').update({ status: 'revisions', verified: false }).eq('id', id);
+      } catch (e) {}
+    }
+
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    if (cmp) {
+      cmp.status = 'revisions';
+      cmp.verified = false;
+      cmp.feedbackNotes = feedbackNotes;
+    }
+
+    const founderId = cmp?.founder_id || cmp?.founder?._id || 'usr_founder_1';
+    await createAndDispatchNotification(
+      founderId,
+      `Campaign Revisions Requested 📝`,
+      `Admin requested document revisions for "${cmp?.title || 'pitch'}": ${feedbackNotes || 'Please update milestone targets'}.`,
+      'info'
+    );
+
+    res.status(200).json({ message: 'Revision request logged.', campaign: cmp ? normalizeCampaign(cmp) : null });
+  } catch (err) {
+    res.status(500).json({ error: 'Error requesting revisions.' });
+  }
+});
+
+app.post('/api/admin/campaigns/:id/pause-funding', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    let newStatus = 'funding_paused';
+    if (cmp) {
+      newStatus = cmp.status === 'funding_paused' ? 'verified' : 'funding_paused';
+      cmp.status = newStatus;
+    }
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('campaigns').update({ status: newStatus }).eq('id', id); } catch (e) {}
+    }
+    res.status(200).json({ message: `Funding status toggled to ${newStatus}`, campaign: cmp ? normalizeCampaign(cmp) : null });
+  } catch (err) {
+    res.status(500).json({ error: 'Error pausing funding.' });
+  }
+});
+
+app.post('/api/admin/campaigns/:id/block', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    if (cmp) {
+      cmp.status = 'blocked';
+      cmp.verified = false;
+    }
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('campaigns').update({ status: 'blocked', verified: false }).eq('id', id); } catch (e) {}
+    }
+    res.status(200).json({ message: 'Campaign blocked.', campaign: cmp ? normalizeCampaign(cmp) : null });
+  } catch (err) {
+    res.status(500).json({ error: 'Error blocking campaign.' });
+  }
+});
+
+app.post('/api/admin/campaigns/:id/freeze-funds', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    let frozen = true;
+    if (cmp) {
+      frozen = !cmp.escrowFrozen;
+      cmp.escrowFrozen = frozen;
+      cmp.escrow_frozen = frozen;
+    }
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('campaigns').update({ escrow_frozen: frozen }).eq('id', id); } catch (e) {}
+    }
+    res.status(200).json({ message: `Escrow freeze state set to ${frozen}`, campaign: cmp ? normalizeCampaign(cmp) : null });
+  } catch (err) {
+    res.status(500).json({ error: 'Error freezing escrow funds.' });
+  }
+});
+
+app.post('/api/admin/campaigns/:id/freeze', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    let frozen = true;
+    if (cmp) {
+      frozen = !cmp.escrowFrozen;
+      cmp.escrowFrozen = frozen;
+      cmp.escrow_frozen = frozen;
+    }
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('campaigns').update({ escrow_frozen: frozen }).eq('id', id); } catch (e) {}
+    }
+    res.status(200).json({ message: `Escrow freeze state set to ${frozen}`, campaign: cmp ? normalizeCampaign(cmp) : null });
+  } catch (err) {
+    res.status(500).json({ error: 'Error freezing escrow funds.' });
+  }
+});
+
+app.get('/api/admin/escrow/pending', async (req, res) => {
+  try {
+    const escQueue = [];
+    fallbackCampaigns.forEach(c => {
+      if (Array.isArray(c.milestones)) {
+        c.milestones.forEach((m, idx) => {
+          if (m.status === 'Pending Review' || m.status === 'active') {
+            escQueue.push({
+              campaignId: c.id || c._id,
+              milestoneId: idx.toString(),
+              title: c.title,
+              founderName: c.founder?.name || 'Student Founder',
+              university: c.university || 'University',
+              milestoneTitle: m.title || `Tranche #${idx + 1}`,
+              target: m.target || 'Current Quarter',
+              amount: 150000,
+              escrowStatus: m.status
+            });
+          }
+        });
+      }
+    });
+    res.status(200).json(escQueue);
+  } catch (err) {
+    res.status(200).json([]);
+  }
+});
+
+app.post('/api/admin/escrow/:campaignId/milestones/:milestoneId/approve', async (req, res) => {
+  try {
+    const { campaignId, milestoneId } = req.params;
+    const cmp = fallbackCampaigns.find(c => c.id === campaignId || c._id === campaignId);
+    if (cmp && Array.isArray(cmp.milestones)) {
+      const idx = Number(milestoneId);
+      if (cmp.milestones[idx]) {
+        cmp.milestones[idx].status = 'Completed';
+      }
+    }
+    res.status(200).json({ message: 'Milestone escrow tranche approved and released.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error approving milestone escrow release.' });
   }
 });
 
@@ -655,8 +1044,8 @@ app.post('/api/campaigns', async (req, res) => {
       pitch_video_url: pitchVideoUrl || '',
       description: description || title,
       milestones: parsedMilestones,
-      verified: true,
-      status: 'verified'
+      verified: false,
+      status: 'pending'
     };
 
     let resultCampaign = null;
@@ -685,7 +1074,7 @@ app.post('/api/campaigns', async (req, res) => {
       fallbackCampaigns.unshift(normLocal);
     }
 
-    res.status(201).json({ message: 'Campaign saved successfully.', campaign: resultCampaign || normLocal });
+    res.status(201).json({ message: 'Campaign submitted for Admin vetting & approval.', campaign: resultCampaign || normLocal });
   } catch (err) {
     console.error('Error in /api/campaigns:', err);
     res.status(500).json({ error: 'Server error during campaign creation.' });
