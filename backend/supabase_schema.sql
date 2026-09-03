@@ -104,6 +104,38 @@ CREATE TABLE IF NOT EXISTS payouts (
 );
 
 -- ========================================================
+-- 4b. WALLET DEPOSITS (Add Money proofs — founder + investor)
+-- ========================================================
+CREATE TABLE IF NOT EXISTS wallet_deposits (
+  id TEXT PRIMARY KEY,
+  owner_role TEXT NOT NULL DEFAULT 'founder',
+  founder_id TEXT,
+  investor_id TEXT,
+  owner_id TEXT,
+  amount NUMERIC NOT NULL,
+  method TEXT,
+  reference TEXT,
+  note TEXT,
+  proof_url TEXT,
+  proof_filename TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  reviewed_at TIMESTAMP WITH TIME ZONE,
+  review_note TEXT
+);
+
+-- ========================================================
+-- 4c. WALLET ACCOUNTS (ledger JSON for founder + investor)
+-- ========================================================
+CREATE TABLE IF NOT EXISTS wallet_accounts (
+  owner_id TEXT PRIMARY KEY,
+  owner_role TEXT NOT NULL,
+  balance NUMERIC DEFAULT 0,
+  ledger JSONB DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ========================================================
 -- 5. DISPUTES TABLE (User Complaints & Escrow Holds)
 -- ========================================================
 CREATE TABLE IF NOT EXISTS disputes (
@@ -191,6 +223,8 @@ ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE campaigns DISABLE ROW LEVEL SECURITY;
 ALTER TABLE proposals DISABLE ROW LEVEL SECURITY;
 ALTER TABLE payouts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE wallet_deposits DISABLE ROW LEVEL SECURITY;
+ALTER TABLE wallet_accounts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE disputes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE messages DISABLE ROW LEVEL SECURITY;

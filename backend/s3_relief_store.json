@@ -1,0 +1,103 @@
+[
+  {
+    "id": "relief_1788250931533",
+    "founder_id": "usr_founder_1",
+    "title": "Nepal Needs Help",
+    "university": "BUET",
+    "cause": "Disaster Relief",
+    "beneficiary": "Victims of flood in Nepal",
+    "goal": 1000000,
+    "raised": 10000,
+    "description": "Nepal has been hit by one of the most disastrous flood in history. As a neighboring country we must extend our hand to them.",
+    "useOfFunds": [
+      "Medicine and Medical Kits",
+      "Food and  Pure Water",
+      "Shelter for those who are displaced"
+    ],
+    "proofLinks": [
+      {
+        "type": "Newspaper / Article",
+        "url": "https://www.aljazeera.com/news/2026/9/1/death-toll-from-devastating-floods-in-china-and-nepal-surpasses-1000"
+      }
+    ],
+    "status": "open",
+    "created_at": "2026-09-01T08:22:11.533Z",
+    "submitted_at": "2026-09-01T08:22:11.533Z",
+    "reviewed_at": "2026-09-02T05:57:13.416Z",
+    "rejectionReason": null,
+    "donations": [
+      {
+        "id": "rldon_1788352406217_657",
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "amount": 100,
+        "method": "bkash",
+        "created_at": "2026-09-02T12:33:26.217Z"
+      },
+      {
+        "id": "rldon_1788352173294_561",
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "amount": 750,
+        "method": "nagad",
+        "created_at": "2026-09-02T12:29:33.294Z"
+      },
+      {
+        "id": "rldon_1788352052301_210",
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "amount": 500,
+        "method": "bkash",
+        "created_at": "2026-09-02T12:27:32.301Z"
+      },
+      {
+        "id": "rldon_1788351855492_585",
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "amount": 1000,
+        "method": "bkash",
+        "created_at": "2026-09-02T12:24:15.492Z"
+      },
+      {
+        "id": "rldon_1788351645430_647",
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "amount": 1000,
+        "method": "bkash",
+        "created_at": "2026-09-02T12:20:45.430Z"
+      },
+      {
+        "id": "rldon_1788351565047_90",
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "amount": 2500,
+        "method": "bkash",
+        "created_at": "2026-09-02T12:19:25.047Z"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Medicine and Medical Kits",
+        "target": "Phase 1",
+        "status": "pending",
+        "proofs": []
+      },
+      {
+        "title": "Food and  Pure Water",
+        "target": "Phase 2",
+        "status": "locked",
+        "proofs": []
+      },
+      {
+        "title": "Shelter for those who are displaced",
+        "target": "Phase 3",
+        "status": "locked",
+        "proofs": []
+      }
+    ],
+    "successor_name": "",
+    "successorName": "",
+    "successor_email": "",
+    "successorEmail": ""
+  }
+]

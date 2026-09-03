@@ -1,0 +1,39 @@
+[
+  {
+    "_id": "aa7ef817-4410-4a1e-97a8-3a6d31382e0c",
+    "id": "aa7ef817-4410-4a1e-97a8-3a6d31382e0c",
+    "campaign_id": "campusbites_1",
+    "campaignId": "campusbites_1",
+    "investor_id": "usr_investor_1",
+    "investorId": "usr_investor_1",
+    "amount": 60000,
+    "terms": "8% Rev. Share",
+    "return_structure": "8% Rev. Share",
+    "custom_notes": "",
+    "status": "declined",
+    "created_at": "2026-09-02T09:49:44.591787+00:00",
+    "investor_name": "Angel Backer Zaman",
+    "founder_id": "usr_founder_1",
+    "counter_amount": 55000,
+    "counter_terms": "6% Revenue Share",
+    "negotiate_message": "Meet at 55k?",
+    "negotiated_at": "2026-09-02T09:49:44.766Z",
+    "negotiated_by": "usr_founder_1"
+  },
+  {
+    "_id": "9416d363-d224-42dc-87e9-3ff14d2f1490",
+    "id": "9416d363-d224-42dc-87e9-3ff14d2f1490",
+    "campaign_id": "campusbites_1",
+    "campaignId": "campusbites_1",
+    "investor_id": "usr_investor_1",
+    "investorId": "usr_investor_1",
+    "amount": 75000,
+    "terms": "8% Rev. Share",
+    "return_structure": "8% Rev. Share",
+    "custom_notes": "founder-side check",
+    "status": "accepted",
+    "created_at": "2026-09-02T07:39:59.77603+00:00",
+    "investor_name": "Angel Backer Zaman",
+    "founder_id": "usr_founder_1"
+  }
+]

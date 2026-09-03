@@ -1,0 +1,107 @@
+{
+  "usr_investor_1": {
+    "balance": 2000,
+    "ledger": [
+      {
+        "id": "iwal_1788353930836_93",
+        "type": "MANUAL_DEPOSIT",
+        "direction": "in",
+        "amount": 2000,
+        "campaign_id": "",
+        "campaign_title": "Wallet Add Money",
+        "proposal_id": "deposit_wdep_1788353492983_449",
+        "note": "Admin-verified manual deposit · ref tujso19199.",
+        "method": "bkash",
+        "created_at": "2026-09-02T12:58:50.836Z"
+      },
+      {
+        "id": "iwal_1788352775788_734",
+        "type": "RELIEF_OUT",
+        "direction": "out",
+        "amount": 2500,
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "relief_out_rldon_1788351565047_90",
+        "note": "Relief donation from investor wallet (ledger only).",
+        "created_at": "2026-09-02T12:39:35.788Z"
+      },
+      {
+        "id": "iwal_1788352775785_600",
+        "type": "RELIEF_OUT",
+        "direction": "out",
+        "amount": 1000,
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "relief_out_rldon_1788351645430_647",
+        "note": "Relief donation from investor wallet (ledger only).",
+        "created_at": "2026-09-02T12:39:35.785Z"
+      },
+      {
+        "id": "iwal_1788352775783_43",
+        "type": "RELIEF_OUT",
+        "direction": "out",
+        "amount": 1000,
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "relief_out_rldon_1788351855492_585",
+        "note": "Relief donation from investor wallet (ledger only).",
+        "created_at": "2026-09-02T12:39:35.783Z"
+      },
+      {
+        "id": "iwal_1788352775781_365",
+        "type": "RELIEF_OUT",
+        "direction": "out",
+        "amount": 500,
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "relief_out_rldon_1788352052301_210",
+        "note": "Relief donation from investor wallet (ledger only).",
+        "created_at": "2026-09-02T12:39:35.781Z"
+      },
+      {
+        "id": "iwal_1788352775780_324",
+        "type": "RELIEF_OUT",
+        "direction": "out",
+        "amount": 750,
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "relief_out_rldon_1788352173294_561",
+        "note": "Relief donation from investor wallet (ledger only).",
+        "created_at": "2026-09-02T12:39:35.780Z"
+      },
+      {
+        "id": "iwal_1788352775779_430",
+        "type": "RELIEF_OUT",
+        "direction": "out",
+        "amount": 100,
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "relief_out_rldon_1788352406217_657",
+        "note": "Relief donation from investor wallet (ledger only).",
+        "created_at": "2026-09-02T12:39:35.779Z"
+      },
+      {
+        "id": "iwal_1788352775777_139",
+        "type": "INVESTMENT_OUT",
+        "direction": "out",
+        "amount": 75000,
+        "campaign_id": "campusbites_1",
+        "campaign_title": "campusbites_1",
+        "proposal_id": "inv_out_9416d363-d224-42dc-87e9-3ff14d2f1490",
+        "note": "Accepted investment funded from investor wallet (ledger only).",
+        "created_at": "2026-09-02T12:39:35.777Z"
+      },
+      {
+        "id": "iwal_1788352775778_seed",
+        "type": "SEED_OPENING",
+        "direction": "in",
+        "amount": 80850,
+        "campaign_id": "",
+        "campaign_title": "Opening balance",
+        "proposal_id": "seed_investor_open_usr_investor_1",
+        "note": "Opening credit so prior investments/donations reconcile (ledger only).",
+        "created_at": "1970-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+}
