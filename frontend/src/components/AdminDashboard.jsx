@@ -61,6 +61,14 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   const [campaignsList, setCampaignsList] = useState([]);
   const [verifiedCampaigns, setVerifiedCampaigns] = useState([]);
   const [escrowQueue, setEscrowQueue] = useState([]);
+  const [pendingUpdates, setPendingUpdates] = useState([]);
+  const [pendingReliefCampaigns, setPendingReliefCampaigns] = useState([]);
+  const [pendingEditRequests, setPendingEditRequests] = useState([]); // S3
+  const [pendingHandoverRequests, setPendingHandoverRequests] = useState([]); // S3
+  const [pendingWalletDeposits, setPendingWalletDeposits] = useState([]); // S3: manual Add Money proofs
+  const [walletDepositRejectDrafts, setWalletDepositRejectDrafts] = useState({}); // S3
+  const [contentRejectDrafts, setContentRejectDrafts] = useState({}); // S3: { 'progress:id' | 'relief:id' | 'edit:id': reason }
+  const [contentReviewChecks, setContentReviewChecks] = useState({}); // S3: { 'progress:id': { ...ticks } }
   const [dbConnected, setDbConnected] = useState(false);
   const [dbLoading, setDbLoading] = useState(true);
 
@@ -212,6 +220,31 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       if (escRes.ok) {
         const escData = await escRes.json();
         setEscrowQueue(escData);
+      }
+
+      // 4b. Pending progress updates & relief campaigns (founder content approvals)
+      const updRes = await fetch(`${API_BASE_URL}/api/admin/campaign-updates/pending`);
+      if (updRes.ok) {
+        setPendingUpdates(await updRes.json());
+      }
+      const reliefPendRes = await fetch(`${API_BASE_URL}/api/admin/relief-drives/pending`);
+      if (reliefPendRes.ok) {
+        setPendingReliefCampaigns(await reliefPendRes.json());
+      }
+      // S3: pending post-approval edit requests
+      const editPendRes = await fetch(`${API_BASE_URL}/api/admin/edit-requests/pending`);
+      if (editPendRes.ok) {
+        setPendingEditRequests(await editPendRes.json());
+      }
+      // S3: pending handover responsibility
+      const hoPendRes = await fetch(`${API_BASE_URL}/api/admin/handover-requests/pending`);
+      if (hoPendRes.ok) {
+        setPendingHandoverRequests(await hoPendRes.json());
+      }
+      // S3: pending manual wallet Add Money proofs
+      const walDepRes = await fetch(`${API_BASE_URL}/api/admin/wallet-deposits/pending`);
+      if (walDepRes.ok) {
+        setPendingWalletDeposits(await walDepRes.json());
       }
 
       // 5. Fetch registered database user counts (Founders and Investors)
@@ -648,8 +681,270 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }
   };
 
-  // Escrow Release approvals
-  const handleApproveEscrowRelease = async (campaignObjId, milestoneId, campaignTitle, milestoneTitle) => {
+  const handleProgressUpdateStatus = async (updateId, status) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/campaign-updates/${updateId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update status');
+      addToast(`Progress update ${status}.`, status === 'approved' ? 'success' : 'info');
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error updating progress announcement.', 'error');
+    }
+  };
+
+  const handleReliefCampaignStatus = async (reliefId, status) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/relief-drives/${reliefId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update relief campaign');
+      addToast(`Relief campaign ${status === 'open' || status === 'verified' ? 'approved' : status}.`, 'success');
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error updating relief campaign.', 'error');
+    }
+  };
+
+  // S3: approve/reject post-approval campaign edit requests
+  const handleEditRequestStatus = async (requestId, status) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/edit-requests/${requestId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update edit request');
+      addToast(`Edit request ${status}.`, status === 'approved' ? 'success' : 'info');
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error updating edit request.', 'error');
+    }
+  };
+
+  // S3: approve/reject handover responsibility (transfers founder ownership on approve)
+  const handleHandoverRequestStatus = async (requestId, status) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/handover-requests/${requestId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update handover request');
+      addToast(
+        status === 'approved' ? 'Handover approved — ownership transferred.' : 'Handover rejected.',
+        status === 'approved' ? 'success' : 'info'
+      );
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error updating handover request.', 'error');
+    }
+  };
+
+  // S3: approve/reject founder manual wallet Add Money (proof-based)
+  const handleWalletDepositStatus = async (depositId, status) => {
+    const reviewNote = String(walletDepositRejectDrafts[depositId] || '').trim();
+    if (status === 'rejected' && !reviewNote) {
+      addToast('Write a rejection reason for this top-up.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/wallet-deposits/${depositId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, reviewNote })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update wallet deposit');
+      addToast(`Wallet top-up ${status}.`, status === 'approved' ? 'success' : 'info');
+      setWalletDepositRejectDrafts((prev) => {
+        const next = { ...prev };
+        delete next[depositId];
+        return next;
+      });
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error updating wallet deposit.', 'error');
+    }
+  };
+
+  // S3: reject progress/relief with a written reason (existing instant Reject buttons unchanged)
+  const handleProgressRejectWithReason = async (updateId) => {
+    const reason = String(contentRejectDrafts[`progress:${updateId}`] || '').trim();
+    if (!reason) {
+      addToast('Write a rejection reason first.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/campaign-updates/${updateId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to reject progress update');
+      addToast('Progress update rejected with reason.', 'info');
+      setContentRejectDrafts((prev) => {
+        const next = { ...prev };
+        delete next[`progress:${updateId}`];
+        return next;
+      });
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error rejecting progress update.', 'error');
+    }
+  };
+
+  const handleReliefRejectWithReason = async (reliefId) => {
+    const reason = String(contentRejectDrafts[`relief:${reliefId}`] || '').trim();
+    if (!reason) {
+      addToast('Write a rejection reason first.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/relief-drives/${reliefId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'rejected', reason })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to reject relief campaign');
+      addToast('Relief campaign rejected with reason.', 'info');
+      setContentRejectDrafts((prev) => {
+        const next = { ...prev };
+        delete next[`relief:${reliefId}`];
+        return next;
+      });
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error rejecting relief campaign.', 'error');
+    }
+  };
+
+  // S3: checklists for founder content (same gate as identity Verify User — new panel only)
+  const progressCheckDefaults = { narrativeOk: false, milestoneOk: false, publishSafe: false };
+  const reliefCheckDefaults = { beneficiaryOk: false, proofsOk: false, goalOk: false };
+  const editCheckDefaults = { reasonOk: false, fieldsOk: false, slaOk: false };
+  const getContentChecks = (key, defaults) => contentReviewChecks[key] || defaults;
+  const allContentChecksOn = (checks) => Object.values(checks).every(Boolean);
+  const toggleContentCheck = (key, field, defaults) => {
+    setContentReviewChecks((prev) => {
+      const cur = prev[key] || defaults;
+      return { ...prev, [key]: { ...cur, [field]: !cur[field] } };
+    });
+  };
+  const requireContentChecklist = (key, defaults) => {
+    if (allContentChecksOn(getContentChecks(key, defaults))) return true;
+    addToast('Compliance mismatch: All checklist verification blocks must be checked.', 'error');
+    return false;
+  };
+
+  const handleProgressApproveWithChecklist = async (updateId) => {
+    if (!requireContentChecklist(`progress:${updateId}`, progressCheckDefaults)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/campaign-updates/${updateId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'approved' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to approve progress update');
+      addToast('Progress update approved after checklist.', 'success');
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error approving progress update.', 'error');
+    }
+  };
+
+  const handleReliefApproveWithChecklist = async (reliefId) => {
+    if (!requireContentChecklist(`relief:${reliefId}`, reliefCheckDefaults)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/relief-drives/${reliefId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'open' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to approve relief campaign');
+      addToast('Relief campaign approved after checklist.', 'success');
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error approving relief campaign.', 'error');
+    }
+  };
+
+  const handleEditApproveWithChecklist = async (requestId) => {
+    if (!requireContentChecklist(`edit:${requestId}`, editCheckDefaults)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/edit-requests/${requestId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'approved' })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to approve edit request');
+      addToast('Edit request approved after checklist.', 'success');
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error approving edit request.', 'error');
+    }
+  };
+
+  const handleEditRejectWithReason = async (requestId) => {
+    const reason = String(contentRejectDrafts[`edit:${requestId}`] || '').trim();
+    if (!reason) {
+      addToast('Write a rejection reason first.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/edit-requests/${requestId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'rejected', reason })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to reject edit request');
+      addToast('Edit request rejected with reason.', 'info');
+      setContentRejectDrafts((prev) => {
+        const next = { ...prev };
+        delete next[`edit:${requestId}`];
+        return next;
+      });
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Error rejecting edit request.', 'error');
+    }
+  };
+
+  const ContentCheckRow = ({ checked, onToggle, title, hint }) => (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full flex items-center gap-3 p-3 rounded-lg bg-[#0B0F0C] border border-[#1F2922] text-left hover:border-[#00E676]/30 transition-colors cursor-pointer"
+    >
+      {checked ? (
+        <CheckSquare className="w-4 h-4 text-[#00E676] shrink-0" />
+      ) : (
+        <Square className="w-4 h-4 text-[#8E9B93] shrink-0" />
+      )}
+      <div>
+        <span className="text-[#E2E8F0] font-semibold block text-xs">{title}</span>
+        <span className="text-[11px] text-[#8E9B93]">{hint}</span>
+      </div>
+    </button>
+  );
+
+  // Escrow / relief milestone approvals (S3: relief = progress verify only, no repayment)
+  const handleApproveEscrowRelease = async (campaignObjId, milestoneId, campaignTitle, milestoneTitle, kind = 'campaign') => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/escrow/${campaignObjId}/milestones/${milestoneId}/approve`, {
         method: 'POST',
@@ -659,23 +954,31 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
       if (!res.ok) throw new Error(data.error || 'Database release error');
 
-      addToast(`Tranche payment approved and released for ${campaignTitle} - "${milestoneTitle}".`, 'success');
+      const isRelief = kind === 'relief' || String(campaignObjId || '').startsWith('relief_');
+      addToast(
+        isRelief
+          ? `Relief milestone verified for ${campaignTitle} - "${milestoneTitle}" (donation progress).`
+          : `Tranche payment approved and released for ${campaignTitle} - "${milestoneTitle}".`,
+        'success'
+      );
 
       const newLog = {
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         actor: 'ADMIN_PRITOM',
         initials: 'AP',
         color: 'bg-purple-900 text-purple-200 border-purple-500/30',
-        action: 'RELEASED ESCROW',
+        action: isRelief ? 'VERIFIED RELIEF MILESTONE' : 'RELEASED ESCROW',
         target: campaignTitle,
-        rationale: `Milestone "${milestoneTitle}" release validated.`,
+        rationale: isRelief
+          ? `Relief milestone "${milestoneTitle}" donation progress verified.`
+          : `Milestone "${milestoneTitle}" release validated.`,
         hash: 'fb_' + Math.random().toString(36).substring(2, 6) + '...' + Math.random().toString(36).substring(2, 6)
       };
       setActivityLogs(prev => [newLog, ...prev]);
 
       fetchDatabaseData();
     } catch (e) {
-      addToast('Failed to approve escrow release in database.', 'error');
+      addToast('Failed to approve milestone in database.', 'error');
     }
   };
 
@@ -1155,6 +1458,22 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
               </button>
 
               <button
+                onClick={() => setActiveTab('contentApprovals')}
+                className={`w-full text-left px-4 py-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${activeTab === 'contentApprovals'
+                  ? 'bg-[#111613] text-[#00E676] border-l-4 border-[#00E676]'
+                  : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
+                  }`}
+              >
+                <span>Content Approvals</span>
+                {/* S3: badge = all queues on this tab (progress, relief, edits, handover) */}
+                {(pendingUpdates.length + pendingReliefCampaigns.length + pendingEditRequests.length + pendingHandoverRequests.length) > 0 && (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-mono">
+                    {pendingUpdates.length + pendingReliefCampaigns.length + pendingEditRequests.length + pendingHandoverRequests.length}
+                  </span>
+                )}
+              </button>
+
+              <button
                 onClick={() => setActiveTab('disputes')}
                 className={`w-full text-left px-4 py-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${activeTab === 'disputes'
                   ? 'bg-[#111613] text-[#00E676] border-l-4 border-[#00E676]'
@@ -1349,6 +1668,72 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   )}
                 </div>
 
+              </div>
+
+              {/* S3: Pending milestone reviews — startup escrow + relief progress (no repayment) */}
+              <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-[#1F2922] pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Milestone Reviews</h3>
+                    <p className="text-[11px] text-[#8E9B93] mt-0.5">
+                      Startup: may release escrow. Relief: verify donation work progress.
+                    </p>
+                  </div>
+                  <span className="text-xs text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-md font-mono">
+                    {escrowQueue.length} Pending
+                  </span>
+                </div>
+                {escrowQueue.length > 0 ? (
+                  <div className="space-y-3">
+                    {escrowQueue.map((req, idx) => {
+                      const isRelief = req.kind === 'relief' || String(req.campaignId || '').startsWith('relief_');
+                      return (
+                        <div
+                          key={`${req.campaignId}-${req.milestoneId}-${idx}`}
+                          className="p-3.5 bg-[#0B0F0C] border border-[#1F2922] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-xs text-[#E2E8F0]">{req.title}</span>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                isRelief
+                                  ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                                  : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              }`}>
+                                {isRelief ? 'Relief' : 'Startup'}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-[#8E9B93] block truncate">
+                              {req.milestoneTitle} · {req.target} · {req.university}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              Status: {req.escrowStatus}
+                              {typeof req.proofCount === 'number' ? ` · ${req.proofCount} proof(s)` : ''}
+                              {isRelief ? ' · donation progress' : ` · escrow ৳ ${Number(req.amount || 0).toLocaleString()}`}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleApproveEscrowRelease(
+                              req.campaignId,
+                              req.milestoneId,
+                              req.title,
+                              req.milestoneTitle,
+                              isRelief ? 'relief' : 'campaign'
+                            )}
+                            className="px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0"
+                          >
+                            {isRelief ? 'Verify progress' : 'Approve tranche'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-xs text-[#8E9B93] bg-[#0B0F0C] rounded-xl">
+                    No milestone proofs waiting for review.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2086,6 +2471,396 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
           )}
 
           {/* SCREEN [4]: REPORTS & COMPLAINTS */}
+          {activeTab === 'contentApprovals' && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-xl font-mono text-[#E2E8F0] font-medium">Content Approvals</h2>
+                <p className="text-xs text-[#8E9B93] mt-1">Approve founder progress updates and relief campaigns before they become publicly visible.</p>
+              </div>
+
+              <div className="bg-[#111613] border border-[#1F2922] rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Progress Updates ({pendingUpdates.length})</h3>
+                {pendingUpdates.length > 0 ? (
+                  <div className="space-y-3">
+                    {pendingUpdates.map((u) => (
+                      <div key={u.id} className="border border-[#1F2922] rounded-xl p-4 space-y-2">
+                        <div className="flex justify-between gap-3 items-start">
+                          <div>
+                            <h4 className="text-sm font-semibold text-[#E2E8F0]">{u.title}</h4>
+                            <p className="text-[10px] text-[#8E9B93] font-mono">Campaign {u.campaign_id} · {u.milestone_tag} · {u.founder_id}</p>
+                          </div>
+                          <span className="text-[10px] uppercase text-amber-400 font-bold">pending</span>
+                        </div>
+                        <p className="text-xs text-[#B8C4BC] whitespace-pre-wrap">{u.content}</p>
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleProgressUpdateStatus(u.id, 'approved')}
+                            className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Approve (public)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleProgressUpdateStatus(u.id, 'rejected')}
+                            className="px-3 py-1.5 bg-rose-600/20 text-rose-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#8E9B93]">No pending progress updates.</p>
+                )}
+              </div>
+
+              <div className="bg-[#111613] border border-[#1F2922] rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Relief Campaigns ({pendingReliefCampaigns.length})</h3>
+                {pendingReliefCampaigns.length > 0 ? (
+                  <div className="space-y-3">
+                    {pendingReliefCampaigns.map((d) => (
+                      <div key={d.id} className="border border-[#1F2922] rounded-xl p-4 space-y-2">
+                        <div className="flex justify-between gap-3 items-start">
+                          <div>
+                            <h4 className="text-sm font-semibold text-[#E2E8F0]">{d.title}</h4>
+                            <p className="text-[10px] text-[#8E9B93]">{d.cause} · {d.university} · Help: {d.beneficiary}</p>
+                          </div>
+                          <span className="text-[10px] uppercase text-amber-400 font-bold">pending</span>
+                        </div>
+                        <p className="text-xs text-[#B8C4BC]">{d.description}</p>
+                        <p className="text-[10px] font-mono text-[#8E9B93]">Goal ৳ {Number(d.goal || 0).toLocaleString()}</p>
+                        {Array.isArray(d.proofLinks) && d.proofLinks.length > 0 && (
+                          <ul className="space-y-1 text-[10px] text-[#8E9B93]">
+                            {d.proofLinks.map((p, i) => (
+                              <li key={i} className="truncate"><span className="text-[#E2E8F0]">{p.type}:</span> {p.url}</li>
+                            ))}
+                          </ul>
+                        )}
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleReliefCampaignStatus(d.id, 'open')}
+                            className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Approve (public)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReliefCampaignStatus(d.id, 'rejected')}
+                            className="px-3 py-1.5 bg-rose-600/20 text-rose-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#8E9B93]">No pending relief campaigns.</p>
+                )}
+              </div>
+
+              {/* S3: handover responsibility (ownership transfer after approve) */}
+              <div className="bg-[#111613] border border-[#1F2922] rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Handover Requests ({pendingHandoverRequests.length})</h3>
+                <p className="text-[10px] text-[#8E9B93]">
+                  Founders elect a co-founder as the new founder. Approve only after reviewing reason + proof; ownership transfers to that co-founder on approve.
+                </p>
+                {pendingHandoverRequests.length > 0 ? (
+                  <div className="space-y-3">
+                    {pendingHandoverRequests.map((hr) => (
+                      <div key={hr.id} className="border border-[#1F2922] rounded-xl p-4 space-y-2">
+                        <div className="flex justify-between gap-3 items-start">
+                          <div>
+                            <h4 className="text-sm font-semibold text-[#E2E8F0]">{hr.target_title || hr.target_id}</h4>
+                            <p className="text-[10px] text-[#8E9B93] font-mono">
+                              {hr.target_type} · from {hr.founder_id} → {hr.successor_email}
+                            </p>
+                          </div>
+                          <span className="text-[10px] uppercase text-amber-400 font-bold">pending</span>
+                        </div>
+                        <p className="text-xs text-[#B8C4BC] whitespace-pre-wrap">{hr.reason}</p>
+                        <p className="text-[11px] text-[#E2E8F0]">
+                          New founder: <strong>{hr.new_founder_name || hr.successor_name}</strong> · {hr.successor_email}
+                          {hr.successor_id || hr.new_founder_id ? ` · ${hr.successor_id || hr.new_founder_id}` : ''}
+                        </p>
+                        {hr.proof_path && (
+                          <a
+                            href={`${API_BASE_URL}${hr.proof_path}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] text-sky-400 hover:underline"
+                          >
+                            View proof ({hr.proof_original_name || 'file'})
+                          </a>
+                        )}
+                        <p className="text-[10px] text-[#8E9B93]">Due by {hr.due_at ? new Date(hr.due_at).toLocaleString() : '—'}</p>
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleHandoverRequestStatus(hr.id, 'approved')}
+                            className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Approve (transfer)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleHandoverRequestStatus(hr.id, 'rejected')}
+                            className="px-3 py-1.5 bg-rose-600/20 text-rose-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#8E9B93]">No pending handover requests.</p>
+                )}
+              </div>
+
+              {/* S3: post-approval edit requests (max 2 working days) */}
+              <div className="bg-[#111613] border border-[#1F2922] rounded-2xl p-5 space-y-4">
+                <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Edit Requests ({pendingEditRequests.length})</h3>
+                <p className="text-[10px] text-[#8E9B93]">Founders may request changes after approval. Review proposed fields and apply or reject within 2 working days (Fri/Sat skipped).</p>
+                {pendingEditRequests.length > 0 ? (
+                  <div className="space-y-3">
+                    {pendingEditRequests.map((er) => (
+                      <div key={er.id} className="border border-[#1F2922] rounded-xl p-4 space-y-2">
+                        <div className="flex justify-between gap-3 items-start">
+                          <div>
+                            <h4 className="text-sm font-semibold text-[#E2E8F0]">{er.target_title || er.target_id}</h4>
+                            <p className="text-[10px] text-[#8E9B93] font-mono">
+                              {er.target_type} · {er.target_id} · {er.founder_id}
+                            </p>
+                          </div>
+                          <span className="text-[10px] uppercase text-amber-400 font-bold">pending</span>
+                        </div>
+                        <p className="text-xs text-[#B8C4BC] whitespace-pre-wrap">{er.reason}</p>
+                        {er.proposedChanges && Object.keys(er.proposedChanges).length > 0 && (
+                          <pre className="text-[10px] font-mono text-[#8E9B93] bg-[#0B0F0C] rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">
+                            {JSON.stringify(er.proposedChanges, null, 2)}
+                          </pre>
+                        )}
+                        <p className="text-[10px] text-[#8E9B93]">Due by {er.due_at ? new Date(er.due_at).toLocaleString() : '—'}</p>
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleEditRequestStatus(er.id, 'approved')}
+                            className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Approve (apply)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEditRequestStatus(er.id, 'rejected')}
+                            className="px-3 py-1.5 bg-rose-600/20 text-rose-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#8E9B93]">No pending edit requests.</p>
+                )}
+              </div>
+
+              {/* S3: manual wallet Add Money proofs (below Content Approvals originals) */}
+              <div className="bg-[#111613] border border-[#1F2922] rounded-2xl p-5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Wallet Top-ups ({pendingWalletDeposits.length})</h3>
+                  <p className="text-[10px] text-[#8E9B93] mt-1">
+                    Founders and investors add money manually (bKash / bank / other) with a proof receipt. Approve to credit their wallet ledger; reject with a reason if the proof is invalid.
+                  </p>
+                </div>
+                {pendingWalletDeposits.length > 0 ? (
+                  <div className="space-y-3">
+                    {pendingWalletDeposits.map((d) => (
+                      <div key={d.id} className="border border-[#1F2922] rounded-xl p-4 space-y-2">
+                        <div className="flex justify-between gap-3 items-start">
+                          <div>
+                            <h4 className="text-sm font-semibold text-[#E2E8F0]">
+                              ৳ {Number(d.amount || 0).toLocaleString()} · {(d.method || 'other').toUpperCase()}
+                            </h4>
+                            <p className="text-[10px] text-[#8E9B93] font-mono">
+                              {(d.owner_role === 'investor' || d.investor_id) ? 'Investor' : 'Founder'}{' '}
+                              {d.investor_id || d.founder_id || d.owner_id} · Ref {d.reference || '—'} ·{' '}
+                              {d.created_at ? new Date(d.created_at).toLocaleString() : '—'}
+                            </p>
+                          </div>
+                          <span className="text-[10px] uppercase text-amber-400 font-bold">pending</span>
+                        </div>
+                        {d.note ? <p className="text-xs text-[#B8C4BC] whitespace-pre-wrap">{d.note}</p> : null}
+                        {d.proof_url ? (
+                          <a
+                            href={`${API_BASE_URL}${d.proof_url}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex text-[11px] font-semibold text-sky-400 hover:underline"
+                          >
+                            Open proof receipt →
+                          </a>
+                        ) : (
+                          <p className="text-[10px] text-rose-400">No proof file attached.</p>
+                        )}
+                        <textarea
+                          rows={2}
+                          value={walletDepositRejectDrafts[d.id] || ''}
+                          onChange={(e) => setWalletDepositRejectDrafts((prev) => ({ ...prev, [d.id]: e.target.value }))}
+                          placeholder="Rejection reason (required only if you reject)…"
+                          className="w-full px-3 py-2 bg-[#0B0F0C] border border-[#1F2922] rounded-lg text-xs text-[#E2E8F0]"
+                        />
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleWalletDepositStatus(d.id, 'approved')}
+                            className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Approve (credit wallet)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleWalletDepositStatus(d.id, 'rejected')}
+                            className="px-3 py-1.5 bg-rose-600/20 text-rose-400 text-[10px] font-bold rounded-lg cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#8E9B93]">No pending wallet top-ups.</p>
+                )}
+              </div>
+
+              {/* S3: founder content checklists — original Approve/Reject buttons above are unchanged */}
+              <div className="bg-[#111613] border border-[#1F2922] rounded-2xl p-5 space-y-6">
+                <div>
+                  <h3 className="text-sm font-bold text-[#E2E8F0]">Founder review checklist</h3>
+                  <p className="text-[10px] text-[#8E9B93] mt-1">
+                    Same rule as identity vetting: tick all boxes before Approve. Instant Approve/Reject above still work without this. Campaigns use Campaign Audit (already has its own three checks). Identity uses Verification.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#8E9B93]">Progress updates</h4>
+                  {pendingUpdates.length > 0 ? pendingUpdates.map((u) => {
+                    const key = `progress:${u.id}`;
+                    const ck = getContentChecks(key, progressCheckDefaults);
+                    return (
+                      <div key={`chk-u-${u.id}`} className="border border-[#1F2922] rounded-xl p-4 space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold text-[#E2E8F0]">{u.title}</p>
+                          <p className="text-[10px] text-[#8E9B93] font-mono">Campaign {u.campaign_id} · {u.milestone_tag} · {u.founder_id}</p>
+                          <p className="text-xs text-[#B8C4BC] mt-2 whitespace-pre-wrap">{u.content}</p>
+                        </div>
+                        <ContentCheckRow checked={ck.narrativeOk} onToggle={() => toggleContentCheck(key, 'narrativeOk', progressCheckDefaults)} title="Update narrative is clear" hint="Title and log describe a real milestone, not empty or spam." />
+                        <ContentCheckRow checked={ck.milestoneOk} onToggle={() => toggleContentCheck(key, 'milestoneOk', progressCheckDefaults)} title="Milestone / progress tag fits" hint="Tag matches the campaign roadmap the founder is reporting on." />
+                        <ContentCheckRow checked={ck.publishSafe} onToggle={() => toggleContentCheck(key, 'publishSafe', progressCheckDefaults)} title="Safe to publish" hint="No misleading claims; OK for investors to see." />
+                        <textarea
+                          rows={2}
+                          value={contentRejectDrafts[key] || ''}
+                          onChange={(e) => setContentRejectDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
+                          placeholder="Rejection reason (required only if you reject here)…"
+                          className="w-full px-3 py-2 bg-[#0B0F0C] border border-[#1F2922] rounded-lg text-xs text-[#E2E8F0]"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => handleProgressApproveWithChecklist(u.id)} className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-[10px] font-bold rounded-lg cursor-pointer">
+                            Approve (checklist)
+                          </button>
+                          <button type="button" onClick={() => handleProgressRejectWithReason(u.id)} className="px-3 py-1.5 bg-rose-600/20 text-rose-400 text-[10px] font-bold rounded-lg cursor-pointer">
+                            Reject with this reason
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <p className="text-xs text-[#8E9B93]">No pending progress updates.</p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#8E9B93]">Relief campaigns</h4>
+                  {pendingReliefCampaigns.length > 0 ? pendingReliefCampaigns.map((d) => {
+                    const key = `relief:${d.id}`;
+                    const ck = getContentChecks(key, reliefCheckDefaults);
+                    return (
+                      <div key={`chk-d-${d.id}`} className="border border-[#1F2922] rounded-xl p-4 space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold text-[#E2E8F0]">{d.title}</p>
+                          <p className="text-[10px] text-[#8E9B93]">{d.cause} · {d.university} · Help: {d.beneficiary}</p>
+                          <p className="text-xs text-[#B8C4BC] mt-2">{d.description}</p>
+                        </div>
+                        <ContentCheckRow checked={ck.beneficiaryOk} onToggle={() => toggleContentCheck(key, 'beneficiaryOk', reliefCheckDefaults)} title="Cause and beneficiary are stated" hint="Who is helped and why is clear." />
+                        <ContentCheckRow checked={ck.proofsOk} onToggle={() => toggleContentCheck(key, 'proofsOk', reliefCheckDefaults)} title="Proof links reviewed" hint="URLs look real (article, notice, or other evidence)." />
+                        <ContentCheckRow checked={ck.goalOk} onToggle={() => toggleContentCheck(key, 'goalOk', reliefCheckDefaults)} title="Goal amount is plausible" hint={`Asked ৳ ${Number(d.goal || 0).toLocaleString()} — not empty or absurd.`} />
+                        <textarea
+                          rows={2}
+                          value={contentRejectDrafts[key] || ''}
+                          onChange={(e) => setContentRejectDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
+                          placeholder="Rejection reason (required only if you reject here)…"
+                          className="w-full px-3 py-2 bg-[#0B0F0C] border border-[#1F2922] rounded-lg text-xs text-[#E2E8F0]"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => handleReliefApproveWithChecklist(d.id)} className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-[10px] font-bold rounded-lg cursor-pointer">
+                            Approve (checklist)
+                          </button>
+                          <button type="button" onClick={() => handleReliefRejectWithReason(d.id)} className="px-3 py-1.5 bg-rose-600/20 text-rose-400 text-[10px] font-bold rounded-lg cursor-pointer">
+                            Reject with this reason
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <p className="text-xs text-[#8E9B93]">No pending relief campaigns.</p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#8E9B93]">Post-approval edit requests</h4>
+                  {pendingEditRequests.length > 0 ? pendingEditRequests.map((er) => {
+                    const key = `edit:${er.id}`;
+                    const ck = getContentChecks(key, editCheckDefaults);
+                    return (
+                      <div key={`chk-er-${er.id}`} className="border border-[#1F2922] rounded-xl p-4 space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold text-[#E2E8F0]">{er.target_title || er.target_id}</p>
+                          <p className="text-[10px] text-[#8E9B93] font-mono">{er.target_type} · due {er.due_at ? new Date(er.due_at).toLocaleString() : '—'}</p>
+                          <p className="text-xs text-[#B8C4BC] mt-2 whitespace-pre-wrap">{er.reason}</p>
+                        </div>
+                        <ContentCheckRow checked={ck.reasonOk} onToggle={() => toggleContentCheck(key, 'reasonOk', editCheckDefaults)} title="Edit reason is valid" hint="Founder explained why the live campaign needs a change." />
+                        <ContentCheckRow checked={ck.fieldsOk} onToggle={() => toggleContentCheck(key, 'fieldsOk', editCheckDefaults)} title="Proposed fields reviewed" hint="Title, goal, copy, or other proposed values are acceptable." />
+                        <ContentCheckRow checked={ck.slaOk} onToggle={() => toggleContentCheck(key, 'slaOk', editCheckDefaults)} title="Within 2 working days" hint="Fri/Sat skipped; approve or reject before the due time if possible." />
+                        <textarea
+                          rows={2}
+                          value={contentRejectDrafts[key] || ''}
+                          onChange={(e) => setContentRejectDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
+                          placeholder="Rejection reason (required only if you reject here)…"
+                          className="w-full px-3 py-2 bg-[#0B0F0C] border border-[#1F2922] rounded-lg text-xs text-[#E2E8F0]"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => handleEditApproveWithChecklist(er.id)} className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-[10px] font-bold rounded-lg cursor-pointer">
+                            Approve (checklist)
+                          </button>
+                          <button type="button" onClick={() => handleEditRejectWithReason(er.id)} className="px-3 py-1.5 bg-rose-600/20 text-rose-400 text-[10px] font-bold rounded-lg cursor-pointer">
+                            Reject with this reason
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <p className="text-xs text-[#8E9B93]">No pending edit requests.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'disputes' && (
             <div className="space-y-8 animate-fadeIn text-left">
               {/* Workspace Header */}

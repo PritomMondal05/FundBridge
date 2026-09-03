@@ -1,0 +1,32 @@
+[
+  {
+    "id": "wdep_1788353492983_449",
+    "owner_role": "investor",
+    "investor_id": "usr_investor_1",
+    "owner_id": "usr_investor_1",
+    "amount": 2000,
+    "method": "bkash",
+    "reference": "tujso19199",
+    "note": "",
+    "proof_url": "/uploads/proofFile-1788353492980-639308674.PNG",
+    "proof_filename": "421.PNG",
+    "status": "approved",
+    "created_at": "2026-09-02T12:51:32.983Z",
+    "reviewed_at": "2026-09-02T12:58:50.836Z",
+    "review_note": ""
+  },
+  {
+    "id": "wdep_1788348114684_830",
+    "founder_id": "usr_founder_1",
+    "amount": 10000,
+    "method": "bkash",
+    "reference": "TESTTRX123",
+    "note": "api verify",
+    "proof_url": "/uploads/proofFile-1788348114682-303134203.png",
+    "proof_filename": "fb-deposit-proof.png",
+    "status": "approved",
+    "created_at": "2026-09-02T11:21:54.684Z",
+    "reviewed_at": "2026-09-02T11:21:55.362Z",
+    "review_note": ""
+  }
+]

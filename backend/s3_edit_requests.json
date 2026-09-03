@@ -1,0 +1,23 @@
+[
+  {
+    "id": "editreq_1788364706095",
+    "target_type": "relief",
+    "target_id": "relief_1788250931533",
+    "target_title": "Nepal Needs Help",
+    "founder_id": "usr_founder_1",
+    "reason": "The requested donation amount is too high to meet.",
+    "proposedChanges": {
+      "title": "Nepal Needs Help",
+      "cause": "Disaster Relief",
+      "beneficiary": "Victims of flood in Nepal",
+      "goal": "1000000",
+      "description": "Nepal has been hit by one of the most disastrous flood in history. As a neighboring country we must extend our hand to them.",
+      "university": "BUET"
+    },
+    "status": "approved",
+    "submitted_at": "2026-09-02T15:58:26.095Z",
+    "due_at": "2026-09-06T15:58:26.095Z",
+    "reviewed_at": "2026-09-02T17:16:41.740Z",
+    "admin_note": ""
+  }
+]

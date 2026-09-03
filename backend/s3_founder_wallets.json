@@ -1,0 +1,271 @@
+{
+  "usr_founder_1": {
+    "balance": 249700,
+    "ledger": [
+      {
+        "id": "wal_1788370283135_137",
+        "type": "SECURITY_DEPOSIT_OUT",
+        "direction": "out",
+        "amount": 4000,
+        "investor_id": "",
+        "investor_name": "Security deposit bond",
+        "campaign_id": "",
+        "campaign_title": "Security deposit bond",
+        "proposal_id": "secdep_dep_1788370283135",
+        "note": "Transferred from personal Add Money balance to security deposit (good-faith bond). Not from investment funds.",
+        "created_at": "2026-09-02T17:31:23.135Z"
+      },
+      {
+        "id": "wal_1788366498052_237",
+        "type": "SECURITY_DEPOSIT_OUT",
+        "direction": "out",
+        "amount": 1000,
+        "investor_id": "",
+        "investor_name": "Security deposit bond",
+        "campaign_id": "",
+        "campaign_title": "Security deposit bond",
+        "proposal_id": "secdep_dep_1788366498051",
+        "note": "Transferred from personal Add Money balance to security deposit (good-faith bond). Not from investment funds.",
+        "created_at": "2026-09-02T16:28:18.052Z"
+      },
+      {
+        "id": "wal_1788364555320_453",
+        "type": "RELIEF_SELF_FUND",
+        "direction": "out",
+        "amount": 1150,
+        "investor_id": "",
+        "investor_name": "Nepal Needs Help",
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "reliefselffund_relief_1788250931533_1788364555319",
+        "note": "Founder self-funding from wallet into relief raised (not an investor contribution).",
+        "created_at": "2026-09-02T15:55:55.320Z"
+      },
+      {
+        "id": "wal_1788353998944_246",
+        "type": "RELIEF_SELF_FUND",
+        "direction": "out",
+        "amount": 1000,
+        "investor_id": "",
+        "investor_name": "Nepal Needs Help",
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "reliefselffund_relief_1788250931533_1788353998944",
+        "note": "Founder self-funding from wallet into relief raised (not an investor contribution).",
+        "created_at": "2026-09-02T12:59:58.944Z"
+      },
+      {
+        "id": "wal_1788352406219_915",
+        "type": "RELIEF_DONATION_IN",
+        "direction": "in",
+        "amount": 100,
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "rldon_1788352406217_657",
+        "note": "Relief donation credited to founder wallet (ledger only — not equity investment).",
+        "created_at": "2026-09-02T12:33:26.219Z"
+      },
+      {
+        "id": "wal_1788352173699_143",
+        "type": "RELIEF_DONATION_IN",
+        "direction": "in",
+        "amount": 2500,
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "rldon_1788351565047_90",
+        "note": "Relief donation credited to founder wallet (ledger only — not equity investment).",
+        "created_at": "2026-09-02T12:29:33.699Z"
+      },
+      {
+        "id": "wal_1788352173699_418",
+        "type": "RELIEF_DONATION_IN",
+        "direction": "in",
+        "amount": 1000,
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "rldon_1788351645430_647",
+        "note": "Relief donation credited to founder wallet (ledger only — not equity investment).",
+        "created_at": "2026-09-02T12:29:33.699Z"
+      },
+      {
+        "id": "wal_1788352173698_706",
+        "type": "RELIEF_DONATION_IN",
+        "direction": "in",
+        "amount": 1000,
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "rldon_1788351855492_585",
+        "note": "Relief donation credited to founder wallet (ledger only — not equity investment).",
+        "created_at": "2026-09-02T12:29:33.698Z"
+      },
+      {
+        "id": "wal_1788352173697_616",
+        "type": "RELIEF_DONATION_IN",
+        "direction": "in",
+        "amount": 500,
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "rldon_1788352052301_210",
+        "note": "Relief donation credited to founder wallet (ledger only — not equity investment).",
+        "created_at": "2026-09-02T12:29:33.697Z"
+      },
+      {
+        "id": "wal_1788352173296_534",
+        "type": "RELIEF_DONATION_IN",
+        "direction": "in",
+        "amount": 750,
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "rldon_1788352173294_561",
+        "note": "Relief donation credited to founder wallet (ledger only — not equity investment).",
+        "created_at": "2026-09-02T12:29:33.296Z"
+      },
+      {
+        "id": "wal_1788351782523_750",
+        "type": "RELIEF_SELF_FUND",
+        "direction": "out",
+        "amount": 2000,
+        "investor_id": "",
+        "investor_name": "Nepal Needs Help",
+        "campaign_id": "relief_1788250931533",
+        "campaign_title": "Nepal Needs Help",
+        "proposal_id": "reliefselffund_relief_1788250931533_1788351782523",
+        "note": "Founder self-funding from wallet into relief raised (not an investor contribution).",
+        "created_at": "2026-09-02T12:23:02.524Z"
+      },
+      {
+        "id": "wal_1788351172397_129",
+        "type": "CAMPAIGN_SELF_FUND",
+        "direction": "out",
+        "amount": 1000,
+        "investor_id": "",
+        "investor_name": "CampusBites",
+        "campaign_id": "campusbites_1",
+        "campaign_title": "CampusBites",
+        "proposal_id": "selffund_campusbites_1_1788351172397",
+        "note": "Founder self-funding from wallet into campaign raised (not an investor contribution).",
+        "created_at": "2026-09-02T12:12:52.397Z"
+      },
+      {
+        "id": "wal_1788348738422_561",
+        "type": "SECURITY_DEPOSIT_OUT",
+        "direction": "out",
+        "amount": 5000,
+        "investor_id": "",
+        "investor_name": "Security deposit",
+        "campaign_id": "",
+        "campaign_title": "Security deposit bond",
+        "proposal_id": "secdep_dep_1788348738422",
+        "note": "Transferred from wallet to security deposit (good-faith bond).",
+        "created_at": "2026-09-02T11:32:18.422Z"
+      },
+      {
+        "id": "wal_1788348115363_587",
+        "type": "MANUAL_DEPOSIT",
+        "direction": "in",
+        "amount": 10000,
+        "investor_id": "",
+        "investor_name": "Manual top-up (bkash)",
+        "campaign_id": "",
+        "campaign_title": "Wallet Add Money",
+        "proposal_id": "deposit_wdep_1788348114684_830",
+        "note": "Admin-verified manual deposit · ref TESTTRX123.",
+        "created_at": "2026-09-02T11:21:55.363Z"
+      },
+      {
+        "id": "wal_1788345831341_493",
+        "type": "SEED_ESCROW",
+        "direction": "in",
+        "amount": 174000,
+        "investor_id": "",
+        "investor_name": "Prior escrow (campaign raised)",
+        "campaign_id": "campusbites_1",
+        "campaign_title": "CampusBites",
+        "proposal_id": "seed_escrow_campusbites_1",
+        "note": "Opening escrow from campaign raised before/without proposal credits (ledger only).",
+        "created_at": "2026-09-02T10:43:51.341Z"
+      },
+      {
+        "id": "wal_1788337334469_497",
+        "type": "INVESTMENT_IN",
+        "direction": "in",
+        "amount": 75000,
+        "investor_id": "usr_investor_1",
+        "investor_name": "Angel Backer Zaman",
+        "campaign_id": "campusbites_1",
+        "campaign_title": "CampusBites",
+        "proposal_id": "9416d363-d224-42dc-87e9-3ff14d2f1490",
+        "note": "Accepted investment proposal credited to founder wallet (ledger only — no payment gateway).",
+        "created_at": "2026-09-02T08:22:14.469Z"
+      }
+    ],
+    "investment_inflows": [],
+    "note": "Ashraf only — other founders start with empty wallets."
+  },
+  "usr_founder_2": {
+    "balance": 235000,
+    "ledger": [
+      {
+        "id": "wal_1788380668342_261",
+        "type": "SEED_ESCROW",
+        "direction": "in",
+        "amount": 235000,
+        "investor_id": "",
+        "investor_name": "Prior escrow (campaign raised)",
+        "campaign_id": "agrisensebd_2",
+        "campaign_title": "AgriSense BD",
+        "proposal_id": "seed_escrow_agrisensebd_2",
+        "note": "Opening escrow from campaign raised before/without proposal credits (ledger only).",
+        "created_at": "2026-09-02T20:24:28.342Z"
+      }
+    ]
+  },
+  "usr_founder_5": {
+    "balance": 460000,
+    "ledger": [
+      {
+        "id": "wal_1788381211818_815",
+        "type": "SEED_ESCROW",
+        "direction": "in",
+        "amount": 460000,
+        "investor_id": "",
+        "investor_name": "Prior escrow (campaign raised)",
+        "campaign_id": "finflex_5",
+        "campaign_title": "FinFlex",
+        "proposal_id": "seed_escrow_finflex_5",
+        "note": "Opening escrow from campaign raised before/without proposal credits (ledger only).",
+        "created_at": "2026-09-02T20:33:31.818Z"
+      }
+    ]
+  },
+  "usr_founder_3": {
+    "balance": 303000,
+    "ledger": [
+      {
+        "id": "wal_1788382035907_528",
+        "type": "SEED_ESCROW",
+        "direction": "in",
+        "amount": 303000,
+        "investor_id": "",
+        "investor_name": "Prior escrow (campaign raised)",
+        "campaign_id": "skillcrafthub_3",
+        "campaign_title": "SkillCraft Hub",
+        "proposal_id": "seed_escrow_skillcrafthub_3",
+        "note": "Opening escrow from campaign raised before/without proposal credits (ledger only).",
+        "created_at": "2026-09-02T20:47:15.907Z"
+      }
+    ]
+  }
+}

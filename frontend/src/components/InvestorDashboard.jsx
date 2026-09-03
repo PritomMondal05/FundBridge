@@ -38,7 +38,10 @@ import {
   Mail,
   User,
   AlertCircle,
-  XCircle
+  XCircle,
+  Heart,
+  Plus,
+  Upload
 } from 'lucide-react';
 
 import logoUrl from '../assets/images/FundBridge Logo.svg';
@@ -65,7 +68,6 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInputText, setChatInputText] = useState('');
 
-  // Editable Profile State
   const [profileUser, setProfileUser] = useState({
     name: user.name || 'Javeria Doe',
     email: user.email || 'investor@firm.com',
@@ -78,11 +80,36 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
   // Real Database State
   const [campaigns, setCampaigns] = useState([]);
+  // S3: open/verified relief campaigns for Explore
+  const [reliefCampaigns, setReliefCampaigns] = useState([]);
+  const [exploreMarket, setExploreMarket] = useState('startup'); // startup | relief
+  const [selectedReliefDetail, setSelectedReliefDetail] = useState(null);
+  // S3: Add Money / donate to relief
+  const [reliefDonateTarget, setReliefDonateTarget] = useState(null);
+  const [reliefDonateAmount, setReliefDonateAmount] = useState('');
+  const [reliefDonateMethod, setReliefDonateMethod] = useState('bkash');
+  const [reliefDonateReference, setReliefDonateReference] = useState('');
+  const [submittingReliefDonate, setSubmittingReliefDonate] = useState(false);
   const [proposals, setProposals] = useState([]);
   const [coInvestors, setCoInvestors] = useState([]);
   const [foundersList, setFoundersList] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
-  const [walletLedger, setWalletLedger] = useState([]);
+  // S3: investor wallet (aligned with founder wallet)
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletCommitted, setWalletCommitted] = useState(0);
+  const [walletAvailable, setWalletAvailable] = useState(0);
+  const [walletPendingHeld, setWalletPendingHeld] = useState(0);
+  const [walletInflows, setWalletInflows] = useState([]);
+  const [walletOutflows, setWalletOutflows] = useState([]);
+  const [walletNote, setWalletNote] = useState('');
+  const [walletDeposits, setWalletDeposits] = useState([]);
+  const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
+  const [addMoneyAmount, setAddMoneyAmount] = useState('');
+  const [addMoneyMethod, setAddMoneyMethod] = useState('bkash');
+  const [addMoneyReference, setAddMoneyReference] = useState('');
+  const [addMoneyNote, setAddMoneyNote] = useState('');
+  const [addMoneyProof, setAddMoneyProof] = useState(null);
+  const [submittingAddMoney, setSubmittingAddMoney] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
   const [bookmarkedFounders, setBookmarkedFounders] = useState([]);
@@ -136,6 +163,19 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
   // Generic Decision Confirmation Modal ("Are you sure?")
   const [confirmModal, setConfirmModal] = useState(null);
+
+  // S3: write to this investor’s audit only (never founder audit)
+  const recordInvestorAudit = async ({ category, title, status = 'RECORDED' }) => {
+    const investorId = currentUser?.id || currentUser?._id || user.id || user._id;
+    if (!investorId || !title) return;
+    try {
+      await fetch(`${API_BASE_URL}/api/investors/${encodeURIComponent(investorId)}/audit-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, title, status })
+      });
+    } catch (e) {}
+  };
 
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
@@ -192,6 +232,13 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
         setCampaigns(campData || []);
       }
 
+      // S3: Fetch approved relief campaigns (Explore Relief tab)
+      const reliefRes = await fetch(`${API_BASE_URL}/api/relief-drives`);
+      if (reliefRes.ok) {
+        const reliefData = await reliefRes.json();
+        setReliefCampaigns(Array.isArray(reliefData) ? reliefData : []);
+      }
+
       // 2. Fetch Proposals submitted by this Investor
       if (userId) {
         const propRes = await fetch(`${API_BASE_URL}/api/proposals/investor/${userId}`);
@@ -215,20 +262,39 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
         setFoundersList(foundersData || []);
       }
 
-      // 5. Fetch Audit Logs
-      const auditRes = await fetch(`${API_BASE_URL}/api/audit-logs`);
-      if (auditRes.ok) {
-        const auditData = await auditRes.json();
-        setAuditLogs(auditData || []);
+      // 5. S3: investor-only audit (do not use global /api/audit-logs — that mixes founder actions)
+      if (userId) {
+        const auditRes = await fetch(`${API_BASE_URL}/api/investors/${encodeURIComponent(userId)}/audit-logs`);
+        if (auditRes.ok) {
+          const auditData = await auditRes.json();
+          setAuditLogs(Array.isArray(auditData) ? auditData : []);
+        } else {
+          setAuditLogs([]);
+        }
+      } else {
+        setAuditLogs([]);
       }
 
-      // 6. Fetch Wallet Ledger
+      // 6. S3: investor wallet (not founder payouts)
       if (userId) {
-        const payRes = await fetch(`${API_BASE_URL}/api/payouts/founder/${userId}`);
-        if (payRes.ok) {
-          const payData = await payRes.json();
-          setWalletLedger(payData || []);
-        }
+        try {
+          const walRes = await fetch(`${API_BASE_URL}/api/investors/${encodeURIComponent(userId)}/wallet`);
+          if (walRes.ok) {
+            const wal = await walRes.json();
+            setWalletBalance(Number(wal.balance) || 0);
+            setWalletCommitted(Number(wal.capital_committed) || 0);
+            setWalletAvailable(Number(wal.available_to_deploy) || 0);
+            setWalletPendingHeld(Number(wal.pending_commitments) || 0);
+            setWalletInflows(Array.isArray(wal.inflows) ? wal.inflows : []);
+            setWalletOutflows(Array.isArray(wal.outflows) ? wal.outflows : []);
+            setWalletNote(wal.note || '');
+          }
+          const depRes = await fetch(`${API_BASE_URL}/api/investors/${encodeURIComponent(userId)}/wallet/deposits`);
+          if (depRes.ok) {
+            const deps = await depRes.json();
+            setWalletDeposits(Array.isArray(deps) ? deps : []);
+          }
+        } catch (e) {}
       }
 
       // 7. Fetch Real-Time Notifications
@@ -289,6 +355,18 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
       if (newNotif.user_id === userId || newNotif.user_id === 'all') {
         setNotifications(prev => [newNotif, ...prev]);
         showToast(`🔔 ${newNotif.title}: ${newNotif.message}`, 'info');
+        // S3: reload proposals when founder accepts / declines / counters
+        const t = String(newNotif.title || '').toLowerCase();
+        if (t.includes('proposal') || t.includes('counter-offer') || t.includes('counter')) {
+          (async () => {
+            try {
+              const propRes = await fetch(`${API_BASE_URL}/api/proposals/investor/${userId}`);
+              if (propRes.ok) setProposals(await propRes.json() || []);
+              const campRes = await fetch(`${API_BASE_URL}/api/campaigns`);
+              if (campRes.ok) setCampaigns(await campRes.json() || []);
+            } catch (e) { /* keep prior */ }
+          })();
+        }
       }
     });
 
@@ -296,6 +374,23 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
       if (!newNotif.user_id || newNotif.user_id === userId || newNotif.user_id === 'all') {
         setNotifications(prev => [newNotif, ...prev]);
       }
+    });
+
+    // S3: live proposal status/amount/counter from founder actions
+    newSocket.on('proposal_updated', (prop) => {
+      if (!prop) return;
+      const inv = prop.investor_id || prop.investorId;
+      if (inv && String(inv) !== String(userId)) return;
+      setProposals((prev) => {
+        const id = prop.id || prop._id;
+        const idx = prev.findIndex((p) => (p.id || p._id) === id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...prop };
+          return next;
+        }
+        return [prop, ...prev];
+      });
     });
 
     return () => {
@@ -323,6 +418,11 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
       if (res.ok) {
         showToast('Investment proposal submitted to Founder!', 'success');
+        recordInvestorAudit({
+          category: 'PROPOSAL',
+          title: `Submitted investment offer ৳ ${Number(proposalAmount).toLocaleString()} on ${camp.title || campId}`,
+          status: 'PENDING'
+        });
         setSelectedProposalCampaign(null);
         setProposalNotes('');
         fetchData();
@@ -359,6 +459,67 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
     });
   };
 
+  // S3: open Add Money modal for a relief campaign
+  const openReliefDonate = (drive) => {
+    setReliefDonateTarget(drive);
+    setReliefDonateAmount('');
+    setReliefDonateMethod('bkash');
+    setReliefDonateReference('');
+  };
+
+  const handleReliefDonate = async (e) => {
+    e.preventDefault();
+    if (!reliefDonateTarget) return;
+    const amt = Number(reliefDonateAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      showToast('Enter a valid amount to add.', 'error');
+      return;
+    }
+    const driveId = reliefDonateTarget.id || reliefDonateTarget._id;
+    const donorId = currentUser?.id || currentUser?._id || user.id || user._id || 'usr_investor_1';
+    setSubmittingReliefDonate(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/relief-drives/${encodeURIComponent(driveId)}/donate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          investorId: donorId,
+          investorName: profileUser.name || currentUser?.name || user.name || 'Donor',
+          amount: amt,
+          method: reliefDonateMethod,
+          reference: reliefDonateReference
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || 'Failed to add money to relief campaign.', 'error');
+        return;
+      }
+      const newRaised = Number(data.drive?.raised ?? (Number(reliefDonateTarget.raised || 0) + amt));
+      showToast(`Donated ৳ ${amt.toLocaleString()} — relief raised is now ৳ ${newRaised.toLocaleString()}.`, 'success');
+      // server also writes investor audit; refresh list
+      if (data.drive) {
+        setReliefCampaigns((prev) => {
+          const id = data.drive.id || data.drive._id;
+          const exists = prev.some((d) => (d.id || d._id) === id);
+          if (!exists) return [data.drive, ...prev];
+          return prev.map((d) => ((d.id || d._id) === id ? { ...d, ...data.drive } : d));
+        });
+        if (selectedReliefDetail && (selectedReliefDetail.id || selectedReliefDetail._id) === driveId) {
+          setSelectedReliefDetail(data.drive);
+        }
+      }
+      setReliefDonateTarget(null);
+      setReliefDonateAmount('');
+      setReliefDonateReference('');
+      await fetchData();
+    } catch (err) {
+      showToast('Server error adding money to relief campaign.', 'error');
+    } finally {
+      setSubmittingReliefDonate(false);
+    }
+  };
+
   // Execute Withdraw Proposal
   const executeWithdrawProposal = async (proposalId) => {
     try {
@@ -367,6 +528,11 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
       });
       if (res.ok) {
         showToast('Investment proposal withdrawn.', 'info');
+        recordInvestorAudit({
+          category: 'PROPOSAL',
+          title: `Withdrew investment proposal ${proposalId}`,
+          status: 'WITHDRAWN'
+        });
         setProposalDetailModal(null);
         fetchData();
       } else {
@@ -387,7 +553,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
       message: `Are you sure you want to withdraw your pending investment offer of ${amountStr}?`,
       warning: 'This action cannot be undone once confirmed.',
       confirmText: 'Yes, Withdraw Offer',
-      confirmColor: 'bg-rose-600 hover:bg-rose-700',
+      confirmColor: 'bg-[#047857] hover:bg-[#065f46] text-white',
       onConfirm: () => {
         setConfirmModal(null);
         executeWithdrawProposal(proposalId);
@@ -505,7 +671,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
       message: `Are you sure you want to flag and report "${flagModalCampaign.title}" to platform Administrators?`,
       warning: 'This will initiate a formal compliance audit of the founder and campaign.',
       confirmText: 'Yes, Submit Flag Report',
-      confirmColor: 'bg-rose-600 hover:bg-rose-700',
+      confirmColor: 'bg-[#047857] hover:bg-[#065f46] text-white',
       onConfirm: () => {
         setConfirmModal(null);
         executeReportCampaign();
@@ -520,7 +686,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
       message: 'Are you sure you want to log out of your FundBridge Investor portal?',
       warning: 'Your session token will be cleared safely.',
       confirmText: 'Yes, Log Out',
-      confirmColor: 'bg-rose-600 hover:bg-rose-700',
+      confirmColor: 'bg-[#047857] hover:bg-[#065f46] text-white',
       onConfirm: () => {
         setConfirmModal(null);
         onLogout();
@@ -595,6 +761,24 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
     return matchesSearch && matchesCategory && matchesStage && matchesScale;
   });
 
+  // S3: filtered relief for Explore Relief tab
+  const filteredReliefCampaigns = reliefCampaigns.filter((d) => {
+    const searchLower = globalSearch.toLowerCase();
+    const matchesSearch =
+      globalSearch === '' ||
+      d.title?.toLowerCase().includes(searchLower) ||
+      d.cause?.toLowerCase().includes(searchLower) ||
+      d.university?.toLowerCase().includes(searchLower) ||
+      d.beneficiary?.toLowerCase().includes(searchLower) ||
+      d.description?.toLowerCase().includes(searchLower);
+    let matchesScale = true;
+    const goalNum = Number(d.goal || 0);
+    if (scaleFilter === 'under5') matchesScale = goalNum <= 500000;
+    else if (scaleFilter === '5to15') matchesScale = goalNum > 500000 && goalNum <= 1500000;
+    else if (scaleFilter === 'above15') matchesScale = goalNum > 1500000;
+    return matchesSearch && matchesScale;
+  });
+
   // Watchlist Campaigns (Campaigns I Am Interested In)
   const watchlistCampaigns = campaigns.filter(c => watchlist.includes(c.id || c._id));
 
@@ -616,9 +800,28 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   // Campaigns I Invested In & Submitted Proposals
   const mySubmittedProposals = proposals;
   const rejectedProposals = proposals.filter(p => p.status === 'declined' || p.status === 'rejected' || p.status === 'withdrawn');
-  const fundedCampaigns = campaigns.filter(c => 
+  const fundedCampaigns = campaigns.filter(c =>
     proposals.some(p => (p.campaign_id === c.id || p.campaign_id === c._id || p.campaignId === c.id || p.campaignId === c._id) && p.status === 'accepted')
   );
+  // S3: helpers for negotiate display (additive)
+  const s3ProposalAmount = (p) => {
+    if (String(p?.status || '').toLowerCase() === 'negotiating' && p.counter_amount != null && Number(p.counter_amount) > 0) {
+      return Number(p.counter_amount);
+    }
+    return Number(p?.amount || 0);
+  };
+  const s3ProposalTerms = (p) => {
+    if (String(p?.status || '').toLowerCase() === 'negotiating' && p.counter_terms) return p.counter_terms;
+    return p?.terms || p?.return_structure || '8% Rev. Share';
+  };
+  const s3StatusClass = (status) => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'accepted') return 'bg-emerald-500 text-white';
+    if (s === 'declined' || s === 'rejected') return 'bg-rose-500 text-white';
+    if (s === 'withdrawn') return 'bg-slate-200 text-slate-700';
+    if (s === 'negotiating') return 'bg-sky-100 text-sky-800';
+    return 'bg-amber-100 text-amber-800';
+  };
 
   // Filtered Co-Investors
   const filteredInvestors = coInvestors.filter(i => {
@@ -648,17 +851,64 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const pendingCommitmentAmount = proposals
-    .filter(p => p.status === 'pending')
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    .filter(p => p.status === 'pending' || p.status === 'negotiating') // S3: include negotiating
+    .reduce((sum, p) => sum + s3ProposalAmount(p), 0);
 
-  const escrowBalanceAmount = walletLedger.reduce((sum, w) => sum + Number(w.amount || 0), 450000);
+  // S3: investor Add Money (same manual proof flow as founder)
+  const handleAddMoneySubmit = async (e) => {
+    e.preventDefault();
+    const userId = currentUser?.id || currentUser?._id || user.id || user._id;
+    const amt = Number(addMoneyAmount);
+    if (!amt || amt <= 0) {
+      showToast('Enter a valid amount to add.', 'error');
+      return;
+    }
+    if (!addMoneyProof) {
+      showToast('Upload a payment proof receipt for admin verification.', 'error');
+      return;
+    }
+    try {
+      setSubmittingAddMoney(true);
+      const fd = new FormData();
+      fd.append('amount', String(amt));
+      fd.append('method', addMoneyMethod);
+      fd.append('reference', addMoneyReference);
+      fd.append('note', addMoneyNote);
+      fd.append('proofFile', addMoneyProof);
+      const res = await fetch(`${API_BASE_URL}/api/investors/${encodeURIComponent(userId)}/wallet/deposits`, {
+        method: 'POST',
+        body: fd
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || 'Failed to submit Add Money request.', 'error');
+        return;
+      }
+      showToast('Add Money submitted. Admin will verify your proof before crediting.', 'success');
+      recordInvestorAudit({
+        category: 'WALLET',
+        title: `Manual Add Money ৳ ${amt.toLocaleString()} via ${addMoneyMethod}`,
+        status: 'PENDING'
+      });
+      setShowAddMoneyModal(false);
+      setAddMoneyAmount('');
+      setAddMoneyReference('');
+      setAddMoneyNote('');
+      setAddMoneyProof(null);
+      fetchData();
+    } catch (err) {
+      showToast('Server error submitting Add Money.', 'error');
+    } finally {
+      setSubmittingAddMoney(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FAFAFC] text-slate-900 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
       {/* Toast Notification Alert */}
       {toast && (
         <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2.5 animate-bounce ${
-          toast.type === 'success' ? 'bg-emerald-600 text-white' : toast.type === 'error' ? 'bg-rose-600 text-white' : 'bg-slate-900 text-white'
+          toast.type === 'success' ? 'bg-[#047857] hover:bg-[#065f46] text-white' : toast.type === 'error' ? 'bg-[#047857] hover:bg-[#065f46] text-white' : 'bg-slate-900 text-white'
         }`}>
           <Info className="w-4 h-4 shrink-0" />
           <span>{toast.message}</span>
@@ -724,7 +974,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
             >
               <Bell className="w-4.5 h-4.5" />
               {notifications.filter(n => !n.is_read).length > 0 && (
-                <span className="absolute top-1 right-1 px-1 py-0.2 bg-emerald-600 text-white text-[9px] font-bold rounded-full ring-2 ring-white">
+                <span className="absolute top-1 right-1 px-1 py-0.2 bg-[#047857] hover:bg-[#065f46] text-white text-[9px] font-bold rounded-full ring-2 ring-white">
                   {notifications.filter(n => !n.is_read).length}
                 </span>
               )}
@@ -1101,7 +1351,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => setSelectedCampaignDetail(c)}
-                                  className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-xl cursor-pointer"
+                                  className="flex-1 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl cursor-pointer"
                                 >
                                   View Details
                                 </button>
@@ -1161,28 +1411,27 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                           <tbody className="divide-y divide-slate-100">
                             {mySubmittedProposals.map((p, idx) => {
                               const propId = p.id || p._id;
-                              const cmp = campaigns.find(c => c.id === p.campaign_id || c._id === p.campaign_id);
+                              const cmp = campaigns.find(c => c.id === p.campaign_id || c._id === p.campaign_id || c.id === p.campaignId || c._id === p.campaignId);
 
                               return (
                                 <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                                   <td className="py-4 font-semibold text-slate-900">
-                                    {cmp ? cmp.title : p.campaign_id || 'CampusBites'}
+                                    {cmp ? cmp.title : (p.campaign_title || p.campaign_id || 'Unknown campaign')}
                                   </td>
                                   <td className="py-4 text-slate-500 font-mono">
                                     {p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Recent'}
                                   </td>
                                   <td className="py-4 font-mono font-bold text-slate-900">
-                                    ৳ {Number(p.amount || 0).toLocaleString()}
+                                    ৳ {s3ProposalAmount(p).toLocaleString()}
+                                    {String(p.status).toLowerCase() === 'negotiating' && p.counter_amount != null && (
+                                      <span className="block text-[10px] font-normal text-sky-600">counter</span>
+                                    )}
                                   </td>
                                   <td className="py-4 text-slate-700">
-                                    {p.terms || p.return_structure || '8% Rev. Share'}
+                                    {s3ProposalTerms(p)}
                                   </td>
                                   <td className="py-4">
-                                    <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-md uppercase ${
-                                      p.status === 'accepted' ? 'bg-emerald-500 text-white' :
-                                      p.status === 'declined' || p.status === 'rejected' ? 'bg-rose-500 text-white' :
-                                      p.status === 'withdrawn' ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-800'
-                                    }`}>
+                                    <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-md uppercase ${s3StatusClass(p.status)}`}>
                                       {p.status || 'PENDING'}
                                     </span>
                                   </td>
@@ -1190,7 +1439,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                                     <div className="flex items-center justify-end gap-2">
                                       <button
                                         onClick={() => setProposalDetailModal(p)}
-                                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold rounded-lg cursor-pointer"
+                                        className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
                                       >
                                         Details
                                       </button>
@@ -1199,14 +1448,14 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                                           setChatTarget({ name: cmp?.founder?.name || 'Founder', id: cmp?.founder_id || 'usr_founder_1' });
                                           setShowChatDrawer(true);
                                         }}
-                                        className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-semibold rounded-lg cursor-pointer"
+                                        className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
                                       >
                                         Message
                                       </button>
-                                      {p.status === 'pending' && (
+                                      {(p.status === 'pending' || p.status === 'negotiating') && (
                                         <button
                                           onClick={() => handleWithdrawProposal(propId)}
-                                          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-semibold rounded-lg cursor-pointer"
+                                          className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
                                         >
                                           Withdraw
                                         </button>
@@ -1304,7 +1553,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                               <div className="pt-3 border-t border-slate-200 flex gap-2">
                                 <button
                                   onClick={() => handleToggleBookmarkFounder(founderId)}
-                                  className="flex-1 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  className="flex-1 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                                 >
                                   <Bookmark className="w-3.5 h-3.5 fill-current" />
                                   <span>Remove Interest</span>
@@ -1315,7 +1564,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                                     setChatTarget({ name: founder.name, id: founderId });
                                     setShowChatDrawer(true);
                                   }}
-                                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                                  className="px-3 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1"
                                 >
                                   <MessageSquare className="w-3.5 h-3.5" />
                                   <span>Message</span>
@@ -1350,20 +1599,48 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                       <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Explore Campaigns Marketplace</h1>
-                      <p className="text-xs text-slate-500 mt-0.5">Browse all admin-approved student campaigns across universities in Bangladesh.</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {exploreMarket === 'relief'
+                          ? 'Browse admin-approved relief campaigns seeking donations.'
+                          : 'Browse all admin-approved student startup campaigns across universities in Bangladesh.'}
+                      </p>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {comparisonIds.length > 0 && (
+                      {exploreMarket === 'startup' && comparisonIds.length > 0 && (
                         <button
                           onClick={() => setShowComparisonModal(true)}
-                          className="px-3.5 py-2 bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs hover:bg-emerald-800 cursor-pointer"
+                          className="px-3.5 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs cursor-pointer"
                         >
                           <Scale className="w-4 h-4" />
                           <span>Compare Matrix ({comparisonIds.length}/3)</span>
                         </button>
                       )}
                     </div>
+                  </div>
+
+                  {/* S3: Startup | Relief marketplace tabs */}
+                  <div className="flex flex-wrap gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setExploreMarket('startup')}
+                      className={`px-4 py-2 text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 cursor-pointer ${
+                        exploreMarket === 'startup' ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Rocket className="w-3.5 h-3.5" />
+                      Startup campaigns
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExploreMarket('relief')}
+                      className={`px-4 py-2 text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 cursor-pointer ${
+                        exploreMarket === 'relief' ? 'bg-white text-rose-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Heart className="w-3.5 h-3.5" />
+                      Relief campaigns
+                    </button>
                   </div>
 
                   {/* GRANULAR FILTER & SEARCH ENGINE */}
@@ -1373,33 +1650,35 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                       <span>Filter & Search Engine</span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 ${exploreMarket === 'startup' ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-4 text-xs`}>
                       <div>
                         <label className="font-semibold text-slate-700 block mb-1">Search Keywords</label>
                         <input
                           type="text"
-                          placeholder="Search title, founder, or university..."
+                          placeholder={exploreMarket === 'relief' ? 'Search title, cause, or beneficiary...' : 'Search title, founder, or university...'}
                           value={globalSearch}
                           onChange={(e) => setGlobalSearch(e.target.value)}
                           className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none"
                         />
                       </div>
 
-                      <div>
-                        <label className="font-semibold text-slate-700 block mb-1">Category</label>
-                        <select
-                          value={categoryFilter}
-                          onChange={(e) => setCategoryFilter(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer"
-                        >
-                          <option value="all">All Categories</option>
-                          <option value="FoodTech">FoodTech / SaaS</option>
-                          <option value="AgriTech">AgriTech / IoT</option>
-                          <option value="EdTech">EdTech</option>
-                          <option value="FinTech">FinTech</option>
-                          <option value="CleanTech">CleanTech</option>
-                        </select>
-                      </div>
+                      {exploreMarket === 'startup' && (
+                        <div>
+                          <label className="font-semibold text-slate-700 block mb-1">Category</label>
+                          <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer"
+                          >
+                            <option value="all">All Categories</option>
+                            <option value="FoodTech">FoodTech / SaaS</option>
+                            <option value="AgriTech">AgriTech / IoT</option>
+                            <option value="EdTech">EdTech</option>
+                            <option value="FinTech">FinTech</option>
+                            <option value="CleanTech">CleanTech</option>
+                          </select>
+                        </div>
+                      )}
 
                       <div>
                         <label className="font-semibold text-slate-700 block mb-1">Target Funding Scale</label>
@@ -1415,25 +1694,100 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                         </select>
                       </div>
 
-                      <div>
-                        <label className="font-semibold text-slate-700 block mb-1">Development Stage</label>
-                        <select
-                          value={stageFilter}
-                          onChange={(e) => setStageFilter(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer"
-                        >
-                          <option value="all">All Stages</option>
-                          <option value="Prototype">Prototype Stage</option>
-                          <option value="MVP">MVP Stage</option>
-                          <option value="Pilot">Pilot Stage</option>
-                          <option value="Growth">Growth Stage</option>
-                        </select>
-                      </div>
+                      {exploreMarket === 'startup' && (
+                        <div>
+                          <label className="font-semibold text-slate-700 block mb-1">Development Stage</label>
+                          <select
+                            value={stageFilter}
+                            onChange={(e) => setStageFilter(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer"
+                          >
+                            <option value="all">All Stages</option>
+                            <option value="Prototype">Prototype Stage</option>
+                            <option value="MVP">MVP Stage</option>
+                            <option value="Pilot">Pilot Stage</option>
+                            <option value="Growth">Growth Stage</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* CAMPAIGN CARDS DIRECTORY */}
-                  {filteredCampaigns.length > 0 ? (
+                  {/* S3: RELIEF CAMPAIGN CARDS */}
+                  {exploreMarket === 'relief' ? (
+                    filteredReliefCampaigns.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredReliefCampaigns.map((d, idx) => {
+                          const rid = d.id || d._id || idx;
+                          return (
+                            <div key={rid} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 flex flex-col justify-between hover:shadow-md transition-all">
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-start gap-2">
+                                  <span className="px-2.5 py-1 bg-rose-100 text-rose-800 text-[10px] font-extrabold rounded-md uppercase">
+                                    {d.cause || 'Relief'}
+                                  </span>
+                                  <span className="text-[10px] font-semibold text-emerald-700 font-mono uppercase bg-emerald-50 px-2 py-1 rounded-lg">
+                                    {d.status || 'open'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <h3
+                                    onClick={() => setSelectedReliefDetail(d)}
+                                    className="font-bold text-slate-900 text-base hover:text-rose-700 transition-colors cursor-pointer"
+                                  >
+                                    {d.title}
+                                  </h3>
+                                  <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-600 font-medium">
+                                    <GraduationCap className="w-3.5 h-3.5 text-rose-600" />
+                                    <span>{d.university || '—'}</span>
+                                  </div>
+                                  {d.beneficiary && (
+                                    <p className="text-[11px] text-slate-500 mt-1">Helps: {d.beneficiary}</p>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed line-clamp-3 font-sans">
+                                  {d.description || 'Relief campaign seeking donations.'}
+                                </p>
+                              </div>
+                              <div className="space-y-3 pt-3 border-t border-slate-100">
+                                <div className="flex justify-between text-xs font-mono">
+                                  <span className="text-slate-500">Raised: <strong className="text-rose-700">৳ {Number(d.raised || 0).toLocaleString()}</strong></span>
+                                  <span className="text-slate-500">Goal: <strong>৳ {Number(d.goal || 0).toLocaleString()}</strong></span>
+                                </div>
+                                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                  <div
+                                    className="bg-rose-500 h-full rounded-full transition-all"
+                                    style={{ width: d.goal > 0 ? `${Math.min(100, Math.round(((d.raised || 0) / d.goal) * 100))}%` : '0%' }}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedReliefDetail(d)}
+                                    className="flex-1 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl cursor-pointer flex items-center justify-center gap-1"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-slate-600" />
+                                    Details
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openReliefDonate(d)}
+                                    className="flex-1 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl cursor-pointer"
+                                  >
+                                    Donate
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="py-16 text-center bg-white border border-slate-200 rounded-2xl text-xs text-slate-400">
+                        No relief campaigns found matching filter criteria.
+                      </div>
+                    )
+                  ) : filteredCampaigns.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {filteredCampaigns.map((c, idx) => {
                         const campId = c.id || c._id || idx;
@@ -1498,7 +1852,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => setSelectedCampaignDetail(c)}
-                                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl cursor-pointer flex items-center justify-center gap-1"
+                                  className="flex-1 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl cursor-pointer flex items-center justify-center gap-1"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-slate-600" />
                                   <span>View Details</span>
@@ -1535,7 +1889,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setShowProposalsModal(true)}
-                        className="px-3.5 py-2.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-xs font-semibold rounded-xl flex items-center gap-2 cursor-pointer"
+                        className="px-3.5 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white border border-transparent text-xs font-semibold rounded-xl flex items-center gap-2 cursor-pointer"
                       >
                         <FileText className="w-4 h-4 text-sky-600" />
                         <span>Submitted Proposals ({proposals.length})</span>
@@ -1550,7 +1904,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                             showToast('No startups available to compare.', 'info');
                           }
                         }}
-                        className="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs cursor-pointer"
+                        className="px-3.5 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs cursor-pointer"
                       >
                         <Scale className="w-4 h-4" />
                         <span>3-Startup Comparison Matrix</span>
@@ -1623,7 +1977,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                                 setChatTarget({ name: c.founder?.name || 'Founder', id: c.founder_id || 'usr_founder_1' });
                                 setShowChatDrawer(true);
                               }}
-                              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                              className="w-full py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
                             >
                               <MessageSquare className="w-4 h-4 text-slate-600" />
                               <span>Message Founder Direct</span>
@@ -1650,93 +2004,197 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                 </div>
               )}
 
-              {/* TAB 4: WALLET */}
+              {/* TAB 4: WALLET — S3: same model as founder (Add Money + ledger) */}
               {activeTab === 'wallet' && (
                 <div className="space-y-6 animate-fadeIn">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                      <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Wallet & Financial Reports</h1>
-                      <p className="text-xs text-slate-500 mt-0.5">Control panel for financial activities, escrow commitments, and downloadable transaction ledgers.</p>
+                      <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Wallet</h1>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Add Money with payment proof. Admin verifies top-ups before credit. Accepted investments and relief donations debit this wallet.
+                      </p>
                     </div>
-
-                    <button
-                      onClick={() => exportToCSV('FundBridge_Wallet_Ledger.csv', walletLedger.length ? walletLedger : [
-                        { tranche: 'Escrow Release #1', amount: 150000, method: 'bKash MFS', status: 'Completed', date: new Date().toLocaleDateString() }
-                      ])}
-                      className="px-4 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs cursor-pointer"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Export Ledger CSV</span>
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
-                      <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">TOTAL CAPITAL INVESTED</span>
-                      <span className="text-2xl font-extrabold text-slate-900 font-mono">৳ {totalInvestedAmount.toLocaleString()}</span>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
-                      <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">PENDING COMMITMENTS</span>
-                      <span className="text-2xl font-extrabold text-amber-600 font-mono">৳ {pendingCommitmentAmount.toLocaleString()}</span>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
-                      <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">RETURNS & PROFITS</span>
-                      <span className="text-2xl font-extrabold text-emerald-700 font-mono">৳ 38,500</span>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
-                      <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider font-bold">ESCROW LOCKED BALANCE</span>
-                      <span className="text-2xl font-extrabold text-sky-700 font-mono">৳ {escrowBalanceAmount.toLocaleString()}</span>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddMoneyModal(true)}
+                        className="px-4 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Money</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => exportToCSV('FundBridge_Investor_Wallet_Ledger.csv', [...walletInflows, ...walletOutflows])}
+                        className="px-4 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Export Ledger CSV</span>
+                      </button>
                     </div>
                   </div>
 
-                  <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-                    <h2 className="text-sm font-bold text-slate-900">Transaction History Ledger</h2>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-slate-200 text-slate-400 font-mono uppercase text-[10px] tracking-wider">
-                            <th className="pb-3 font-semibold">TRANCHE / RECORD</th>
-                            <th className="pb-3 font-semibold">AMOUNT</th>
-                            <th className="pb-3 font-semibold">METHOD</th>
-                            <th className="pb-3 font-semibold">STATUS</th>
-                            <th className="pb-3 font-semibold text-right">RECEIPT</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {walletLedger.length > 0 ? (
-                            walletLedger.map((w, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50/80">
-                                <td className="py-4 font-semibold text-slate-900">{w.tranche || 'Milestone Escrow Payout'}</td>
-                                <td className="py-4 font-mono font-bold text-slate-900">৳ {Number(w.amount || 0).toLocaleString()}</td>
-                                <td className="py-4">{w.method || 'bKash'}</td>
-                                <td className="py-4">
-                                  <span className="px-2.5 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded-md uppercase">
-                                    {w.status || 'COMPLETED'}
-                                  </span>
-                                </td>
-                                <td className="py-4 text-right">
-                                  <button
-                                    onClick={() => exportToCSV(`Receipt_${w.hash || idx}.csv`, [w])}
-                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[10px] font-semibold rounded-md font-mono cursor-pointer"
-                                  >
-                                    Download CSV
-                                  </button>
+                  <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-amber-950">
+                    <Info className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>
+                      We are building a full online payment gateway. <strong>For now, Add Money is manual:</strong> pay via bKash, bank, or other, upload your receipt, and an admin verifies it before your wallet is credited.
+                    </span>
+                  </div>
+
+                  <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-emerald-900">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>
+                      {walletNote || 'Admin-verified top-ups credit this wallet. Accepted investments and relief donations debit it (ledger display).'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold block">Wallet balance</span>
+                      <h3 className="text-3xl font-bold text-emerald-700 font-mono">৳ {Number(walletBalance || 0).toLocaleString()}</h3>
+                      <p className="text-[11px] text-slate-500">Verified Add Money minus deployments</p>
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold block">Capital committed</span>
+                      <h3 className="text-3xl font-bold text-slate-900 font-mono">৳ {Number(walletCommitted || 0).toLocaleString()}</h3>
+                      <p className="text-[11px] text-slate-500">Accepted investments + relief donations</p>
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold block">Available to deploy</span>
+                      <h3 className="text-3xl font-bold text-sky-600 font-mono">৳ {Number(walletAvailable || 0).toLocaleString()}</h3>
+                      <p className="text-[11px] text-slate-500">
+                        Pending offers hold ৳ {Number(walletPendingHeld || pendingCommitmentAmount || 0).toLocaleString()} (not reserved yet)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-slate-900 text-base">Credits (Add Money)</h3>
+                      <span className="text-[10px] font-mono text-slate-400 uppercase">{walletInflows.length} credits</span>
+                    </div>
+                    {walletInflows.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-slate-400 font-mono uppercase text-[10px] tracking-wider">
+                              <th className="pb-3 font-semibold">Type</th>
+                              <th className="pb-3 font-semibold">Detail</th>
+                              <th className="pb-3 font-semibold">Amount</th>
+                              <th className="pb-3 font-semibold">When</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {walletInflows.map((row) => (
+                              <tr key={row.id || `${row.proposal_id}-${row.created_at}`} className="hover:bg-slate-50/80">
+                                <td className="py-3.5 font-semibold text-slate-900">{row.type || 'CREDIT'}</td>
+                                <td className="py-3.5 text-slate-600">{row.campaign_title || row.note || '—'}</td>
+                                <td className="py-3.5 font-mono font-bold text-emerald-700">+ ৳ {Number(row.amount || 0).toLocaleString()}</td>
+                                <td className="py-3.5 text-slate-500 font-mono text-[11px]">
+                                  {row.created_at ? new Date(row.created_at).toLocaleString() : '—'}
                                 </td>
                               </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan={5} className="py-10 text-center text-xs text-slate-400">
-                                No payout ledger records found in database.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-500">
+                        No credits yet. Use Add Money and wait for admin verification.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-slate-900 text-base">Deployments (investments & relief)</h3>
+                      <span className="text-[10px] font-mono text-slate-400 uppercase">{walletOutflows.length} outs</span>
                     </div>
+                    {walletOutflows.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-slate-400 font-mono uppercase text-[10px] tracking-wider">
+                              <th className="pb-3 font-semibold">Type</th>
+                              <th className="pb-3 font-semibold">Campaign</th>
+                              <th className="pb-3 font-semibold">Amount</th>
+                              <th className="pb-3 font-semibold">When</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {walletOutflows.map((row) => (
+                              <tr key={row.id || `${row.proposal_id}-${row.created_at}`} className="hover:bg-slate-50/80">
+                                <td className="py-3.5 font-semibold text-slate-900">
+                                  {row.type === 'RELIEF_OUT' ? 'Relief' : row.type === 'INVESTMENT_OUT' ? 'Investment' : (row.type || 'OUT')}
+                                </td>
+                                <td className="py-3.5 text-slate-600">{row.campaign_title || row.campaign_id || '—'}</td>
+                                <td className="py-3.5 font-mono font-bold text-rose-700">− ৳ {Number(row.amount || 0).toLocaleString()}</td>
+                                <td className="py-3.5 text-slate-500 font-mono text-[11px]">
+                                  {row.created_at ? new Date(row.created_at).toLocaleString() : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-500">
+                        No deployments yet. Accepted offers and relief Add Money appear here.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-bold text-slate-900 text-base">Add Money requests</h3>
+                      <span className="text-[10px] font-mono text-slate-400 uppercase">{walletDeposits.length} requests</span>
+                    </div>
+                    {walletDeposits.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-slate-400 font-mono uppercase text-[10px] tracking-wider">
+                              <th className="pb-3 font-semibold">Amount</th>
+                              <th className="pb-3 font-semibold">Method</th>
+                              <th className="pb-3 font-semibold">Reference</th>
+                              <th className="pb-3 font-semibold">Proof</th>
+                              <th className="pb-3 font-semibold">Status</th>
+                              <th className="pb-3 font-semibold">When</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {walletDeposits.map((d) => (
+                              <tr key={d.id} className="hover:bg-slate-50/80">
+                                <td className="py-3.5 font-mono font-bold text-slate-900">৳ {Number(d.amount || 0).toLocaleString()}</td>
+                                <td className="py-3.5 uppercase">{d.method || '—'}</td>
+                                <td className="py-3.5 font-mono text-slate-600">{d.reference || '—'}</td>
+                                <td className="py-3.5">
+                                  {d.proof_url ? (
+                                    <a href={`${API_BASE_URL}${d.proof_url}`} target="_blank" rel="noreferrer" className="text-sky-700 font-semibold hover:underline">
+                                      View proof
+                                    </a>
+                                  ) : '—'}
+                                </td>
+                                <td className="py-3.5">
+                                  <span className={`px-2.5 py-1 text-[10px] font-bold rounded-md uppercase ${
+                                    d.status === 'approved' ? 'bg-emerald-500 text-white' :
+                                    d.status === 'rejected' ? 'bg-rose-500 text-white' :
+                                    'bg-amber-400 text-amber-950'
+                                  }`}>
+                                    {d.status || 'pending'}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 text-slate-500 font-mono text-[11px]">
+                                  {d.created_at ? new Date(d.created_at).toLocaleString() : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 py-4 text-center">No Add Money requests yet.</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1801,7 +2259,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                                   setChatTarget({ name: inv.name || 'Co-Investor', id: invId });
                                   setShowChatDrawer(true);
                                 }}
-                                className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                                className="px-3 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
                                 title="Send Direct Message"
                               >
                                 <MessageSquare className="w-4 h-4" />
@@ -1824,8 +2282,8 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                 <div className="space-y-6 animate-fadeIn">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                      <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Real-Time Cryptographic Audit Logs</h1>
-                      <p className="text-xs text-slate-500 mt-0.5">Immutable timestamp record of every action performed on FundBridge platform.</p>
+                      <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Your Audit Logs</h1>
+                      <p className="text-xs text-slate-500 mt-0.5">Actions from this investor account only — proposals, donations, and portfolio events. Founder activity stays on the founder portal.</p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -1842,7 +2300,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
                       <button
                         onClick={() => exportToCSV('FundBridge_Audit_Logs.csv', filteredAuditLogs)}
-                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs cursor-pointer"
+                        className="px-3.5 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs cursor-pointer"
                       >
                         <Download className="w-4 h-4" />
                         <span>Export CSV</span>
@@ -1965,7 +2423,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                       <button
                         type="button"
                         onClick={handlePromptLogout}
-                        className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                        className="px-4 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
                       >
                         <LogOut className="w-4 h-4" />
                         <span>Log Out</span>
@@ -2071,7 +2529,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                             setChatTarget({ name: founder.name, id: founderId });
                             setShowChatDrawer(true);
                           }}
-                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1"
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                         </button>
@@ -2112,7 +2570,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
               <button
                 type="button"
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-xs cursor-pointer"
+                className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white border border-transparent font-semibold rounded-xl text-xs cursor-pointer"
               >
                 No, Cancel
               </button>
@@ -2120,12 +2578,301 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                 type="button"
                 onClick={confirmModal.onConfirm}
                 className={`flex-1 py-2.5 text-white font-semibold rounded-xl text-xs shadow-xs cursor-pointer transition-colors ${
-                  confirmModal.confirmColor || 'bg-emerald-700 hover:bg-emerald-800'
+                  confirmModal.confirmColor || 'bg-[#047857] hover:bg-[#065f46] text-white'
                 }`}
               >
                 {confirmModal.confirmText || 'Yes, Confirm'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* S3: RELIEF DETAIL MODAL (Explore Relief tab) */}
+      {selectedReliefDetail && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4 gap-3">
+              <div className="space-y-2">
+                <span className="px-2.5 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-extrabold rounded-md uppercase">
+                  {selectedReliefDetail.cause || 'Relief'}
+                </span>
+                <h2 className="text-xl font-extrabold text-slate-900">{selectedReliefDetail.title}</h2>
+                <p className="text-xs text-slate-500">{selectedReliefDetail.university || '—'}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedReliefDetail(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <p className="text-[10px] uppercase font-bold text-slate-400">Beneficiary</p>
+                <p className="font-semibold text-slate-800 mt-1">{selectedReliefDetail.beneficiary || '—'}</p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <p className="text-[10px] uppercase font-bold text-slate-400">Funding</p>
+                <p className="font-mono font-semibold text-slate-800 mt-1">
+                  Raised ৳ {Number(selectedReliefDetail.raised || 0).toLocaleString()} / Goal ৳ {Number(selectedReliefDetail.goal || 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <div className="text-xs space-y-1">
+              <p className="text-[10px] uppercase font-bold text-slate-400">Description</p>
+              <p className="text-slate-700 whitespace-pre-wrap">{selectedReliefDetail.description || 'No description provided.'}</p>
+            </div>
+            {Array.isArray(selectedReliefDetail.useOfFunds) && selectedReliefDetail.useOfFunds.filter(Boolean).length > 0 && (
+              <div className="text-xs space-y-1">
+                <p className="text-[10px] uppercase font-bold text-slate-400">Use of funds</p>
+                <ul className="list-disc list-inside text-slate-700 space-y-1">
+                  {selectedReliefDetail.useOfFunds.filter(Boolean).map((u, i) => (
+                    <li key={i}>{u}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* S3: relief progress milestones (work tracking — no repayment) */}
+            {Array.isArray(selectedReliefDetail.milestones) && selectedReliefDetail.milestones.length > 0 && (
+              <div className="text-xs space-y-2">
+                <p className="text-[10px] uppercase font-bold text-slate-400">Progress milestones</p>
+                <p className="text-[11px] text-slate-500">Founders show work is being done with your donations.</p>
+                <div className="space-y-2">
+                  {selectedReliefDetail.milestones.map((m, idx) => {
+                    const st = String(m.status || 'pending').toLowerCase();
+                    const done = st === 'done' || st === 'completed';
+                    const review = st === 'pending_review' || st === 'pending review';
+                    return (
+                      <div key={idx} className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                        <div>
+                          <p className="font-semibold text-slate-800">{m.title || m.name || `Phase ${idx + 1}`}</p>
+                          <p className="text-[10px] text-slate-500">Target: {m.target || m.targetDate || 'TBD'}</p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          done ? 'bg-emerald-100 text-emerald-800' :
+                          review ? 'bg-sky-100 text-sky-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          {done ? 'Done' : review ? 'In review' : (m.status || 'pending')}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {Array.isArray(selectedReliefDetail.proofLinks) && selectedReliefDetail.proofLinks.length > 0 && (
+              <div className="text-xs space-y-1">
+                <p className="text-[10px] uppercase font-bold text-slate-400">Proof links</p>
+                <ul className="space-y-1">
+                  {selectedReliefDetail.proofLinks.map((p, i) => (
+                    <li key={i} className="truncate">
+                      <span className="font-semibold text-slate-600">{p.type || 'Link'}: </span>
+                      {p.url ? (
+                        <a href={p.url} target="_blank" rel="noreferrer" className="text-sky-700 hover:underline break-all">{p.url}</a>
+                      ) : '—'}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+              Relief campaigns are donation causes. Use Donate to contribute from your wallet.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedReliefDetail(null)}
+                className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  openReliefDonate(selectedReliefDetail);
+                  setSelectedReliefDetail(null);
+                }}
+                className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl cursor-pointer"
+              >
+                Donate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* S3: Add Money to investor wallet (admin verifies) */}
+      {showAddMoneyModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-900 text-base">Add Money to Wallet</h3>
+              <button type="button" onClick={() => setShowAddMoneyModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-950 leading-relaxed">
+              Send money via bKash, bank, or another channel, then upload your receipt. An admin verifies the proof before your wallet is credited.
+            </div>
+            <form onSubmit={handleAddMoneySubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Amount (৳)</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={addMoneyAmount}
+                  onChange={(e) => setAddMoneyAmount(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                  placeholder="e.g. 25000"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Method</label>
+                <select
+                  value={addMoneyMethod}
+                  onChange={(e) => setAddMoneyMethod(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                >
+                  <option value="bkash">bKash</option>
+                  <option value="nagad">Nagad</option>
+                  <option value="bank">Bank transfer</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Reference / Trx ID</label>
+                <input
+                  type="text"
+                  value={addMoneyReference}
+                  onChange={(e) => setAddMoneyReference(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                  placeholder="e.g. TXN123456"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Note (optional)</label>
+                <textarea
+                  rows={2}
+                  value={addMoneyNote}
+                  onChange={(e) => setAddMoneyNote(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Payment proof (JPG / PNG / PDF) <span className="text-rose-600">*</span>
+                </label>
+                <p className="text-[11px] text-slate-500 mb-2">
+                  Click the box below to choose your receipt file — this is required before Submit.
+                </p>
+                <label className="flex flex-col items-center justify-center gap-2 w-full py-6 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-sky-400 hover:bg-sky-50/40">
+                  <Upload className="w-6 h-6 text-sky-600" />
+                  <span className="text-[11px] text-slate-600 font-medium text-center px-3">
+                    {addMoneyProof ? addMoneyProof.name : 'Click here to upload JPG, PNG, or PDF receipt'}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf,image/*,application/pdf"
+                    required
+                    className="hidden"
+                    onChange={(e) => setAddMoneyProof(e.target.files?.[0] || null)}
+                  />
+                </label>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAddMoneyModal(false)}
+                  className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white border border-transparent font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAddMoney}
+                  className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white font-semibold rounded-xl disabled:opacity-60"
+                >
+                  {submittingAddMoney ? 'Submitting…' : 'Submit for verification'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* S3: Donate to relief campaign */}
+      {reliefDonateTarget && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Donate to Relief</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">{reliefDonateTarget.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReliefDonateTarget(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-600">
+              Record a donation to this relief campaign. This raises the cause total and debits your wallet.
+            </p>
+            <form onSubmit={handleReliefDonate} className="space-y-4 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Amount (৳)</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  value={reliefDonateAmount}
+                  onChange={(e) => setReliefDonateAmount(e.target.value)}
+                  placeholder="e.g. 5000"
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Method</label>
+                <select
+                  value={reliefDonateMethod}
+                  onChange={(e) => setReliefDonateMethod(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                >
+                  <option value="bkash">bKash</option>
+                  <option value="nagad">Nagad</option>
+                  <option value="bank">Bank transfer</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Reference / Trx ID (optional)</label>
+                <input
+                  type="text"
+                  value={reliefDonateReference}
+                  onChange={(e) => setReliefDonateReference(e.target.value)}
+                  placeholder="e.g. TXN123456"
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setReliefDonateTarget(null)}
+                  className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white border border-transparent font-semibold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingReliefDonate}
+                  className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white font-semibold rounded-xl cursor-pointer disabled:opacity-60"
+                >
+                  {submittingReliefDonate ? 'Donating…' : 'Donate'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -2256,7 +3003,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                   onClick={() => {
                     handleToggleWatchlist(selectedCampaignDetail.id || selectedCampaignDetail._id);
                   }}
-                  className="py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                  className="py-2.5 bg-[#047857] hover:bg-[#065f46] text-white border border-transparent text-xs font-semibold rounded-xl flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <Bookmark className="w-3.5 h-3.5" />
                   <span>Pin Watchlist</span>
@@ -2269,7 +3016,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                     setChatTarget({ name: c.founder?.name || 'Founder', id: c.founder_id || 'usr_founder_1' });
                     setShowChatDrawer(true);
                   }}
-                  className="py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                  className="py-2.5 bg-[#047857] hover:bg-[#065f46] text-white border border-transparent text-xs font-semibold rounded-xl flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Message</span>
@@ -2281,7 +3028,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                     setSelectedCampaignDetail(null);
                     setFlagModalCampaign(c);
                   }}
-                  className="py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                  className="py-2.5 bg-[#047857] hover:bg-[#065f46] text-white border border-transparent text-xs font-semibold rounded-xl flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <Flag className="w-3.5 h-3.5" />
                   <span>Report / Flag</span>
@@ -2322,20 +3069,21 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                   <tbody className="divide-y divide-slate-100">
                     {mySubmittedProposals.map((p, idx) => {
                       const propId = p.id || p._id;
-                      const cmp = campaigns.find(c => c.id === p.campaign_id || c._id === p.campaign_id);
+                      const cmp = campaigns.find(c => c.id === p.campaign_id || c._id === p.campaign_id || c.id === p.campaignId || c._id === p.campaignId);
 
                       return (
                         <tr key={idx} className="hover:bg-slate-50/80">
-                          <td className="py-4 font-semibold text-slate-900">{cmp ? cmp.title : p.campaign_id}</td>
+                          <td className="py-4 font-semibold text-slate-900">{cmp ? cmp.title : (p.campaign_title || p.campaign_id || 'Unknown campaign')}</td>
                           <td className="py-4 text-slate-500 font-mono">{p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Recent'}</td>
-                          <td className="py-4 font-mono font-bold text-slate-900">৳ {Number(p.amount || 0).toLocaleString()}</td>
-                          <td className="py-4 text-slate-700">{p.terms || '8% Rev Share'}</td>
+                          <td className="py-4 font-mono font-bold text-slate-900">
+                            ৳ {s3ProposalAmount(p).toLocaleString()}
+                            {String(p.status).toLowerCase() === 'negotiating' && p.counter_amount != null && (
+                              <span className="block text-[10px] font-normal text-sky-600">counter</span>
+                            )}
+                          </td>
+                          <td className="py-4 text-slate-700">{s3ProposalTerms(p)}</td>
                           <td className="py-4">
-                            <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-md uppercase ${
-                              p.status === 'accepted' ? 'bg-emerald-500 text-white' :
-                              p.status === 'declined' || p.status === 'rejected' ? 'bg-rose-500 text-white' :
-                              p.status === 'withdrawn' ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-800'
-                            }`}>
+                            <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-md uppercase ${s3StatusClass(p.status)}`}>
                               {p.status || 'PENDING'}
                             </span>
                           </td>
@@ -2346,14 +3094,14 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                                   setShowProposalsModal(false);
                                   setProposalDetailModal(p);
                                 }}
-                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold rounded-lg cursor-pointer"
+                                className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
                               >
                                 Details
                               </button>
-                              {p.status === 'pending' && (
+                              {(p.status === 'pending' || p.status === 'negotiating') && (
                                 <button
                                   onClick={() => handleWithdrawProposal(propId)}
-                                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-semibold rounded-lg cursor-pointer"
+                                  className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
                                 >
                                   Withdraw
                                 </button>
@@ -2415,7 +3163,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                           setShowInvestmentsModal(false);
                           setSelectedCampaignDetail(c);
                         }}
-                        className="flex-1 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-lg cursor-pointer"
+                        className="flex-1 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-lg cursor-pointer"
                       >
                         View Details
                       </button>
@@ -2425,7 +3173,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                           setChatTarget({ name: c.founder?.name || 'Founder', id: c.founder_id || 'usr_founder_1' });
                           setShowChatDrawer(true);
                         }}
-                        className="flex-1 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg cursor-pointer flex items-center justify-center gap-1"
+                        className="flex-1 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-lg cursor-pointer flex items-center justify-center gap-1"
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
                         <span>Message</span>
@@ -2492,7 +3240,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                                 setShowRejectedProposalsModal(false);
                                 setProposalDetailModal(p);
                               }}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold rounded-lg cursor-pointer"
+                              className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
                             >
                               View Offer Detail
                             </button>
@@ -2610,7 +3358,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                             setShowWatchlistModal(false);
                             setSelectedCampaignDetail(c);
                           }}
-                          className="flex-1 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-lg cursor-pointer"
+                          className="flex-1 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-lg cursor-pointer"
                         >
                           View Details
                         </button>
@@ -2685,7 +3433,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                           setChatTarget({ name: founder.name, id: founderId });
                           setShowChatDrawer(true);
                         }}
-                        className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg cursor-pointer flex items-center justify-center gap-1"
+                        className="w-full py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-lg cursor-pointer flex items-center justify-center gap-1"
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
                         <span>Message Founder</span>
@@ -2760,7 +3508,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                 <button
                   type="button"
                   onClick={() => setSelectedProposalCampaign(null)}
-                  className="flex-1 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl cursor-pointer"
+                  className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white border border-transparent font-semibold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -2828,13 +3576,13 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                 <button
                   type="button"
                   onClick={() => setFlagModalCampaign(null)}
-                  className="flex-1 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl cursor-pointer"
+                  className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white border border-transparent font-semibold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl shadow-xs cursor-pointer"
+                  className="flex-1 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white font-semibold rounded-xl shadow-xs cursor-pointer"
                 >
                   Submit Report
                 </button>
@@ -2858,13 +3606,26 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
             <div className="space-y-4 text-xs font-mono">
               <div className="p-3.5 bg-slate-50 rounded-xl space-y-1">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">PROPOSED FUNDING AMOUNT</span>
-                <span className="text-xl font-extrabold text-slate-900">৳ {Number(proposalDetailModal.amount || 0).toLocaleString()}</span>
+                <span className="text-xl font-extrabold text-slate-900">৳ {s3ProposalAmount(proposalDetailModal).toLocaleString()}</span>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl space-y-1">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">TERMS / RETURN MODEL</span>
-                <span className="font-bold text-emerald-700">{proposalDetailModal.terms || proposalDetailModal.return_structure || '8% Rev. Share'}</span>
+                <span className="font-bold text-emerald-700">{s3ProposalTerms(proposalDetailModal)}</span>
               </div>
+
+              {/* S3: founder counter-offer block */}
+              {(String(proposalDetailModal.status || '').toLowerCase() === 'negotiating' || proposalDetailModal.counter_amount != null) && (
+                <div className="p-3 bg-sky-50 border border-sky-100 rounded-xl space-y-1">
+                  <span className="text-[10px] text-sky-600 uppercase font-bold block">FOUNDER COUNTER-OFFER</span>
+                  <span className="font-bold text-sky-800">
+                    ৳ {Number(proposalDetailModal.counter_amount || 0).toLocaleString()} · {proposalDetailModal.counter_terms || '—'}
+                  </span>
+                  {proposalDetailModal.negotiate_message && (
+                    <p className="text-slate-600 font-sans text-xs pt-1">{proposalDetailModal.negotiate_message}</p>
+                  )}
+                </div>
+              )}
 
               <div className="p-3 bg-slate-50 rounded-xl space-y-1">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">INVESTOR NOTES</span>
@@ -2872,11 +3633,11 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
               </div>
 
               <div className="pt-2 flex justify-between items-center border-t border-slate-100 font-sans">
-                <span className="text-slate-500">Status: <strong className="uppercase">{proposalDetailModal.status}</strong></span>
-                {proposalDetailModal.status === 'pending' && (
+                <span className="text-slate-500">Status: <strong className={`uppercase ${String(proposalDetailModal.status).toLowerCase() === 'negotiating' ? 'text-sky-700' : ''}`}>{proposalDetailModal.status}</strong></span>
+                {(proposalDetailModal.status === 'pending' || proposalDetailModal.status === 'negotiating') && (
                   <button
                     onClick={() => handleWithdrawProposal(proposalDetailModal.id || proposalDetailModal._id)}
-                    className="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl cursor-pointer"
+                    className="px-3 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl cursor-pointer"
                   >
                     Withdraw Offer
                   </button>

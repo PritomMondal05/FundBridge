@@ -1,0 +1,38 @@
+[
+  {
+    "id": "msg_1788279095142",
+    "sender_id": "usr_founder_1",
+    "receiver_id": "usr_investor_1",
+    "sender_name": "Ashraf",
+    "campaign_id": "",
+    "text": "two-way persist 1788279094298",
+    "created_at": "2026-09-01T16:11:35.142+00:00"
+  },
+  {
+    "id": "msg_1788279352102",
+    "sender_id": "usr_investor_1",
+    "receiver_id": "usr_founder_1",
+    "sender_name": "Angel Backer Zaman",
+    "campaign_id": "",
+    "text": "reply from investor",
+    "created_at": "2026-09-01T16:15:52.102+00:00"
+  },
+  {
+    "id": "msg_1788279676123",
+    "sender_id": "usr_investor_1",
+    "receiver_id": "usr_founder_1",
+    "sender_name": "Angel Backer Zaman",
+    "campaign_id": "",
+    "text": "reply from investor",
+    "created_at": "2026-09-01T16:21:16.123+00:00"
+  },
+  {
+    "id": "msg_1785007186217",
+    "sender_id": "822afe42-ea67-491d-815f-e4cf1b465283",
+    "receiver_id": "all",
+    "sender_name": "Angel Backer Zaman",
+    "campaign_id": "",
+    "text": "hello",
+    "created_at": "2026-07-25T19:19:46.217+00:00"
+  }
+]

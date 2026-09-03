@@ -1,0 +1,23 @@
+[
+  {
+    "id": "upd_1788366496774",
+    "campaign_id": "campusbites_1",
+    "founder_id": "usr_founder_1",
+    "title": "Notify Check Publish",
+    "content": "Testing notification on publish.",
+    "milestone_tag": "Level 1 MVP Launch",
+    "status": "pending",
+    "created_at": "2026-09-02T16:28:16.774Z"
+  },
+  {
+    "id": "upd_1788365354473",
+    "campaign_id": "campusbites_1",
+    "founder_id": "usr_founder_1",
+    "title": "Milestone 1 reached",
+    "content": "We have successfully reached milestone 1",
+    "milestone_tag": "Level 1 MVP Launch",
+    "status": "approved",
+    "created_at": "2026-09-02T16:09:14.473Z",
+    "reviewed_at": "2026-09-02T16:18:08.149Z"
+  }
+]
