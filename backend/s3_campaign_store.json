@@ -1,5 +1,77 @@
 [
   {
+    "id": "camp_1788534099378_uw7z",
+    "_id": "camp_1788534099378_uw7z",
+    "title": "Jhotpot",
+    "founder_id": "49be722c-1b20-45fb-855e-caffc7b133aa",
+    "founderId": "49be722c-1b20-45fb-855e-caffc7b133aa",
+    "university": "BRACU",
+    "location": "Dhaka, Bangladesh",
+    "category": "FoodTech / F&B",
+    "stage": "Prototype / MVP",
+    "goal": 1000000,
+    "raised": 500000,
+    "equityOffer": "10% Revenue Share",
+    "equity_offer": "10% Revenue Share",
+    "description": "asdasdasdas",
+    "milestones": [
+      {
+        "title": "Step-1",
+        "target": "Month 1",
+        "status": "pending_approval",
+        "proofs": [
+          {
+            "id": "proof_1788534329500",
+            "file_url": "",
+            "file_name": "Proof Document",
+            "notes": "",
+            "proof_type": "document",
+            "submitted_by": "Founder",
+            "submitted_at": "2026-09-04T15:05:29.500Z"
+          },
+          {
+            "id": "proof_1788534417628",
+            "file_url": "",
+            "file_name": "Proof Document",
+            "notes": "",
+            "proof_type": "document",
+            "submitted_by": "Founder",
+            "submitted_at": "2026-09-04T15:06:57.628Z"
+          }
+        ]
+      },
+      {
+        "title": "Step-2",
+        "target": "Month 2",
+        "status": "locked"
+      },
+      {
+        "title": "Step-3",
+        "target": "Month 3",
+        "status": "locked"
+      },
+      {
+        "title": "Step-4",
+        "target": "Month 4",
+        "status": "locked"
+      }
+    ],
+    "tagline": "Serve Better Food",
+    "coverPhoto": "asdasd",
+    "pitchVideoUrl": "asdasdas",
+    "verified": true,
+    "status": "verified",
+    "escrowFrozen": false,
+    "escrow_frozen": false,
+    "created_at": "2026-09-04T15:01:39.378Z",
+    "coFounders": [],
+    "co_founders": [],
+    "successor_name": "",
+    "successorName": "",
+    "successor_email": "",
+    "successorEmail": ""
+  },
+  {
     "_id": "cmp_1788461352490",
     "id": "cmp_1788461352490",
     "title": "GoCar",
@@ -47,7 +119,7 @@
       }
     ],
     "verified": false,
-    "status": "pending",
+    "status": "rejected",
     "escrowFrozen": false,
     "escrow_frozen": false,
     "coFounders": [],
@@ -55,7 +127,8 @@
     "successorName": "",
     "successor_name": "",
     "successorEmail": "",
-    "successor_email": ""
+    "successor_email": "",
+    "rejection_reason": "wesdfsdf"
   },
   {
     "id": "campusbites_1",

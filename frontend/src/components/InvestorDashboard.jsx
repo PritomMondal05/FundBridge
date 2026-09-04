@@ -1,4 +1,4 @@
-                                import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import {
   LayoutDashboard,
@@ -41,10 +41,12 @@ import {
   XCircle,
   Heart,
   Plus,
-  Upload
+  Upload,
+  Lock
 } from 'lucide-react';
 
 import logoUrl from '../assets/images/FundBridge Logo.svg';
+import MilestoneReleaseWorkflow from './MilestoneReleaseWorkflow.jsx';
 
 export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL, triggerAlert }) {
   const user = currentUser || {
@@ -67,6 +69,31 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   const [chatTarget, setChatTarget] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInputText, setChatInputText] = useState('');
+  const [showMilestoneWorkflowModal, setShowMilestoneWorkflowModal] = useState(false);
+  const [selectedMilestonePartnershipId, setSelectedMilestonePartnershipId] = useState(null);
+
+  const chatTargetRef = useRef(null);
+  useEffect(() => {
+    chatTargetRef.current = chatTarget;
+  }, [chatTarget]);
+
+  useEffect(() => {
+    if (!showChatDrawer || !chatTarget) return;
+    const me = currentUser?.id || currentUser?._id || user.id;
+    const other = chatTarget.id || chatTarget._id;
+    if (!me || !other) return;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/chat/thread?senderId=${encodeURIComponent(me)}&receiverId=${encodeURIComponent(other)}`
+        );
+        if (res.ok) {
+          const rows = await res.json();
+          setChatMessages(Array.isArray(rows) ? rows : []);
+        }
+      } catch (_) {}
+    })();
+  }, [showChatDrawer, chatTarget, currentUser, API_BASE_URL, user.id]);
 
   const [profileUser, setProfileUser] = useState({
     name: user.name || 'Javeria Doe',
@@ -391,6 +418,19 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
         }
         return [prop, ...prev];
       });
+    });
+
+    // Real-time direct chat message listener
+    newSocket.on('new_direct_message', (msg) => {
+      const me = String(userId);
+      const other = String(chatTargetRef.current?.id || chatTargetRef.current?._id || '');
+      if (!msg) return;
+      const s = String(msg.sender_id || '');
+      const r = String(msg.receiver_id || '');
+      const inThread = (s === me && r === other) || (s === other && r === me) || (r === 'all');
+      if (inThread) {
+        setChatMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+      }
     });
 
     return () => {
@@ -1919,12 +1959,37 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                             showToast('No startups available to compare.', 'info');
                           }
                         }}
-                        className="px-3.5 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs cursor-pointer"
+                        className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-2 border border-slate-200 cursor-pointer"
                       >
                         <Scale className="w-4 h-4" />
                         <span>3-Startup Comparison Matrix</span>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedMilestonePartnershipId(null);
+                          setShowMilestoneWorkflowModal(true);
+                        }}
+                        className="px-4 py-2.5 bg-[#0052cc] hover:bg-[#0747a6] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs cursor-pointer"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>Milestone Audit & Release Control</span>
+                      </button>
                     </div>
+                  </div>
+
+                  {/* ACTIVE MILESTONE TRANCHE AUDIT & RELEASE CONTROL PANEL */}
+                  <div className="space-y-4">
+                    <MilestoneReleaseWorkflow
+                      userRole="investor"
+                      currentUserId={user.id}
+                      API_BASE_URL={API_BASE_URL}
+                    />
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200">
+                    <h2 className="text-lg font-bold text-slate-900 mb-3">Active Backed Startup Portfolios</h2>
                   </div>
 
                   {fundedCampaigns.length > 0 ? (
@@ -1987,16 +2052,30 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                               </div>
                             </div>
 
-                            <button
-                              onClick={() => {
-                                setChatTarget({ name: c.founder?.name || 'Founder', id: c.founder_id || 'usr_founder_1' });
-                                setShowChatDrawer(true);
-                              }}
-                              className="w-full py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
-                            >
-                              <MessageSquare className="w-4 h-4 text-slate-600" />
-                              <span>Message Founder Direct</span>
-                            </button>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedMilestonePartnershipId(c.id || c._id);
+                                  setShowMilestoneWorkflowModal(true);
+                                }}
+                                className="w-full py-2.5 bg-[#0052cc] hover:bg-[#0747a6] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                              >
+                                <ShieldCheck className="w-4 h-4 text-blue-200" />
+                                <span>Audit & Release</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setChatTarget({ name: c.founder?.name || 'Founder', id: c.founder_id || 'usr_founder_1' });
+                                  setShowChatDrawer(true);
+                                }}
+                                className="w-full py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                              >
+                                <MessageSquare className="w-4 h-4 text-emerald-200" />
+                                <span>Message Founder</span>
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -2969,10 +3048,26 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                     <GraduationCap className="w-4 h-4 text-indigo-700" />
                     <span>Student Founder & Entrepreneur Info</span>
                   </h4>
-                  <span className="px-2 py-0.5 bg-emerald-500 text-white text-[9px] font-bold rounded-md uppercase font-mono flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3" />
-                    <span>VERIFIED STUDENT</span>
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const c = selectedCampaignDetail;
+                        setSelectedCampaignDetail(null);
+                        setChatTarget({ name: c.founder?.name || 'Founder', id: c.founder_id || c.founder?.id || 'usr_founder_1' });
+                        setShowChatDrawer(true);
+                      }}
+                      className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-semibold rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                      title="Direct message with founder"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Message Founder</span>
+                    </button>
+                    <span className="px-2 py-0.5 bg-emerald-500 text-white text-[9px] font-bold rounded-md uppercase font-mono flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>VERIFIED STUDENT</span>
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -3814,6 +3909,22 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
               <Send className="w-4 h-4" />
             </button>
           </form>
+        </div>
+      )}
+
+      {/* MILESTONE AUDIT & TRANCHE RELEASE CONTROL MODAL */}
+      {showMilestoneWorkflowModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-5xl w-full shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            <MilestoneReleaseWorkflow
+              userRole="investor"
+              currentUserId={user.id}
+              partnershipId={selectedMilestonePartnershipId}
+              onClose={() => setShowMilestoneWorkflowModal(false)}
+              isModal={true}
+              API_BASE_URL={API_BASE_URL}
+            />
+          </div>
         </div>
       )}
     </div>

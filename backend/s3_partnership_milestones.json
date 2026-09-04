@@ -1,0 +1,188 @@
+[
+  {
+    "id": "part_alphav_01",
+    "proposal_id": "prop_alphav_01",
+    "campaign_id": "campusbites_1",
+    "campaign_title": "Alpha-V Bio-Refinery",
+    "roadmap_subtitle": "Series A Roadmap • $2.4M Aggregate",
+    "contract_url": "#",
+    "founder_id": "usr_founder_1",
+    "founder_name": "Ashraf Khan",
+    "founder_email": "ashraf.khan1@univ.edu.bd",
+    "founder_university": "BRAC University",
+    "investor_id": "usr_investor_1",
+    "investor_name": "Angel Backer Zaman",
+    "investor_institution": "Vantage Ventures Dhaka",
+    "total_committed": 2400000,
+    "created_at": "2026-08-15T00:00:00.000Z",
+    "milestones": [
+      {
+        "id": "phase_1",
+        "phase_number": 1,
+        "title": "PHASE 1",
+        "name": "Phase 1: Pilot Fabrication & Core Setup",
+        "amount": 600000,
+        "purpose": "Pilot bio-refinery design and prototype infrastructure setup",
+        "expected_outcome": "Completed pilot benchmark output & testing",
+        "timeline": "2 Months",
+        "status": "completed",
+        "lifecycle": {
+          "requested": true,
+          "investor_review": "approved",
+          "payment": "funded",
+          "completion": "completed"
+        },
+        "request_details": {
+          "requested_amount": 600000,
+          "purpose": "Pilot design and equipment procurement",
+          "explanation": "Acquisition of preliminary distillation arrays and base materials.",
+          "fund_usage": "Core hardware ($400k), installation ($200k)",
+          "expected_outcome": "Operational pilot facility",
+          "timeline": "2 Months",
+          "supporting_documents": [
+            {
+              "name": "BioCorp_Pilot_INV_8011.pdf",
+              "url": "/uploads/invoice_phase1.pdf",
+              "total_payable": 600000,
+              "items": [
+                {
+                  "item": "Distillation Columns",
+                  "amount": 400000
+                },
+                {
+                  "item": "Installation Services",
+                  "amount": 200000
+                }
+              ]
+            }
+          ],
+          "requested_at": "2026-08-20T00:00:00.000Z"
+        },
+        "mandatory_checks": {
+          "vendor_invoice_reconciliation": true,
+          "geotagged_photo_verification": true,
+          "third_party_inspector_attestation": true
+        },
+        "release_details": {
+          "approved_amount": 600000,
+          "funded_date": "2026-08-25",
+          "reference_id": "TRX-MFS-883109",
+          "payment_method": "Secured MFS / Bank Escrow"
+        },
+        "completion_report": {
+          "completed_objectives": "Pilot run completed with 100% target purity benchmark achieved.",
+          "amount_spent": 600000,
+          "remaining_amount": 0,
+          "progress_description": "Pilot refinery unit fully operational with 0 incidents.",
+          "media_urls": [],
+          "submitted_at": "2026-09-01T00:00:00.000Z",
+          "verified_by_investor": true,
+          "verified_at": "2026-09-02T00:00:00.000Z"
+        }
+      },
+      {
+        "id": "phase_2",
+        "phase_number": 2,
+        "title": "PHASE 2",
+        "name": "Phase 2: R&D Installation & Testing",
+        "amount": 450000,
+        "purpose": "Tranche release for Phase 2: R&D Installation",
+        "expected_outcome": "Installation of high-capacity centrifuge and bio-reactor modules",
+        "timeline": "1 Month",
+        "status": "pending_review",
+        "lifecycle": {
+          "requested": true,
+          "investor_review": "pending",
+          "payment": "locked",
+          "completion": "locked"
+        },
+        "request_details": {
+          "requested_amount": 450000,
+          "purpose": "Tranche release for Phase 2: R&D Installation",
+          "explanation": "Immediate release required to fulfill hardware supplier invoices for lab-scale centrifuges and primary bio-reactor unit.",
+          "fund_usage": "Vendor equipment payments and certified technician onboarding.",
+          "expected_outcome": "Fully installed bio-reactor module producing 500L/day batch yield.",
+          "timeline": "1 Month",
+          "supporting_documents": [
+            {
+              "name": "BioCorp_Equipment_INV_8902.pdf",
+              "url": "/uploads/BioCorp_Equipment_INV_8902.pdf",
+              "vendor_name": "BioCorp Global",
+              "vendor_sub": "Supply Chain & Lab Solutions",
+              "invoice_number": "#8902-X",
+              "total_payable": 335000,
+              "items": [
+                {
+                  "item": "Lab Centrifuge Series-7",
+                  "amount": 125000
+                },
+                {
+                  "item": "Bio-Reactor Unit (Module B)",
+                  "amount": 210000
+                }
+              ]
+            }
+          ],
+          "requested_at": "2026-09-04T00:00:00.000Z"
+        },
+        "mandatory_checks": {
+          "vendor_invoice_reconciliation": true,
+          "geotagged_photo_verification": true,
+          "third_party_inspector_attestation": false
+        },
+        "release_details": null,
+        "completion_report": null
+      },
+      {
+        "id": "phase_3",
+        "phase_number": 3,
+        "title": "PHASE 3",
+        "name": "Phase 3: Production Scaling & Automation",
+        "amount": 750000,
+        "purpose": "Automated conveyor assembly and quality assurance line",
+        "expected_outcome": "Industrial capacity scale-up to 2,000L/day",
+        "timeline": "3 Months",
+        "status": "locked",
+        "lifecycle": {
+          "requested": false,
+          "investor_review": "locked",
+          "payment": "locked",
+          "completion": "locked"
+        },
+        "request_details": null,
+        "mandatory_checks": {
+          "vendor_invoice_reconciliation": false,
+          "geotagged_photo_verification": false,
+          "third_party_inspector_attestation": false
+        },
+        "release_details": null,
+        "completion_report": null
+      },
+      {
+        "id": "phase_4",
+        "phase_number": 4,
+        "title": "EXIT",
+        "name": "Exit & Commercial Distribution",
+        "amount": 600000,
+        "purpose": "Distribution networks, enterprise partnerships, and revenue distribution",
+        "expected_outcome": "Direct industrial off-take contracts and dividend distribution",
+        "timeline": "6 Months",
+        "status": "locked",
+        "lifecycle": {
+          "requested": false,
+          "investor_review": "locked",
+          "payment": "locked",
+          "completion": "locked"
+        },
+        "request_details": null,
+        "mandatory_checks": {
+          "vendor_invoice_reconciliation": false,
+          "geotagged_photo_verification": false,
+          "third_party_inspector_attestation": false
+        },
+        "release_details": null,
+        "completion_report": null
+      }
+    ]
+  }
+]

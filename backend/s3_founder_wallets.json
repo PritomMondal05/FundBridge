@@ -267,5 +267,23 @@
         "created_at": "2026-09-02T20:47:15.907Z"
       }
     ]
+  },
+  "49be722c-1b20-45fb-855e-caffc7b133aa": {
+    "balance": 500000,
+    "ledger": [
+      {
+        "id": "wal_1788534389075_65",
+        "type": "INVESTMENT_IN",
+        "direction": "in",
+        "amount": 500000,
+        "investor_id": "21c226f5-524e-473b-a6fb-728464f65515",
+        "investor_name": "Nazmus Sakib",
+        "campaign_id": "camp_1788534099378_uw7z",
+        "campaign_title": "camp_1788534099378_uw7z",
+        "proposal_id": "prop_1788534228561",
+        "note": "Accepted investment proposal credited to founder wallet (ledger only — no payment gateway).",
+        "created_at": "2026-09-04T15:06:29.075Z"
+      }
+    ]
   }
 }

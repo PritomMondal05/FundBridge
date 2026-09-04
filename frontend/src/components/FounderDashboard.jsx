@@ -30,8 +30,11 @@ import {
   LogOut,
   Compass,
   Heart,
-  Wallet
+  Wallet,
+  AlertTriangle
 } from 'lucide-react';
+
+import MilestoneReleaseWorkflow from './MilestoneReleaseWorkflow.jsx';
 
 // S3: shared Category / Sector list for create form + Campaigns filter (fixed — no custom add)
 const CAMPAIGN_SECTOR_OPTIONS = [
@@ -353,7 +356,15 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
       });
       if (res.ok) {
         const saved = await res.json();
-        setChatMessages((prev) => (saved && saved.id ? [...prev, saved] : prev));
+        const msgObj = saved?.chatMessage || (saved?.id ? saved : {
+          id: 'msg_' + Date.now(),
+          sender_id: currentUser?.id || currentUser?._id || user.id,
+          sender_name: profileUser.name || user.name || 'Founder',
+          receiver_id: chatTarget?._id || chatTarget?.id || 'all',
+          text: chatInputText,
+          created_at: new Date().toISOString()
+        });
+        setChatMessages((prev) => [...prev, msgObj]);
         setChatInputText('');
       }
     } catch (err) {}
@@ -3428,7 +3439,24 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
           </div>
 
           {/* Right User Bar */}
-          <div className="flex items-center gap-4 relative">
+          <div className="flex items-center gap-3 relative">
+            {/* Direct Messages & Chat Drawer Trigger */}
+            <button
+              type="button"
+              onClick={() => {
+                const targetInv = whoInvestedOrDonated[0] || approvedProposals[0] || { id: 'usr_investor_1', name: 'Javeria Doe (Investor)' };
+                openChatWithInvestor({
+                  id: targetInv.investor_id || targetInv.investorId || targetInv.id || 'usr_investor_1',
+                  name: targetInv.investor_name || targetInv.investorName || targetInv.name || 'Javeria Doe (Investor)'
+                });
+              }}
+              className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+              title="Open Direct Messages with Investor"
+            >
+              <MessageSquare className="w-4.5 h-4.5" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+            </button>
+
             <div className="relative">
               <button 
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
@@ -6291,31 +6319,45 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                                   </span>
                                 </div>
                               </div>
-                              {canAct && (
                                 <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                                  {canAct && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setSelectedProposal(p); openNegotiateForm(p); }}
+                                        className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
+                                      >
+                                        {st === 'negotiating' ? 'Renegotiate' : 'Negotiate'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleProposalStatus(p.id || p._id, 'declined')}
+                                        className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleProposalStatus(p.id || p._id, 'accepted')}
+                                        className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
+                                      >
+                                        Accept
+                                      </button>
+                                    </>
+                                  )}
                                   <button
                                     type="button"
-                                    onClick={() => { setSelectedProposal(p); openNegotiateForm(p); }}
-                                    className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
+                                    onClick={() => openChatWithInvestor({
+                                      id: p.investor_id || p.investorId || 'usr_investor_1',
+                                      name: p.investor_name || p.investorName || 'Investor'
+                                    })}
+                                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg inline-flex items-center gap-1 cursor-pointer"
+                                    title="Send direct message to this investor"
                                   >
-                                    {st === 'negotiating' ? 'Renegotiate' : 'Negotiate'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleProposalStatus(p.id || p._id, 'declined')}
-                                    className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
-                                  >
-                                    Reject
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleProposalStatus(p.id || p._id, 'accepted')}
-                                    className="px-2.5 py-1.5 bg-[#047857] hover:bg-[#065f46] text-white text-[11px] font-semibold rounded-lg cursor-pointer"
-                                  >
-                                    Accept
+                                    <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Message Investor</span>
                                   </button>
                                 </div>
-                              )}
                             </div>
                             );
                           })}
@@ -6763,12 +6805,22 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
               {/* TAB 5: MILESTONES — S3: startup + relief (relief = work proofs, no repayment) */}
               {activeTab === 'milestones' && (
                 <div className="space-y-6">
+                  {/* MILESTONE-BASED INVESTMENT RELEASE WORKFLOW (SERIES A TRANCHES) */}
+                  <MilestoneReleaseWorkflow
+                    userRole="founder"
+                    currentUserId={myFounderId}
+                    API_BASE_URL={API_BASE_URL}
+                  />
+
+                  <div className="pt-6 border-t border-slate-200">
+                    <span className="text-[10px] font-mono uppercase text-[#0284C7] tracking-widest font-bold block">ACTIVE CAMPAIGN & RELIEF TRACKING</span>
+                    <h2 className="text-xl font-bold tracking-tight text-slate-900 font-display mt-0.5">Campaign Deliverable Logs</h2>
+                  </div>
+
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <span className="text-[10px] font-mono uppercase text-[#0284C7] tracking-widest font-bold block">ACTIVE PROJECT TRACKING</span>
-                      <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display mt-0.5">Milestone Submissions</h1>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Pick a startup or relief campaign. Relief milestones show donation work in progress.
+                      <p className="text-xs text-slate-500">
+                        Pick a startup or relief campaign to inspect individual delivery proof items.
                       </p>
                     </div>
                     {manageableMilestoneProjects.length > 0 && (
@@ -7158,13 +7210,27 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                   </div>
 
                   <form onSubmit={handleSaveProfile} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
-                    <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
-                      <InitialsAvatar name={profileUser.name} className="w-16 h-16 text-lg" />
-                      <div>
-                        <h3 className="font-bold text-slate-900 text-base">{profileUser.name}</h3>
-                        <span className="text-xs text-emerald-700 font-semibold block">{profileUser.university}</span>
-                        <span className="text-[10px] text-slate-400 font-mono uppercase">Vetting Status: {profileUser.vettingStatus || 'VERIFIED'}</span>
+                    <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                      <div className="flex items-center gap-4">
+                        <InitialsAvatar name={profileUser.name} className="w-16 h-16 text-lg" />
+                        <div>
+                          <h3 className="font-bold text-slate-900 text-base">{profileUser.name}</h3>
+                          <span className="text-xs text-emerald-700 font-semibold block">{profileUser.university}</span>
+                          <span className="text-[10px] text-slate-400 font-mono uppercase">Vetting Status: {profileUser.vettingStatus || 'VERIFIED'}</span>
+                        </div>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChatTarget({ name: 'All Backers & Mentors', id: 'all' });
+                          setShowChatDrawer(true);
+                        }}
+                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-2 cursor-pointer transition-all"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Open Messages & Chat</span>
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -7861,15 +7927,30 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
               <div className="overflow-y-auto overscroll-contain space-y-4 min-h-0">
                 {watchStatPanel === 'founder' && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <InitialsAvatar name={founderName} className="w-12 h-12" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">{founderName}</p>
-                        <p className="text-[11px] text-slate-500">{founder.university || dir.university || c.university || '—'}</p>
-                        {(founder.department || dir.department) && (
-                          <p className="text-[11px] text-slate-400">{founder.department || dir.department}</p>
-                        )}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <InitialsAvatar name={founderName} className="w-12 h-12" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{founderName}</p>
+                          <p className="text-[11px] text-slate-500">{founder.university || dir.university || c.university || '—'}</p>
+                          {(founder.department || dir.department) && (
+                            <p className="text-[11px] text-slate-400">{founder.department || dir.department}</p>
+                          )}
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWatchStatPanel(null);
+                          setChatTarget({ name: founderName, id: fid || 'usr_founder_1' });
+                          setShowChatDrawer(true);
+                        }}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                        title="Send message to this founder"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Message</span>
+                      </button>
                     </div>
                     <div className="space-y-2 text-xs">
                       {email && (
@@ -7967,15 +8048,30 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
               <div className="overflow-y-auto overscroll-contain space-y-4 min-h-0">
                 {reliefStatPanel === 'founder' && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <InitialsAvatar name={founderName} className="w-12 h-12" />
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">{founderName}</p>
-                        <p className="text-[11px] text-slate-500">{founder.university || dir.university || d.university || '—'}</p>
-                        {(founder.department || dir.department) && (
-                          <p className="text-[11px] text-slate-400">{founder.department || dir.department}</p>
-                        )}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <InitialsAvatar name={founderName} className="w-12 h-12" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{founderName}</p>
+                          <p className="text-[11px] text-slate-500">{founder.university || dir.university || d.university || '—'}</p>
+                          {(founder.department || dir.department) && (
+                            <p className="text-[11px] text-slate-400">{founder.department || dir.department}</p>
+                          )}
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReliefStatPanel(null);
+                          setChatTarget({ name: founderName, id: fid || 'usr_founder_1' });
+                          setShowChatDrawer(true);
+                        }}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                        title="Send message to organizer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Message</span>
+                      </button>
                     </div>
                     <div className="space-y-2 text-xs">
                       {email && (
@@ -8309,7 +8405,8 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
               ) : (
                 chatMessages.map((m) => {
                   const me = String(currentUser?.id || currentUser?._id || user.id);
-                  const mine = String(m.sender_id || m.senderId || '') === me;
+                  const sId = String(m.sender_id || m.senderId || '');
+                  const mine = sId === me || (isAshrafSession && sId === 'usr_founder_1');
                   return (
                     <div key={m.id || m._id || m.created_at} className={`max-w-[85%] ${mine ? 'ml-auto' : ''}`}>
                       <div className={`rounded-2xl px-3.5 py-2.5 text-xs ${mine ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-800'}`}>

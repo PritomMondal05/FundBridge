@@ -1,5 +1,6 @@
 import { proposalModel } from '../models/proposalModel.js';
 import { campaignModel } from '../models/campaignModel.js';
+import { partnershipModel } from '../models/partnershipModel.js';
 import {
   createAndDispatchNotification,
   creditFounderWalletInvestment
@@ -114,6 +115,13 @@ export const proposalController = {
         const camp = await campaignModel.getById(cid);
         if (camp) {
           await campaignModel.update(cid, { raised: (Number(camp.raised) || 0) + amt });
+        }
+
+        // Form official partnership with milestone roadmap
+        try {
+          partnershipModel.createFromAcceptedProposal(existing, camp);
+        } catch (partErr) {
+          console.warn('Could not auto-create partnership on accept:', partErr.message);
         }
 
         if (existing.investor_id) {

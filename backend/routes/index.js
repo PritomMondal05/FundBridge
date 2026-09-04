@@ -12,6 +12,7 @@ import investorRoutes from './investorRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import aiRoutes from './aiRoutes.js';
 import auditRoutes from './auditRoutes.js';
+import partnershipRoutes from './partnershipRoutes.js';
 
 const router = express.Router();
 
@@ -29,5 +30,6 @@ router.use('/', investorRoutes);
 router.use('/', adminRoutes);
 router.use('/', aiRoutes);
 router.use('/', auditRoutes);
+router.use('/', partnershipRoutes);
 
 export default router;
