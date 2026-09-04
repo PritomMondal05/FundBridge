@@ -12,8 +12,9 @@ Open your terminal in this project folder and run:
 2. DATABASE SETUP (Supabase)
 -------------------------------------------------------
 - Go to https://supabase.com -> SQL Editor -> New query
-- Copy and paste all text from "backend/supabase_schema.sql"
-- Click RUN (green button at top right)
+- Run "supabase/01_schema_and_tables.sql" to create database tables
+- Run "supabase/02_seed_initial_data.sql" to populate founders, investors & campaigns
+- Run "supabase/03_realtime_notifications.sql" to enable real-time notifications
 
 
 3. HOW TO START THE PROJECT

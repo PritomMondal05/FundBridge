@@ -228,7 +228,10 @@ const campaignValues = campaigns.map(c =>
 );
 standaloneSeedSql += campaignValues.join(',\n') + `\nON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, goal = EXCLUDED.goal, raised = EXCLUDED.raised, equity_offer = EXCLUDED.equity_offer;\n`;
 
-fs.writeFileSync(path.join(__dirname, 'seed_sql.sql'), standaloneSeedSql);
+const supabaseDir = path.join(__dirname, '..', 'supabase');
+if (fs.existsSync(supabaseDir)) {
+  fs.writeFileSync(path.join(supabaseDir, '02_seed_initial_data.sql'), standaloneSeedSql);
+}
 
 // Complete Schema Template
 let fullSchema = `-- ========================================================
@@ -479,5 +482,4 @@ VALUES ('0x8f2a99c4b1d09e1a', 'DISBURSEMENT', 'Escrow Tranche #1 Release', 'VERI
 ON CONFLICT DO NOTHING;
 `;
 
-fs.writeFileSync(path.join(__dirname, 'supabase_schema.sql'), fullSchema);
-console.log('Successfully updated seed_sql.sql AND supabase_schema.sql with UPSERT ON CONFLICT DO UPDATE!');
+console.log('Successfully updated supabase/02_seed_initial_data.sql with UPSERT ON CONFLICT DO UPDATE!');

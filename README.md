@@ -43,7 +43,7 @@ The platform bridges the trust and funding gap in early-stage student startups b
 ### **Backend & Database**
 * **Runtime**: Node.js & Express.js (RESTful API & Serverless API via `api/server.js`)
 * **Architecture**: Clean MVC (Model-View-Controller) architecture
-* **Database**: Supabase Cloud PostgreSQL Database (`backend/supabase_schema.sql`)
+* **Database**: Supabase Cloud PostgreSQL Database (`supabase/01_schema_and_tables.sql`)
 * **Real-time Messaging**: Socket.io
 * **Authentication**: JSON Web Tokens (JWT) & Bcrypt password hashing
 * **Deployment**: Configured for Vercel Cloud deployment (`vercel.json`)
@@ -62,8 +62,7 @@ FundBridge/
 │   ├── routes/               # Modular Express API route definitions
 │   ├── utils/                # In-memory stores, file persistence & data normalizers
 │   ├── app.js                # Express app setup and middleware wiring
-│   ├── server.js             # Server startup and Socket.IO listener (Port 5000)
-│   └── supabase_schema.sql   # Supabase SQL database initialization script
+│   └── server.js             # Server startup and Socket.IO listener (Port 5000)
 ├── frontend/                 # React (Vite) Single Page Application
 │   ├── src/
 │   │   ├── components/       # Reusable UI components & modals
@@ -71,6 +70,11 @@ FundBridge/
 │   │   ├── pages/            # Application views (Founders, Investors, Admin, Pitch)
 │   │   └── utils/            # Helper functions & API instances
 │   └── vite.config.js        # Vite build configuration
+├── supabase/                 # Supabase PostgreSQL SQL scripts organized by purpose
+│   ├── 01_schema_and_tables.sql      # Core tables, relations, and RLS policies
+│   ├── 02_seed_initial_data.sql      # 100 founders, 30 investors, 50 campaigns
+│   ├── 03_realtime_notifications.sql # Realtime pub/sub & notification indexes
+│   └── README.md                     # Database setup and execution instructions
 ├── api/                      # Vercel Serverless Function entrypoint (`api/server.js`)
 ├── Assets/                   # Visual assets & branding graphics
 ├── PRD.txt                   # Product Requirement Document
@@ -103,8 +107,9 @@ npm run install-all
 1. Log in to your [Supabase Dashboard](https://supabase.com).
 2. Create a new project or select an existing project.
 3. Open the **SQL Editor** -> **New query**.
-4. Copy all content from [`backend/supabase_schema.sql`](file:///e:/WWW/FundBridge/backend/supabase_schema.sql) and paste it into the editor.
-5. Click **RUN** to set up tables, views, and indexes.
+4. Run `supabase/01_schema_and_tables.sql` to initialize all 18 tables and relationships.
+5. Run `supabase/02_seed_initial_data.sql` to populate 100 verified founders, 30 investors, and 50 startup campaigns.
+6. Run `supabase/03_realtime_notifications.sql` to configure real-time notifications.
 
 ---
 

@@ -52,7 +52,7 @@ The platform bridges the trust and funding gap in early-stage student startups b
   - Environment: Node.js & Express.js Serverless REST API
   - Serverless Function Entrypoint: `api/server.js` for Vercel Cloud Serverless functions
   - AI Assistant Service: `/api/ai/generate` engine for tagline, bio, & investor matching
-  - Database Engine: 100% Supabase Cloud PostgreSQL Database (`backend/supabase_schema.sql` native schema)
+  - Database Engine: 100% Supabase Cloud PostgreSQL Database (`supabase/01_schema_and_tables.sql` native schema)
 
 --------------------------------------------------------------------------------
 4. COMPLETE FUNCTIONAL REQUIREMENT SPECIFICATIONS (FR-1 TO FR-24)
@@ -153,7 +153,7 @@ Step 1: Execute Supabase Database Schema
   1. Log into your Supabase Dashboard (https://supabase.com).
   2. Create a new project named "FundBridge".
   3. Open the "SQL Editor" in Supabase.
-  4. Paste the entire contents of `backend/supabase_schema.sql` and click "Run".
+  4. Run `supabase/01_schema_and_tables.sql` followed by `supabase/02_seed_initial_data.sql` and `supabase/03_realtime_notifications.sql`.
   5. Copy your Project URL and Anon/Service Key from Settings -> API.
 
 Step 2: Deploy to Vercel

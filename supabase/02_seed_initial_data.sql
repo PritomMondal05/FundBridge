@@ -1,11 +1,17 @@
 -- ========================================================
--- 30 INVESTORS, 100 STUDENT FOUNDERS & 50 CAMPAIGNS SEED DATA
+-- FUNDBRIDGE SUPABASE SEED DATA
+-- File: 02_seed_initial_data.sql
+-- Work: 100 Verified Founders, 30 Verified Investors & 50 Startup Campaigns
 -- ========================================================
 
 -- Clean up any conflicting emails or legacy IDs before re-seeding
 DELETE FROM users WHERE id IN ('usr_founder_adib', 'usr_investor_nazmus');
 DELETE FROM users WHERE email IN ('adibnayem@gmail.com', 'nazmus@gmail.com', 'admin@fundbridge.com', 'investor@firm.com', 'anika@brac.edu.bd', 'tanvir@buet.ac.bd', 'nabila@northsouth.edu', 'samiul@du.ac.bd') AND id NOT IN ('usr_founder_1', 'usr_investor_1', 'usr_admin_1');
 
+-- 0. DEFAULT ADMIN USER
+INSERT INTO users (id, name, email, password, role, vetting_status, mfs_number)
+VALUES ('usr_admin_1', 'ADMIN_PRITOM', 'admin@fundbridge.com', 'admin123', 'admin', 'verified', '01799999999')
+ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, password = EXCLUDED.password;
 
 -- 1. STUDENT FOUNDERS (100 Verified Student Entrepreneurs)
 INSERT INTO users (id, name, email, password, role, vetting_status, university, student_id, department, mfs_number)
@@ -164,7 +170,7 @@ VALUES
   ('microledger_12', 'MicroLedger', 'usr_founder_12', 'United International University', 'Gazipur, Bangladesh', 'AgriTech / IoT', 'Growth', 820000, 246000, '12% Rev. Share', 'Innovative Bangladeshi AgriTech / IoT startup solving key campus and enterprise challenges.', 'MicroLedger is a student-led AgriTech / IoT startup founded at United International University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"done"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
   ('robobots_13', 'RoboBots', 'usr_founder_13', 'Independent University Bangladesh (IUB)', 'Dhaka, Bangladesh', 'EdTech', 'MVP', 855000, 342000, '15% Equity', 'Innovative Bangladeshi EdTech startup solving key campus and enterprise challenges.', 'RoboBots is a student-led EdTech startup founded at Independent University Bangladesh (IUB). We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"pending"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
   ('solargrid_14', 'SolarGrid', 'usr_founder_14', 'Ahsanullah University of Science & Technology (AUST)', 'Chittagong, Bangladesh', 'CleanTech', 'Prototype', 890000, 445000, '7% Rev. Share', 'Innovative Bangladeshi CleanTech startup solving key campus and enterprise challenges.', 'SolarGrid is a student-led CleanTech startup founded at Ahsanullah University of Science & Technology (AUST). We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"done"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
-  ('pulsecare_15', 'PulseCare', 'usr_founder_15', 'Jahangirnagar University', 'Sylhet, Bangladesh', 'FinTech', 'Pilot', 925000, 555000, '6% Equity', 'Innovative Bangladeshi FinTech startup solving key campus and enterprise challenges.', 'PulseCare is a student-led FinTech startup founded at Jahangirnagar University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"pending"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
+  ('pulsecare_15', 'PulseCare', 'usr_founder_15', 'Jahangirnagar University', 'Sylhet, Bangladesh', 'FinTech', 'Pilot', 925000, 555000, '6% Equity', 'Innovative Bangladeshi FinTech startup solving key campus and enterprise challenges.', 'PulseCare is a student-led FinTech startup founded at Jahangirnagar University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"done"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
   ('linkbridge_16', 'LinkBridge', 'usr_founder_16', 'Rajshahi University', 'Rajshahi, Bangladesh', 'HealthTech', 'Growth', 960000, 672000, '9% Rev. Share', 'Innovative Bangladeshi HealthTech startup solving key campus and enterprise challenges.', 'LinkBridge is a student-led HealthTech startup founded at Rajshahi University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"done"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
   ('netflow_17', 'NetFlow', 'usr_founder_17', 'Chittagong University', 'Khulna, Bangladesh', 'Logistics / Supply Chain', 'MVP', 995000, 796000, '5% Equity', 'Innovative Bangladeshi Logistics / Supply Chain startup solving key campus and enterprise challenges.', 'NetFlow is a student-led Logistics / Supply Chain startup founded at Chittagong University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"pending"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
   ('syncnexus_18', 'SyncNexus', 'usr_founder_18', 'Khulna University', 'Gazipur, Bangladesh', 'E-Commerce / Marketplace', 'Prototype', 1030000, 309000, '8% Rev. Share', 'Innovative Bangladeshi E-Commerce / Marketplace startup solving key campus and enterprise challenges.', 'SyncNexus is a student-led E-Commerce / Marketplace startup founded at Khulna University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"done"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
@@ -201,3 +207,18 @@ VALUES
   ('shebapoint_49', 'ShebaPoint', 'usr_founder_49', 'AIUB', 'Dhaka, Bangladesh', 'AI / Robotics', 'MVP', 2115000, 846000, '5% Equity', 'Innovative Bangladeshi AI / Robotics startup solving key campus and enterprise challenges.', 'ShebaPoint is a student-led AI / Robotics startup founded at AIUB. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"pending"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb),
   ('deshizone_50', 'DeshiZone', 'usr_founder_50', 'MIST', 'Chittagong, Bangladesh', 'Biotech', 'Prototype', 2150000, 1075000, '8% Rev. Share', 'Innovative Bangladeshi Biotech startup solving key campus and enterprise challenges.', 'DeshiZone is a student-led Biotech startup founded at MIST. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.', TRUE, 'verified', '[{"title":"Level 1 MVP Launch","target":"Month 1","status":"done"},{"title":"First 100 Active Users","target":"Month 3","status":"done"},{"title":"Commercial Expansion","target":"Month 6","status":"pending"}]'::jsonb)
 ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, goal = EXCLUDED.goal, raised = EXCLUDED.raised, equity_offer = EXCLUDED.equity_offer;
+
+-- 4. DEFAULT AUDIT HASH ENTRY
+INSERT INTO audit_logs (hash, category, title, status, latency)
+VALUES ('0x8f2a99c4b1d09e1a', 'DISBURSEMENT', 'Escrow Tranche #1 Release', 'VERIFIED', '14ms')
+ON CONFLICT DO NOTHING;
+
+-- 5. SAMPLE PROPOSAL & PAYOUT RECORDS
+INSERT INTO proposals (id, campaign_id, investor_id, amount, terms, return_structure, status)
+VALUES ('test_prop_1', 'campusbites_1', 'usr_investor_1', 50000, '8% Rev Share', '8% Rev Share', 'accepted')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO payouts (id, founder_id, campaign_id, tranche, amount, method, account_number, status, hash)
+VALUES ('test_payout_1', 'usr_founder_1', 'campusbites_1', 'MVP Launch Tranche', 20000, 'bKash', '01710000000', 'Pending Audit', '0xtest123')
+ON CONFLICT (id) DO NOTHING;
+
