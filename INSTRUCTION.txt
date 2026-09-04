@@ -38,11 +38,11 @@ Admin Portal:
   Password: admin123
 
 Investor Portal:
-  Email:    investor@firm.com
-  Password: investorpassword
+  Email:    nazmus@gmail.com
+  Password: 1234
 
 Student Founder Portal:
-  Email:    anika@brac.edu.bd
-  Password: founderpassword
+  Email:    adibnayem@gmail.com
+  Password: 1234
 
 =======================================================

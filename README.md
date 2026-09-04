@@ -42,7 +42,8 @@ The platform bridges the trust and funding gap in early-stage student startups b
 
 ### **Backend & Database**
 * **Runtime**: Node.js & Express.js (RESTful API & Serverless API via `api/server.js`)
-* **Database**: Supabase Cloud PostgreSQL Database (`backend/supabase_schema.sql`) with optional Mongoose/MongoDB ORM support
+* **Architecture**: Clean MVC (Model-View-Controller) architecture
+* **Database**: Supabase Cloud PostgreSQL Database (`backend/supabase_schema.sql`)
 * **Real-time Messaging**: Socket.io
 * **Authentication**: JSON Web Tokens (JWT) & Bcrypt password hashing
 * **Deployment**: Configured for Vercel Cloud deployment (`vercel.json`)
@@ -53,14 +54,15 @@ The platform bridges the trust and funding gap in early-stage student startups b
 
 ```text
 FundBridge/
-├── backend/                  # Express.js REST API & Supabase database schema
-│   ├── config/               # Database & service configurations
-│   ├── controllers/          # Request handlers (auth, campaigns, proposals, chat, etc.)
-│   ├── middleware/           # Auth and validation middleware
-│   ├── models/               # Data models & schemas
-│   ├── routes/               # Express API routes
-│   ├── seed.js               # Database seeding script
-│   ├── server.js             # Local backend entrypoint (Port 5000)
+├── backend/                  # Express.js REST API & Supabase database integration
+│   ├── config/               # Supabase and Socket.IO configurations
+│   ├── controllers/          # Business logic controllers (auth, campaign, proposal, wallet, etc.)
+│   ├── middlewares/          # Upload and error handling middlewares
+│   ├── models/               # Supabase data models & fallback sync operations
+│   ├── routes/               # Modular Express API route definitions
+│   ├── utils/                # In-memory stores, file persistence & data normalizers
+│   ├── app.js                # Express app setup and middleware wiring
+│   ├── server.js             # Server startup and Socket.IO listener (Port 5000)
 │   └── supabase_schema.sql   # Supabase SQL database initialization script
 ├── frontend/                 # React (Vite) Single Page Application
 │   ├── src/
