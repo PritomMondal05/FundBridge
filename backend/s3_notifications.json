@@ -1,5 +1,44 @@
 [
   {
+    "id": "notif_1788557702962_7lkm",
+    "user_id": "usr_founder_1",
+    "recipient_id": "usr_founder_1",
+    "sender_id": null,
+    "type": "warning",
+    "title": "Campaign Audit Status: Rejected ❌",
+    "message": "Your pitch \"campaign\" was not approved by Admin. Reason: asdasd.",
+    "link_url": null,
+    "event_key": null,
+    "is_read": false,
+    "created_at": "2026-09-04T21:35:02.962Z"
+  },
+  {
+    "id": "notif_1788557697332_20t9",
+    "user_id": "usr_founder_1",
+    "recipient_id": "usr_founder_1",
+    "sender_id": null,
+    "type": "warning",
+    "title": "Campaign Audit Status: Rejected ❌",
+    "message": "Your pitch \"campaign\" was not approved by Admin. Reason: sada.",
+    "link_url": null,
+    "event_key": null,
+    "is_read": false,
+    "created_at": "2026-09-04T21:34:57.332Z"
+  },
+  {
+    "id": "notif_1788557671104_o4az",
+    "user_id": "usr_founder_1",
+    "recipient_id": "usr_founder_1",
+    "sender_id": null,
+    "type": "warning",
+    "title": "Campaign Audit Status: Rejected ❌",
+    "message": "Your pitch \"campaign\" was not approved by Admin. Reason: adsfcasd.",
+    "link_url": null,
+    "event_key": null,
+    "is_read": false,
+    "created_at": "2026-09-04T21:34:31.104Z"
+  },
+  {
     "id": "notif_1788555981399_t2jf",
     "user_id": "usr_founder_1",
     "recipient_id": "usr_founder_1",

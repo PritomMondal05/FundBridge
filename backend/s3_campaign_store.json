@@ -1,5 +1,64 @@
 [
   {
+    "_id": "cmp_1788461352490",
+    "id": "cmp_1788461352490",
+    "title": "GoCar",
+    "founderId": "usr_founder_1",
+    "founder_id": "usr_founder_1",
+    "founder": {
+      "_id": "usr_founder_1",
+      "id": "usr_founder_1",
+      "name": "Ashraf Khan",
+      "email": "ashraf.khan1@univ.edu.bd",
+      "university": "BUET",
+      "department": "Electrical & Electronic Engineering",
+      "studentId": "20100037",
+      "mfsNumber": "01710008371",
+      "vettingStatus": "verified",
+      "bio": "Hardware innovator researching solar IoT devices and precision agriculture tools for rural farmers."
+    },
+    "university": "BUET",
+    "location": "Dhaka, Bangladesh",
+    "category": "AI / Robotics",
+    "stage": "MVP Stage",
+    "goal": 500000,
+    "raised": 0,
+    "equityOffer": "8% Revenue Share",
+    "equity_offer": "8% Revenue Share",
+    "tagline": "this is a c",
+    "coverPhoto": "",
+    "pitchVideoUrl": "",
+    "description": "GoCar",
+    "milestones": [
+      {
+        "title": "MVP Launch & Prototype",
+        "target": "Month 1",
+        "status": "pending"
+      },
+      {
+        "title": "Market Testing & First 100 Users",
+        "target": "Month 2",
+        "status": "locked"
+      },
+      {
+        "title": "Commercial Release & Revenue Target",
+        "target": "Month 4",
+        "status": "locked"
+      }
+    ],
+    "verified": false,
+    "status": "rejected",
+    "escrowFrozen": false,
+    "escrow_frozen": false,
+    "coFounders": [],
+    "co_founders": [],
+    "successorName": "",
+    "successor_name": "",
+    "successorEmail": "",
+    "successor_email": "",
+    "rejection_reason": "wesdfsdf"
+  },
+  {
     "id": "camp_1788534099378_uw7z",
     "_id": "camp_1788534099378_uw7z",
     "title": "Jhotpot",
@@ -70,65 +129,6 @@
     "successorName": "",
     "successor_email": "",
     "successorEmail": ""
-  },
-  {
-    "_id": "cmp_1788461352490",
-    "id": "cmp_1788461352490",
-    "title": "GoCar",
-    "founderId": "usr_founder_1",
-    "founder_id": "usr_founder_1",
-    "founder": {
-      "_id": "usr_founder_1",
-      "id": "usr_founder_1",
-      "name": "Ashraf Khan",
-      "email": "ashraf.khan1@univ.edu.bd",
-      "university": "BUET",
-      "department": "Electrical & Electronic Engineering",
-      "studentId": "20100037",
-      "mfsNumber": "01710008371",
-      "vettingStatus": "verified",
-      "bio": "Hardware innovator researching solar IoT devices and precision agriculture tools for rural farmers."
-    },
-    "university": "BUET",
-    "location": "Dhaka, Bangladesh",
-    "category": "AI / Robotics",
-    "stage": "MVP Stage",
-    "goal": 500000,
-    "raised": 0,
-    "equityOffer": "8% Revenue Share",
-    "equity_offer": "8% Revenue Share",
-    "tagline": "this is a c",
-    "coverPhoto": "",
-    "pitchVideoUrl": "",
-    "description": "GoCar",
-    "milestones": [
-      {
-        "title": "MVP Launch & Prototype",
-        "target": "Month 1",
-        "status": "pending"
-      },
-      {
-        "title": "Market Testing & First 100 Users",
-        "target": "Month 2",
-        "status": "locked"
-      },
-      {
-        "title": "Commercial Release & Revenue Target",
-        "target": "Month 4",
-        "status": "locked"
-      }
-    ],
-    "verified": false,
-    "status": "rejected",
-    "escrowFrozen": false,
-    "escrow_frozen": false,
-    "coFounders": [],
-    "co_founders": [],
-    "successorName": "",
-    "successor_name": "",
-    "successorEmail": "",
-    "successor_email": "",
-    "rejection_reason": "wesdfsdf"
   },
   {
     "id": "campusbites_1",
@@ -628,5 +628,1725 @@
     "successorName": "",
     "successor_email": "",
     "successorEmail": ""
+  },
+  {
+    "id": "bazaarmart_11",
+    "title": "BazaarMart",
+    "founder_id": "usr_founder_11",
+    "founderId": "usr_founder_11",
+    "founder": {
+      "name": "Sabrina Haider",
+      "university": "East West University",
+      "department": "Data Science & Artificial Intelligence",
+      "studentId": "20100407",
+      "mfsNumber": "01710092081",
+      "bio": "CleanTech researcher developing biodegradable jute packaging materials to replace e-commerce plastics."
+    },
+    "university": "East West University",
+    "location": "Khulna, Bangladesh",
+    "category": "FoodTech / SaaS",
+    "stage": "Pilot",
+    "goal": 785000,
+    "raised": 628000,
+    "equityOffer": "10% Equity",
+    "equity_offer": "10% Equity",
+    "tagline": "Innovative Bangladeshi FoodTech / SaaS startup solving key campus and enterprise challenges.",
+    "description": "BazaarMart is a student-led FoodTech / SaaS startup founded at East West University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "microledger_12",
+    "title": "MicroLedger",
+    "founder_id": "usr_founder_12",
+    "founderId": "usr_founder_12",
+    "founder": {
+      "name": "Sameer Hasan",
+      "university": "United International University",
+      "department": "Environmental Technology",
+      "studentId": "20100444",
+      "mfsNumber": "01710100452",
+      "bio": "FinTech enthusiast designing micro-savings and MFS digital ledger tools for campus students."
+    },
+    "university": "United International University",
+    "location": "Gazipur, Bangladesh",
+    "category": "AgriTech / IoT",
+    "stage": "Growth",
+    "goal": 820000,
+    "raised": 246000,
+    "equityOffer": "12% Rev. Share",
+    "equity_offer": "12% Rev. Share",
+    "tagline": "Innovative Bangladeshi AgriTech / IoT startup solving key campus and enterprise challenges.",
+    "description": "MicroLedger is a student-led AgriTech / IoT startup founded at United International University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "robobots_13",
+    "title": "RoboBots",
+    "founder_id": "usr_founder_13",
+    "founderId": "usr_founder_13",
+    "founder": {
+      "name": "Shakir Sarker",
+      "university": "Independent University Bangladesh (IUB)",
+      "department": "Biotechnology",
+      "studentId": "20100481",
+      "mfsNumber": "01710108823",
+      "bio": "SaaS creator building canteen pre-ordering and digital token reservation software."
+    },
+    "university": "Independent University Bangladesh (IUB)",
+    "location": "Dhaka, Bangladesh",
+    "category": "EdTech",
+    "stage": "MVP",
+    "goal": 855000,
+    "raised": 342000,
+    "equityOffer": "15% Equity",
+    "equity_offer": "15% Equity",
+    "tagline": "Innovative Bangladeshi EdTech startup solving key campus and enterprise challenges.",
+    "description": "RoboBots is a student-led EdTech startup founded at Independent University Bangladesh (IUB). We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "solargrid_14",
+    "title": "SolarGrid",
+    "founder_id": "usr_founder_14",
+    "founderId": "usr_founder_14",
+    "founder": {
+      "name": "Sumaiya Kabir",
+      "university": "Ahsanullah University of Science & Technology (AUST)",
+      "department": "Computer Science & Engineering",
+      "studentId": "20100518",
+      "mfsNumber": "01710117194",
+      "bio": "HealthTech builder developing affordable tele-consultation kiosks for rural communities."
+    },
+    "university": "Ahsanullah University of Science & Technology (AUST)",
+    "location": "Chittagong, Bangladesh",
+    "category": "CleanTech",
+    "stage": "Prototype",
+    "goal": 890000,
+    "raised": 445000,
+    "equityOffer": "7% Rev. Share",
+    "equity_offer": "7% Rev. Share",
+    "tagline": "Innovative Bangladeshi CleanTech startup solving key campus and enterprise challenges.",
+    "description": "SolarGrid is a student-led CleanTech startup founded at Ahsanullah University of Science & Technology (AUST). We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "pulsecare_15",
+    "title": "PulseCare",
+    "founder_id": "usr_founder_15",
+    "founderId": "usr_founder_15",
+    "founder": {
+      "name": "Tasnim Hossain",
+      "university": "Jahangirnagar University",
+      "department": "Electrical & Electronic Engineering",
+      "studentId": "20100555",
+      "mfsNumber": "01710125565",
+      "bio": "LogisticTech founder building smart campus parcel lockers and intra-university delivery networks."
+    },
+    "university": "Jahangirnagar University",
+    "location": "Sylhet, Bangladesh",
+    "category": "FinTech",
+    "stage": "Pilot",
+    "goal": 925000,
+    "raised": 555000,
+    "equityOffer": "6% Equity",
+    "equity_offer": "6% Equity",
+    "tagline": "Innovative Bangladeshi FinTech startup solving key campus and enterprise challenges.",
+    "description": "PulseCare is a student-led FinTech startup founded at Jahangirnagar University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "linkbridge_16",
+    "title": "LinkBridge",
+    "founder_id": "usr_founder_16",
+    "founderId": "usr_founder_16",
+    "founder": {
+      "name": "Zainab Sultana",
+      "university": "Rajshahi University",
+      "department": "Business Administration",
+      "studentId": "20100592",
+      "mfsNumber": "01710133936",
+      "bio": "Student founder building AI-driven web apps and digital automation for Bangladeshi university campuses."
+    },
+    "university": "Rajshahi University",
+    "location": "Rajshahi, Bangladesh",
+    "category": "HealthTech",
+    "stage": "Growth",
+    "goal": 960000,
+    "raised": 672000,
+    "equityOffer": "9% Rev. Share",
+    "equity_offer": "9% Rev. Share",
+    "tagline": "Innovative Bangladeshi HealthTech startup solving key campus and enterprise challenges.",
+    "description": "LinkBridge is a student-led HealthTech startup founded at Rajshahi University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "netflow_17",
+    "title": "NetFlow",
+    "founder_id": "usr_founder_17",
+    "founderId": "usr_founder_17",
+    "founder": {
+      "name": "Amina Mustafa",
+      "university": "Chittagong University",
+      "department": "Software Engineering",
+      "studentId": "20100629",
+      "mfsNumber": "01710142307",
+      "bio": "Hardware innovator researching solar IoT devices and precision agriculture tools for rural farmers."
+    },
+    "university": "Chittagong University",
+    "location": "Khulna, Bangladesh",
+    "category": "Logistics / Supply Chain",
+    "stage": "MVP",
+    "goal": 995000,
+    "raised": 796000,
+    "equityOffer": "5% Equity",
+    "equity_offer": "5% Equity",
+    "tagline": "Innovative Bangladeshi Logistics / Supply Chain startup solving key campus and enterprise challenges.",
+    "description": "NetFlow is a student-led Logistics / Supply Chain startup founded at Chittagong University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "syncnexus_18",
+    "title": "SyncNexus",
+    "founder_id": "usr_founder_18",
+    "founderId": "usr_founder_18",
+    "founder": {
+      "name": "Asma Islam",
+      "university": "Khulna University",
+      "department": "Mechanical Engineering",
+      "studentId": "20100666",
+      "mfsNumber": "01710150678",
+      "bio": "EdTech developer creating gamified skill assessment and corporate internship matching platforms."
+    },
+    "university": "Khulna University",
+    "location": "Gazipur, Bangladesh",
+    "category": "E-Commerce / Marketplace",
+    "stage": "Prototype",
+    "goal": 1030000,
+    "raised": 309000,
+    "equityOffer": "8% Rev. Share",
+    "equity_offer": "8% Rev. Share",
+    "tagline": "Innovative Bangladeshi E-Commerce / Marketplace startup solving key campus and enterprise challenges.",
+    "description": "SyncNexus is a student-led E-Commerce / Marketplace startup founded at Khulna University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "flexpass_19",
+    "title": "FlexPass",
+    "founder_id": "usr_founder_19",
+    "founderId": "usr_founder_19",
+    "founder": {
+      "name": "Bilal Uddin",
+      "university": "Daffodil International University",
+      "department": "Biomedical Engineering",
+      "studentId": "20100703",
+      "mfsNumber": "01710159049",
+      "bio": "CleanTech researcher developing biodegradable jute packaging materials to replace e-commerce plastics."
+    },
+    "university": "Daffodil International University",
+    "location": "Dhaka, Bangladesh",
+    "category": "AI / Robotics",
+    "stage": "Pilot",
+    "goal": 1065000,
+    "raised": 426000,
+    "equityOffer": "10% Equity",
+    "equity_offer": "10% Equity",
+    "tagline": "Innovative Bangladeshi AI / Robotics startup solving key campus and enterprise challenges.",
+    "description": "FlexPass is a student-led AI / Robotics startup founded at Daffodil International University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "coreops_20",
+    "title": "CoreOps",
+    "founder_id": "usr_founder_20",
+    "founderId": "usr_founder_20",
+    "founder": {
+      "name": "Farhana Ahmed",
+      "university": "BRAC University",
+      "department": "Civil Engineering",
+      "studentId": "20100740",
+      "mfsNumber": "01710167420",
+      "bio": "FinTech enthusiast designing micro-savings and MFS digital ledger tools for campus students."
+    },
+    "university": "BRAC University",
+    "location": "Chittagong, Bangladesh",
+    "category": "Biotech",
+    "stage": "Growth",
+    "goal": 1100000,
+    "raised": 550000,
+    "equityOffer": "12% Rev. Share",
+    "equity_offer": "12% Rev. Share",
+    "tagline": "Innovative Bangladeshi Biotech startup solving key campus and enterprise challenges.",
+    "description": "CoreOps is a student-led Biotech startup founded at BRAC University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "agroyield_21",
+    "title": "AgroYield",
+    "founder_id": "usr_founder_21",
+    "founderId": "usr_founder_21",
+    "founder": {
+      "name": "Hasan Khan",
+      "university": "BUET",
+      "department": "Industrial & Production Engineering",
+      "studentId": "20100777",
+      "mfsNumber": "01710175791",
+      "bio": "SaaS creator building canteen pre-ordering and digital token reservation software."
+    },
+    "university": "BUET",
+    "location": "Sylhet, Bangladesh",
+    "category": "FoodTech / SaaS",
+    "stage": "MVP",
+    "goal": 1135000,
+    "raised": 681000,
+    "equityOffer": "15% Equity",
+    "equity_offer": "15% Equity",
+    "tagline": "Innovative Bangladeshi FoodTech / SaaS startup solving key campus and enterprise challenges.",
+    "description": "AgroYield is a student-led FoodTech / SaaS startup founded at BUET. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "medkiosk_22",
+    "title": "MedKiosk",
+    "founder_id": "usr_founder_22",
+    "founderId": "usr_founder_22",
+    "founder": {
+      "name": "Kamal Zaman",
+      "university": "North South University",
+      "department": "Mechatronics & Robotics",
+      "studentId": "20100814",
+      "mfsNumber": "01710184162",
+      "bio": "HealthTech builder developing affordable tele-consultation kiosks for rural communities."
+    },
+    "university": "North South University",
+    "location": "Rajshahi, Bangladesh",
+    "category": "AgriTech / IoT",
+    "stage": "Prototype",
+    "goal": 1170000,
+    "raised": 819000,
+    "equityOffer": "7% Rev. Share",
+    "equity_offer": "7% Rev. Share",
+    "tagline": "Innovative Bangladeshi AgriTech / IoT startup solving key campus and enterprise challenges.",
+    "description": "MedKiosk is a student-led AgriTech / IoT startup founded at North South University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "edututor_23",
+    "title": "EduTutor",
+    "founder_id": "usr_founder_23",
+    "founderId": "usr_founder_23",
+    "founder": {
+      "name": "Mahbub Alam",
+      "university": "Dhaka University (IBA)",
+      "department": "Finance & Economics",
+      "studentId": "20100851",
+      "mfsNumber": "01710192533",
+      "bio": "LogisticTech founder building smart campus parcel lockers and intra-university delivery networks."
+    },
+    "university": "Dhaka University (IBA)",
+    "location": "Khulna, Bangladesh",
+    "category": "EdTech",
+    "stage": "Pilot",
+    "goal": 1205000,
+    "raised": 964000,
+    "equityOffer": "6% Equity",
+    "equity_offer": "6% Equity",
+    "tagline": "Innovative Bangladeshi EdTech startup solving key campus and enterprise challenges.",
+    "description": "EduTutor is a student-led EdTech startup founded at Dhaka University (IBA). We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "paywallet_24",
+    "title": "PayWallet",
+    "founder_id": "usr_founder_24",
+    "founderId": "usr_founder_24",
+    "founder": {
+      "name": "Nabil Mahmud",
+      "university": "SUST",
+      "department": "Marketing & E-Commerce",
+      "studentId": "20100888",
+      "mfsNumber": "01710200904",
+      "bio": "Student founder building AI-driven web apps and digital automation for Bangladeshi university campuses."
+    },
+    "university": "SUST",
+    "location": "Gazipur, Bangladesh",
+    "category": "CleanTech",
+    "stage": "Growth",
+    "goal": 1240000,
+    "raised": 372000,
+    "equityOffer": "9% Rev. Share",
+    "equity_offer": "9% Rev. Share",
+    "tagline": "Innovative Bangladeshi CleanTech startup solving key campus and enterprise challenges.",
+    "description": "PayWallet is a student-led CleanTech startup founded at SUST. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "logilocker_25",
+    "title": "LogiLocker",
+    "founder_id": "usr_founder_25",
+    "founderId": "usr_founder_25",
+    "founder": {
+      "name": "Nusrat Begum",
+      "university": "IUT Gazipur",
+      "department": "Data Science & Artificial Intelligence",
+      "studentId": "20100925",
+      "mfsNumber": "01710209275",
+      "bio": "Hardware innovator researching solar IoT devices and precision agriculture tools for rural farmers."
+    },
+    "university": "IUT Gazipur",
+    "location": "Dhaka, Bangladesh",
+    "category": "FinTech",
+    "stage": "MVP",
+    "goal": 1275000,
+    "raised": 510000,
+    "equityOffer": "5% Equity",
+    "equity_offer": "5% Equity",
+    "tagline": "Innovative Bangladeshi FinTech startup solving key campus and enterprise challenges.",
+    "description": "LogiLocker is a student-led FinTech startup founded at IUT Gazipur. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "freshmarket_26",
+    "title": "FreshMarket",
+    "founder_id": "usr_founder_26",
+    "founderId": "usr_founder_26",
+    "founder": {
+      "name": "Rafiq Ali",
+      "university": "RUET",
+      "department": "Environmental Technology",
+      "studentId": "20100962",
+      "mfsNumber": "01710217646",
+      "bio": "EdTech developer creating gamified skill assessment and corporate internship matching platforms."
+    },
+    "university": "RUET",
+    "location": "Chittagong, Bangladesh",
+    "category": "HealthTech",
+    "stage": "Prototype",
+    "goal": 1310000,
+    "raised": 655000,
+    "equityOffer": "8% Rev. Share",
+    "equity_offer": "8% Rev. Share",
+    "tagline": "Innovative Bangladeshi HealthTech startup solving key campus and enterprise challenges.",
+    "description": "FreshMarket is a student-led HealthTech startup founded at RUET. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "cleanpower_27",
+    "title": "CleanPower",
+    "founder_id": "usr_founder_27",
+    "founderId": "usr_founder_27",
+    "founder": {
+      "name": "Roxana Mia",
+      "university": "CUET",
+      "department": "Biotechnology",
+      "studentId": "20100999",
+      "mfsNumber": "01710226017",
+      "bio": "CleanTech researcher developing biodegradable jute packaging materials to replace e-commerce plastics."
+    },
+    "university": "CUET",
+    "location": "Sylhet, Bangladesh",
+    "category": "Logistics / Supply Chain",
+    "stage": "Pilot",
+    "goal": 1345000,
+    "raised": 807000,
+    "equityOffer": "10% Equity",
+    "equity_offer": "10% Equity",
+    "tagline": "Innovative Bangladeshi Logistics / Supply Chain startup solving key campus and enterprise challenges.",
+    "description": "CleanPower is a student-led Logistics / Supply Chain startup founded at CUET. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "aquamonitor_28",
+    "title": "AquaMonitor",
+    "founder_id": "usr_founder_28",
+    "founderId": "usr_founder_28",
+    "founder": {
+      "name": "Saeed Bhuiyan",
+      "university": "KUET",
+      "department": "Computer Science & Engineering",
+      "studentId": "20101036",
+      "mfsNumber": "01710234388",
+      "bio": "FinTech enthusiast designing micro-savings and MFS digital ledger tools for campus students."
+    },
+    "university": "KUET",
+    "location": "Rajshahi, Bangladesh",
+    "category": "E-Commerce / Marketplace",
+    "stage": "Growth",
+    "goal": 1380000,
+    "raised": 966000,
+    "equityOffer": "12% Rev. Share",
+    "equity_offer": "12% Rev. Share",
+    "tagline": "Innovative Bangladeshi E-Commerce / Marketplace startup solving key campus and enterprise challenges.",
+    "description": "AquaMonitor is a student-led E-Commerce / Marketplace startup founded at KUET. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "terraharvest_29",
+    "title": "TerraHarvest",
+    "founder_id": "usr_founder_29",
+    "founderId": "usr_founder_29",
+    "founder": {
+      "name": "Samira Chowdhury",
+      "university": "AIUB",
+      "department": "Electrical & Electronic Engineering",
+      "studentId": "20101073",
+      "mfsNumber": "01710242759",
+      "bio": "SaaS creator building canteen pre-ordering and digital token reservation software."
+    },
+    "university": "AIUB",
+    "location": "Khulna, Bangladesh",
+    "category": "AI / Robotics",
+    "stage": "MVP",
+    "goal": 1415000,
+    "raised": 1132000,
+    "equityOffer": "15% Equity",
+    "equity_offer": "15% Equity",
+    "tagline": "Innovative Bangladeshi AI / Robotics startup solving key campus and enterprise challenges.",
+    "description": "TerraHarvest is a student-led AI / Robotics startup founded at AIUB. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "visix_30",
+    "title": "VisiX",
+    "founder_id": "usr_founder_30",
+    "founderId": "usr_founder_30",
+    "founder": {
+      "name": "Sharmin Rahman",
+      "university": "MIST",
+      "department": "Business Administration",
+      "studentId": "20101110",
+      "mfsNumber": "01710251130",
+      "bio": "HealthTech builder developing affordable tele-consultation kiosks for rural communities."
+    },
+    "university": "MIST",
+    "location": "Gazipur, Bangladesh",
+    "category": "Biotech",
+    "stage": "Prototype",
+    "goal": 1450000,
+    "raised": 435000,
+    "equityOffer": "7% Rev. Share",
+    "equity_offer": "7% Rev. Share",
+    "tagline": "Innovative Bangladeshi Biotech startup solving key campus and enterprise challenges.",
+    "description": "VisiX is a student-led Biotech startup founded at MIST. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "techspace_31",
+    "title": "TechSpace",
+    "founder_id": "usr_founder_31",
+    "founderId": "usr_founder_31",
+    "founder": {
+      "name": "Syed Haider",
+      "university": "East West University",
+      "department": "Software Engineering",
+      "studentId": "20101147",
+      "mfsNumber": "01710259501",
+      "bio": "LogisticTech founder building smart campus parcel lockers and intra-university delivery networks."
+    },
+    "university": "East West University",
+    "location": "Dhaka, Bangladesh",
+    "category": "FoodTech / SaaS",
+    "stage": "Pilot",
+    "goal": 1485000,
+    "raised": 594000,
+    "equityOffer": "6% Equity",
+    "equity_offer": "6% Equity",
+    "tagline": "Innovative Bangladeshi FoodTech / SaaS startup solving key campus and enterprise challenges.",
+    "description": "TechSpace is a student-led FoodTech / SaaS startup founded at East West University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "greenhive_32",
+    "title": "GreenHive",
+    "founder_id": "usr_founder_32",
+    "founderId": "usr_founder_32",
+    "founder": {
+      "name": "Yousuf Hasan",
+      "university": "United International University",
+      "department": "Mechanical Engineering",
+      "studentId": "20101184",
+      "mfsNumber": "01710267872",
+      "bio": "Student founder building AI-driven web apps and digital automation for Bangladeshi university campuses."
+    },
+    "university": "United International University",
+    "location": "Chittagong, Bangladesh",
+    "category": "AgriTech / IoT",
+    "stage": "Growth",
+    "goal": 1520000,
+    "raised": 760000,
+    "equityOffer": "9% Rev. Share",
+    "equity_offer": "9% Rev. Share",
+    "tagline": "Innovative Bangladeshi AgriTech / IoT startup solving key campus and enterprise challenges.",
+    "description": "GreenHive is a student-led AgriTech / IoT startup founded at United International University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "optilab_33",
+    "title": "OptiLab",
+    "founder_id": "usr_founder_33",
+    "founderId": "usr_founder_33",
+    "founder": {
+      "name": "Zubair Sarker",
+      "university": "Independent University Bangladesh (IUB)",
+      "department": "Biomedical Engineering",
+      "studentId": "20101221",
+      "mfsNumber": "01710276243",
+      "bio": "Hardware innovator researching solar IoT devices and precision agriculture tools for rural farmers."
+    },
+    "university": "Independent University Bangladesh (IUB)",
+    "location": "Sylhet, Bangladesh",
+    "category": "EdTech",
+    "stage": "MVP",
+    "goal": 1555000,
+    "raised": 933000,
+    "equityOffer": "5% Equity",
+    "equity_offer": "5% Equity",
+    "tagline": "Innovative Bangladeshi EdTech startup solving key campus and enterprise challenges.",
+    "description": "OptiLab is a student-led EdTech startup founded at Independent University Bangladesh (IUB). We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "novastation_34",
+    "title": "NovaStation",
+    "founder_id": "usr_founder_34",
+    "founderId": "usr_founder_34",
+    "founder": {
+      "name": "Arman Kabir",
+      "university": "Ahsanullah University of Science & Technology (AUST)",
+      "department": "Civil Engineering",
+      "studentId": "20101258",
+      "mfsNumber": "01710284614",
+      "bio": "EdTech developer creating gamified skill assessment and corporate internship matching platforms."
+    },
+    "university": "Ahsanullah University of Science & Technology (AUST)",
+    "location": "Rajshahi, Bangladesh",
+    "category": "CleanTech",
+    "stage": "Prototype",
+    "goal": 1590000,
+    "raised": 1113000,
+    "equityOffer": "8% Rev. Share",
+    "equity_offer": "8% Rev. Share",
+    "tagline": "Innovative Bangladeshi CleanTech startup solving key campus and enterprise challenges.",
+    "description": "NovaStation is a student-led CleanTech startup founded at Ahsanullah University of Science & Technology (AUST). We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "apexworks_35",
+    "title": "ApexWorks",
+    "founder_id": "usr_founder_35",
+    "founderId": "usr_founder_35",
+    "founder": {
+      "name": "Atiq Hossain",
+      "university": "Jahangirnagar University",
+      "department": "Industrial & Production Engineering",
+      "studentId": "20101295",
+      "mfsNumber": "01710292985",
+      "bio": "CleanTech researcher developing biodegradable jute packaging materials to replace e-commerce plastics."
+    },
+    "university": "Jahangirnagar University",
+    "location": "Khulna, Bangladesh",
+    "category": "FinTech",
+    "stage": "Pilot",
+    "goal": 1625000,
+    "raised": 1300000,
+    "equityOffer": "10% Equity",
+    "equity_offer": "10% Equity",
+    "tagline": "Innovative Bangladeshi FinTech startup solving key campus and enterprise challenges.",
+    "description": "ApexWorks is a student-led FinTech startup founded at Jahangirnagar University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "metadrive_36",
+    "title": "MetaDrive",
+    "founder_id": "usr_founder_36",
+    "founderId": "usr_founder_36",
+    "founder": {
+      "name": "Bushra Sultana",
+      "university": "Rajshahi University",
+      "department": "Mechatronics & Robotics",
+      "studentId": "20101332",
+      "mfsNumber": "01710301356",
+      "bio": "FinTech enthusiast designing micro-savings and MFS digital ledger tools for campus students."
+    },
+    "university": "Rajshahi University",
+    "location": "Gazipur, Bangladesh",
+    "category": "HealthTech",
+    "stage": "Growth",
+    "goal": 1660000,
+    "raised": 498000,
+    "equityOffer": "12% Rev. Share",
+    "equity_offer": "12% Rev. Share",
+    "tagline": "Innovative Bangladeshi HealthTech startup solving key campus and enterprise challenges.",
+    "description": "MetaDrive is a student-led HealthTech startup founded at Rajshahi University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "omniforce_37",
+    "title": "OmniForce",
+    "founder_id": "usr_founder_37",
+    "founderId": "usr_founder_37",
+    "founder": {
+      "name": "Faruk Mustafa",
+      "university": "Chittagong University",
+      "department": "Finance & Economics",
+      "studentId": "20101369",
+      "mfsNumber": "01710309727",
+      "bio": "SaaS creator building canteen pre-ordering and digital token reservation software."
+    },
+    "university": "Chittagong University",
+    "location": "Dhaka, Bangladesh",
+    "category": "Logistics / Supply Chain",
+    "stage": "MVP",
+    "goal": 1695000,
+    "raised": 678000,
+    "equityOffer": "15% Equity",
+    "equity_offer": "15% Equity",
+    "tagline": "Innovative Bangladeshi Logistics / Supply Chain startup solving key campus and enterprise challenges.",
+    "description": "OmniForce is a student-led Logistics / Supply Chain startup founded at Chittagong University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "aurawave_38",
+    "title": "AuraWave",
+    "founder_id": "usr_founder_38",
+    "founderId": "usr_founder_38",
+    "founder": {
+      "name": "Imran Islam",
+      "university": "Khulna University",
+      "department": "Marketing & E-Commerce",
+      "studentId": "20101406",
+      "mfsNumber": "01710318098",
+      "bio": "HealthTech builder developing affordable tele-consultation kiosks for rural communities."
+    },
+    "university": "Khulna University",
+    "location": "Chittagong, Bangladesh",
+    "category": "E-Commerce / Marketplace",
+    "stage": "Prototype",
+    "goal": 1730000,
+    "raised": 865000,
+    "equityOffer": "7% Rev. Share",
+    "equity_offer": "7% Rev. Share",
+    "tagline": "Innovative Bangladeshi E-Commerce / Marketplace startup solving key campus and enterprise challenges.",
+    "description": "AuraWave is a student-led E-Commerce / Marketplace startup founded at Khulna University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "voltbase_39",
+    "title": "VoltBase",
+    "founder_id": "usr_founder_39",
+    "founderId": "usr_founder_39",
+    "founder": {
+      "name": "Khaled Uddin",
+      "university": "Daffodil International University",
+      "department": "Data Science & Artificial Intelligence",
+      "studentId": "20101443",
+      "mfsNumber": "01710326469",
+      "bio": "LogisticTech founder building smart campus parcel lockers and intra-university delivery networks."
+    },
+    "university": "Daffodil International University",
+    "location": "Sylhet, Bangladesh",
+    "category": "AI / Robotics",
+    "stage": "Pilot",
+    "goal": 1765000,
+    "raised": 1059000,
+    "equityOffer": "6% Equity",
+    "equity_offer": "6% Equity",
+    "tagline": "Innovative Bangladeshi AI / Robotics startup solving key campus and enterprise challenges.",
+    "description": "VoltBase is a student-led AI / Robotics startup founded at Daffodil International University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "zenspot_40",
+    "title": "ZenSpot",
+    "founder_id": "usr_founder_40",
+    "founderId": "usr_founder_40",
+    "founder": {
+      "name": "Mariam Ahmed",
+      "university": "BRAC University",
+      "department": "Environmental Technology",
+      "studentId": "20101480",
+      "mfsNumber": "01710334840",
+      "bio": "Student founder building AI-driven web apps and digital automation for Bangladeshi university campuses."
+    },
+    "university": "BRAC University",
+    "location": "Rajshahi, Bangladesh",
+    "category": "Biotech",
+    "stage": "Growth",
+    "goal": 1800000,
+    "raised": 1260000,
+    "equityOffer": "9% Rev. Share",
+    "equity_offer": "9% Rev. Share",
+    "tagline": "Innovative Bangladeshi Biotech startup solving key campus and enterprise challenges.",
+    "description": "ZenSpot is a student-led Biotech startup founded at BRAC University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "codevault_41",
+    "title": "CodeVault",
+    "founder_id": "usr_founder_41",
+    "founderId": "usr_founder_41",
+    "founder": {
+      "name": "Nadia Khan",
+      "university": "BUET",
+      "department": "Biotechnology",
+      "studentId": "20101517",
+      "mfsNumber": "01710343211",
+      "bio": "Hardware innovator researching solar IoT devices and precision agriculture tools for rural farmers."
+    },
+    "university": "BUET",
+    "location": "Khulna, Bangladesh",
+    "category": "FoodTech / SaaS",
+    "stage": "MVP",
+    "goal": 1835000,
+    "raised": 1468000,
+    "equityOffer": "5% Equity",
+    "equity_offer": "5% Equity",
+    "tagline": "Innovative Bangladeshi FoodTech / SaaS startup solving key campus and enterprise challenges.",
+    "description": "CodeVault is a student-led FoodTech / SaaS startup founded at BUET. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "byteengine_42",
+    "title": "ByteEngine",
+    "founder_id": "usr_founder_42",
+    "founderId": "usr_founder_42",
+    "founder": {
+      "name": "Omar Zaman",
+      "university": "North South University",
+      "department": "Computer Science & Engineering",
+      "studentId": "20101554",
+      "mfsNumber": "01710351582",
+      "bio": "EdTech developer creating gamified skill assessment and corporate internship matching platforms."
+    },
+    "university": "North South University",
+    "location": "Gazipur, Bangladesh",
+    "category": "AgriTech / IoT",
+    "stage": "Prototype",
+    "goal": 1870000,
+    "raised": 561000,
+    "equityOffer": "8% Rev. Share",
+    "equity_offer": "8% Rev. Share",
+    "tagline": "Innovative Bangladeshi AgriTech / IoT startup solving key campus and enterprise challenges.",
+    "description": "ByteEngine is a student-led AgriTech / IoT startup founded at North South University. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "flowsphere_43",
+    "title": "FlowSphere",
+    "founder_id": "usr_founder_43",
+    "founderId": "usr_founder_43",
+    "founder": {
+      "name": "Rahim Alam",
+      "university": "Dhaka University (IBA)",
+      "department": "Electrical & Electronic Engineering",
+      "studentId": "20101591",
+      "mfsNumber": "01710359953",
+      "bio": "CleanTech researcher developing biodegradable jute packaging materials to replace e-commerce plastics."
+    },
+    "university": "Dhaka University (IBA)",
+    "location": "Dhaka, Bangladesh",
+    "category": "EdTech",
+    "stage": "Pilot",
+    "goal": 1905000,
+    "raised": 762000,
+    "equityOffer": "10% Equity",
+    "equity_offer": "10% Equity",
+    "tagline": "Innovative Bangladeshi EdTech startup solving key campus and enterprise challenges.",
+    "description": "FlowSphere is a student-led EdTech startup founded at Dhaka University (IBA). We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "gridtrack_44",
+    "title": "GridTrack",
+    "founder_id": "usr_founder_44",
+    "founderId": "usr_founder_44",
+    "founder": {
+      "name": "Saad Mahmud",
+      "university": "SUST",
+      "department": "Business Administration",
+      "studentId": "20101628",
+      "mfsNumber": "01710368324",
+      "bio": "FinTech enthusiast designing micro-savings and MFS digital ledger tools for campus students."
+    },
+    "university": "SUST",
+    "location": "Chittagong, Bangladesh",
+    "category": "CleanTech",
+    "stage": "Growth",
+    "goal": 1940000,
+    "raised": 970000,
+    "equityOffer": "12% Rev. Share",
+    "equity_offer": "12% Rev. Share",
+    "tagline": "Innovative Bangladeshi CleanTech startup solving key campus and enterprise challenges.",
+    "description": "GridTrack is a student-led CleanTech startup founded at SUST. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "khetkamar_45",
+    "title": "KhetKamar",
+    "founder_id": "usr_founder_45",
+    "founderId": "usr_founder_45",
+    "founder": {
+      "name": "Salma Begum",
+      "university": "IUT Gazipur",
+      "department": "Software Engineering",
+      "studentId": "20101665",
+      "mfsNumber": "01710376695",
+      "bio": "SaaS creator building canteen pre-ordering and digital token reservation software."
+    },
+    "university": "IUT Gazipur",
+    "location": "Sylhet, Bangladesh",
+    "category": "FinTech",
+    "stage": "MVP",
+    "goal": 1975000,
+    "raised": 1185000,
+    "equityOffer": "15% Equity",
+    "equity_offer": "15% Equity",
+    "tagline": "Innovative Bangladeshi FinTech startup solving key campus and enterprise challenges.",
+    "description": "KhetKamar is a student-led FinTech startup founded at IUT Gazipur. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "amarshop_46",
+    "title": "AmarShop",
+    "founder_id": "usr_founder_46",
+    "founderId": "usr_founder_46",
+    "founder": {
+      "name": "Shahid Ali",
+      "university": "RUET",
+      "department": "Mechanical Engineering",
+      "studentId": "20101702",
+      "mfsNumber": "01710385066",
+      "bio": "HealthTech builder developing affordable tele-consultation kiosks for rural communities."
+    },
+    "university": "RUET",
+    "location": "Rajshahi, Bangladesh",
+    "category": "HealthTech",
+    "stage": "Prototype",
+    "goal": 2010000,
+    "raised": 1407000,
+    "equityOffer": "7% Rev. Share",
+    "equity_offer": "7% Rev. Share",
+    "tagline": "Innovative Bangladeshi HealthTech startup solving key campus and enterprise challenges.",
+    "description": "AmarShop is a student-led HealthTech startup founded at RUET. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "chalojaz_47",
+    "title": "ChaloJaz",
+    "founder_id": "usr_founder_47",
+    "founderId": "usr_founder_47",
+    "founder": {
+      "name": "Sohail Mia",
+      "university": "CUET",
+      "department": "Biomedical Engineering",
+      "studentId": "20101739",
+      "mfsNumber": "01710393437",
+      "bio": "LogisticTech founder building smart campus parcel lockers and intra-university delivery networks."
+    },
+    "university": "CUET",
+    "location": "Khulna, Bangladesh",
+    "category": "Logistics / Supply Chain",
+    "stage": "Pilot",
+    "goal": 2045000,
+    "raised": 1636000,
+    "equityOffer": "6% Equity",
+    "equity_offer": "6% Equity",
+    "tagline": "Innovative Bangladeshi Logistics / Supply Chain startup solving key campus and enterprise challenges.",
+    "description": "ChaloJaz is a student-led Logistics / Supply Chain startup founded at CUET. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "daktarkoti_48",
+    "title": "DaktarKoti",
+    "founder_id": "usr_founder_48",
+    "founderId": "usr_founder_48",
+    "founder": {
+      "name": "Tariq Bhuiyan",
+      "university": "KUET",
+      "department": "Civil Engineering",
+      "studentId": "20101776",
+      "mfsNumber": "01710401808",
+      "bio": "Student founder building AI-driven web apps and digital automation for Bangladeshi university campuses."
+    },
+    "university": "KUET",
+    "location": "Gazipur, Bangladesh",
+    "category": "E-Commerce / Marketplace",
+    "stage": "Growth",
+    "goal": 2080000,
+    "raised": 624000,
+    "equityOffer": "9% Rev. Share",
+    "equity_offer": "9% Rev. Share",
+    "tagline": "Innovative Bangladeshi E-Commerce / Marketplace startup solving key campus and enterprise challenges.",
+    "description": "DaktarKoti is a student-led E-Commerce / Marketplace startup founded at KUET. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "shebapoint_49",
+    "title": "ShebaPoint",
+    "founder_id": "usr_founder_49",
+    "founderId": "usr_founder_49",
+    "founder": {
+      "name": "Zahid Chowdhury",
+      "university": "AIUB",
+      "department": "Industrial & Production Engineering",
+      "studentId": "20101813",
+      "mfsNumber": "01710410179",
+      "bio": "Hardware innovator researching solar IoT devices and precision agriculture tools for rural farmers."
+    },
+    "university": "AIUB",
+    "location": "Dhaka, Bangladesh",
+    "category": "AI / Robotics",
+    "stage": "MVP",
+    "goal": 2115000,
+    "raised": 846000,
+    "equityOffer": "5% Equity",
+    "equity_offer": "5% Equity",
+    "tagline": "Innovative Bangladeshi AI / Robotics startup solving key campus and enterprise challenges.",
+    "description": "ShebaPoint is a student-led AI / Robotics startup founded at AIUB. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "deshizone_50",
+    "title": "DeshiZone",
+    "founder_id": "usr_founder_50",
+    "founderId": "usr_founder_50",
+    "founder": {
+      "name": "Aarif Rahman",
+      "university": "MIST",
+      "department": "Mechatronics & Robotics",
+      "studentId": "20101850",
+      "mfsNumber": "01710418550",
+      "bio": "EdTech developer creating gamified skill assessment and corporate internship matching platforms."
+    },
+    "university": "MIST",
+    "location": "Chittagong, Bangladesh",
+    "category": "Biotech",
+    "stage": "Prototype",
+    "goal": 2150000,
+    "raised": 1075000,
+    "equityOffer": "8% Rev. Share",
+    "equity_offer": "8% Rev. Share",
+    "tagline": "Innovative Bangladeshi Biotech startup solving key campus and enterprise challenges.",
+    "description": "DeshiZone is a student-led Biotech startup founded at MIST. We leverage modern digital architectures to streamline logistics, digital finance, and operational workflows across Bangladesh.",
+    "verified": true,
+    "status": "verified",
+    "milestones": [
+      {
+        "title": "Level 1 MVP Launch",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "First 100 Active Users",
+        "target": "Month 3",
+        "status": "done"
+      },
+      {
+        "title": "Commercial Expansion",
+        "target": "Month 6",
+        "status": "pending"
+      }
+    ]
   }
 ]
