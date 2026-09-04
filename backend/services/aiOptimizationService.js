@@ -207,6 +207,42 @@ export async function improveFounderBio({ founderId, extras = {} }) {
   return runContentJob({ kind: 'bio', mode: 'improve existing bio; preserve every factual claim; improve clarity, structure, professionalism, and concision', facts, maxLength: BIO_MAX });
 }
 
+export async function generateInvestorBio({ investorId, extras = {} }) {
+  const investor = await requireInvestor(investorId);
+  const facts = {
+    name: compact(extras.name || investor.name, 80),
+    role: compact(extras.role || 'Investor', 80),
+    institution: compact(extras.institution || investor.institution, 80),
+    sectors: compact(extras.sectors || (Array.isArray(investor.sector_interests) ? investor.sector_interests.join(', ') : investor.sectorInterests), NOTE_MAX),
+    experience: compact(extras.experience, NOTE_MAX),
+    thesis: compact(extras.thesis || extras.mission, NOTE_MAX),
+    existingBio: compact(extras.existingBio || extras.bio || investor.bio, BIO_MAX)
+  };
+  if (!facts.name && !facts.institution && !facts.existingBio && !facts.sectors) {
+    const err = new Error('Add a name, institution, sectors, or an existing bio before generating.');
+    err.status = 400;
+    throw err;
+  }
+  return runContentJob({ kind: 'bio', mode: 'generate investor thesis bio for a public investor profile in Bangladesh; first person or concise third person; 80-140 words', facts, maxLength: BIO_MAX });
+}
+
+export async function improveInvestorBio({ investorId, extras = {} }) {
+  const investor = await requireInvestor(investorId);
+  const facts = {
+    name: compact(extras.name || investor.name, 80),
+    role: 'Investor',
+    institution: compact(extras.institution || investor.institution, 80),
+    sectors: compact(extras.sectors, NOTE_MAX),
+    existingBio: compact(extras.existingBio || extras.bio || investor.bio, BIO_MAX)
+  };
+  if (!facts.existingBio) {
+    const err = new Error('Add a bio first, or use Generate with AI.');
+    err.status = 400;
+    throw err;
+  }
+  return runContentJob({ kind: 'bio', mode: 'improve existing investor bio; preserve facts; improve clarity and professionalism', facts, maxLength: BIO_MAX });
+}
+
 export async function generateCampaignDescription({ founderId, campaignId, draft = {} }) {
   await requireFounder(founderId);
   let campaign = {};

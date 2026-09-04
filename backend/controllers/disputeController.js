@@ -16,46 +16,70 @@ export const disputeController = {
       const {
         reportedUser,
         reportedUserId,
+        reportedRole,
         complainantName,
         complainantId,
+        complainantRole,
         campaignTitle,
         campaignId,
         category,
+        issueType,
         reason,
-        evidenceLink
+        description,
+        evidenceLink,
+        severity
       } = req.body;
 
-      if (!reportedUser || !reason) {
+      const reportedName = String(reportedUser || '').trim();
+      const issue = String(issueType || category || '').trim() || 'Policy violation';
+      const details = String(description || reason || '').trim();
+      const reporterId = String(complainantId || '').trim();
+      const targetId = String(reportedUserId || '').trim();
+
+      if (!reportedName || !details) {
         return res.status(400).json({ error: 'Reported user and reason for complaint are required.' });
+      }
+      if (reporterId && targetId && reporterId === targetId) {
+        return res.status(400).json({ error: 'You cannot report your own profile.' });
       }
 
       const disputeData = {
         id: 'disp_' + Date.now(),
-        reported_user: reportedUser,
-        reportedUser,
-        reported_user_id: reportedUserId || '',
+        reported_user: reportedName,
+        reportedUser: reportedName,
+        reported_user_id: targetId,
+        reported_role: reportedRole || '',
+        reportedRole: reportedRole || '',
         complainant_name: complainantName || 'Anonymous Backer',
         complainantName: complainantName || 'Anonymous Backer',
-        complainant_id: complainantId || '',
-        campaign_title: campaignTitle || 'General Venture',
-        campaignTitle: campaignTitle || 'General Venture',
+        complainant: complainantName || 'Anonymous Backer',
+        complainant_id: reporterId,
+        complainantId: reporterId,
+        complainant_role: complainantRole || '',
+        complainantRole: complainantRole || '',
+        campaign_title: campaignTitle || 'User profile report',
+        campaignTitle: campaignTitle || 'User profile report',
         campaign_id: campaignId || '',
-        category: category || 'Breach of Agreement',
-        reason,
+        category: issue,
+        issue_type: issue,
+        issueType: issue,
+        reason: details,
+        description: details,
         evidence_link: evidenceLink || '',
         evidenceLink: evidenceLink || '',
-        status: 'Under Review',
+        severity: severity || 'High',
+        status: 'Open',
         created_at: new Date().toISOString()
       };
 
       const created = await disputeModel.create(disputeData);
 
-      if (reportedUserId) {
+      if (targetId) {
         await createAndDispatchNotification(
-          reportedUserId,
-          'Notice: Dispute Filed Against Account',
-          `A dispute inquiry (${category || 'Breach of Agreement'}) has been submitted regarding your activity. Platform administration is reviewing.`,
-          'warning'
+          targetId,
+          'Notice: Report Filed Against Account',
+          `A ${issue} report was submitted regarding your FundBridge profile. Platform administration is reviewing.`,
+          'DISPUTE_OPENED'
         );
       }
 
@@ -83,6 +107,10 @@ export const disputeController = {
       const { resolutionNote } = req.body;
       const resolved = await disputeModel.resolve(id, resolutionNote);
       if (!resolved) return res.status(404).json({ error: 'Dispute not found.' });
+      try {
+        const { partnershipModel } = await import('../models/partnershipModel.js');
+        if (resolved.partnership_id) partnershipModel.clearFreeze(resolved.partnership_id, resolutionNote || 'Dispute resolved');
+      } catch (e) {}
       res.status(200).json({ message: 'Dispute resolved.', dispute: resolved });
     } catch (err) {
       res.status(500).json({ error: 'Error resolving dispute.' });

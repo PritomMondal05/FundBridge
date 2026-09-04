@@ -12,17 +12,12 @@ router.get('/partnerships/:id', partnershipController.getPartnershipById);
 // Milestone Workflow Actions
 // 1. Founder requests funding for an unlocked milestone
 router.post('/partnerships/:id/milestones/:mId/request', partnershipController.requestMilestoneFunding);
-
-// 2. Investor audits & releases tranche (MFS/Escrow)
+router.post('/partnerships/:id/milestones/:mId/reject', partnershipController.rejectMilestoneFunding);
 router.post('/partnerships/:id/milestones/:mId/release', partnershipController.releaseMilestoneFunding);
-
-// 3. Founder submits milestone completion report
+router.post('/partnerships/:id/milestones/:mId/progress', partnershipController.updateMilestoneProgress);
 router.post('/partnerships/:id/milestones/:mId/complete', partnershipController.submitMilestoneCompletion);
-
-// 4. Investor verifies milestone completion (unlocks next tranche)
+router.post('/partnerships/:id/milestones/:mId/revise', partnershipController.requestMilestoneRevision);
 router.post('/partnerships/:id/milestones/:mId/verify', partnershipController.verifyMilestoneCompletion);
-
-// 5. Dispute flag
 router.post('/partnerships/:id/milestones/:mId/dispute', partnershipController.flagMilestoneDispute);
 
 export default router;

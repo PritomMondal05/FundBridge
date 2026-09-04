@@ -30,3 +30,7 @@ export const initSocket = (server) => {
 };
 
 export const getIO = () => ioInstance;
+
+export const setIO = (io) => {
+  ioInstance = io;
+};

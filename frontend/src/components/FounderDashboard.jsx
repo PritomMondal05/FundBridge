@@ -11,7 +11,6 @@ import {
   HelpCircle,
   Plus,
   Search,
-  Bell,
   MessageSquare,
   ArrowRight,
   Upload,
@@ -33,12 +32,16 @@ import {
   Compass,
   AlertTriangle,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Send
 } from 'lucide-react';
 import PublicProfileModal from './PublicProfileModal';
 import FounderMatchView from './ai/FounderMatchView';
 import AIMatchCarousel from './AIMatchCarousel';
 import AiContentAssistant from './ai/AiContentAssistant';
+import TransactionMilestoneTracker from './TransactionMilestoneTracker';
+import { NotificationProvider } from '../contexts/NotificationContext.jsx';
+import NotificationBell from './notifications/NotificationBell.jsx';
 
 export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, triggerAlert }) {
   const user = currentUser || {
@@ -67,33 +70,62 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
     vettingStatus: user.vettingStatus || 'verified'
   });
 
-  // Notifications & Chat State
-  const [notifications, setNotifications] = useState([]);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  // Chat State
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [chatTarget, setChatTarget] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInputText, setChatInputText] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
 
   const handleSendChatMessage = async (e) => {
     if (e) e.preventDefault();
-    if (!chatInputText.trim()) return;
+    const text = chatInputText.trim();
+    const founderId = currentUser?.id || currentUser?._id || user.id;
+    const receiverId = chatTarget?._id || chatTarget?.id;
+    if (!text || !receiverId || receiverId === 'all') return;
     try {
       const res = await fetch(`${API_BASE_URL}/api/chat/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          senderId: currentUser?.id || currentUser?._id || user.id,
+          senderId: founderId,
           senderName: profileUser.name || user.name || 'Founder',
-          receiverId: chatTarget?._id || chatTarget?.id || 'all',
-          text: chatInputText
+          receiverId,
+          text
         })
       });
       if (res.ok) {
+        const data = await res.json();
+        const created = data.chatMessage;
+        if (created) setChatMessages((prev) => prev.some((message) => message.id === created.id) ? prev : [...prev, created]);
         setChatInputText('');
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || 'Unable to send message.');
       }
-    } catch (err) {}
+    } catch (err) { setChatError(err.message || 'Unable to send message.'); }
   };
+
+  useEffect(() => {
+    const founderId = currentUser?.id || currentUser?._id || user.id;
+    const investorId = chatTarget?._id || chatTarget?.id;
+    if (!showChatDrawer || !founderId || !investorId || investorId === 'all') { setChatMessages([]); return undefined; }
+    const controller = new AbortController();
+    setChatLoading(true); setChatError('');
+    fetch(`${API_BASE_URL}/api/chat/thread?senderId=${encodeURIComponent(founderId)}&receiverId=${encodeURIComponent(investorId)}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to load this conversation.')))
+      .then((messages) => setChatMessages(Array.isArray(messages) ? messages : []))
+      .catch((err) => { if (err.name !== 'AbortError') setChatError(err.message); })
+      .finally(() => { if (!controller.signal.aborted) setChatLoading(false); });
+    const socket = io(API_BASE_URL);
+    socket.emit('join_room', founderId);
+    socket.on('new_direct_message', (message) => {
+      const participants = [String(message.sender_id), String(message.receiver_id)];
+      if (participants.includes(String(founderId)) && participants.includes(String(investorId))) setChatMessages((prev) => prev.some((item) => item.id === message.id) ? prev : [...prev, message]);
+    });
+    return () => { controller.abort(); socket.disconnect(); };
+  }, [showChatDrawer, chatTarget?.id, chatTarget?._id, currentUser?.id, currentUser?._id, API_BASE_URL]);
 
   // Database State (Only real records loaded from backend)
   const [campaigns, setCampaigns] = useState([]);
@@ -137,9 +169,6 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
   const [announcementTag, setAnnouncementTag] = useState('Milestone 1 Achieved');
   const [announcementContent, setAnnouncementContent] = useState('');
 
-  // Milestones Upload State
-  const [selectedMilestone, setSelectedMilestone] = useState('');
-  const [certifyChecked, setCertifyChecked] = useState(false);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -244,13 +273,6 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
         setAuditLogs(auditData);
       }
 
-      // 6. Fetch Real-Time Notifications from DB
-      const notifRes = await fetch(`${API_BASE_URL}/api/notifications?userId=${userId}`);
-      if (notifRes.ok) {
-        const notifData = await notifRes.json();
-        setNotifications(notifData || []);
-      }
-
       // 7. SPRINT 5 (Samiul): Fetch merged Transaction Tracking data (FR-9)
       const txRes = await fetch(`${API_BASE_URL}/api/transactions/founder/${userId}`);
       if (txRes.ok) {
@@ -267,31 +289,6 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
 
   useEffect(() => {
     fetchDatabaseData();
-
-    // Socket.io real-time listener for instant notifications
-    const newSocket = io(API_BASE_URL);
-    const userId = currentUser?.id || currentUser?._id || user.id;
-
-    if (userId) {
-      newSocket.emit('join_room', userId);
-    }
-
-    newSocket.on('receive_notification', (newNotif) => {
-      if (newNotif.user_id === userId || newNotif.user_id === 'all') {
-        setNotifications(prev => [newNotif, ...prev]);
-        showToast(`🔔 ${newNotif.title}: ${newNotif.message}`, 'info');
-      }
-    });
-
-    newSocket.on('new_notification_broadcast', (newNotif) => {
-      if (!newNotif.user_id || newNotif.user_id === userId || newNotif.user_id === 'all') {
-        setNotifications(prev => [newNotif, ...prev]);
-      }
-    });
-
-    return () => {
-      newSocket.disconnect();
-    };
   }, [currentUser]);
 
   // Active Campaign Object
@@ -509,6 +506,14 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
   });
 
   return (
+    <NotificationProvider
+      userId={user.id || user._id}
+      apiBase={API_BASE_URL}
+      onToast={showToast}
+      onNavigate={(link) => {
+        if (String(link || '').startsWith('tab:')) setActiveTab(String(link).slice(4));
+      }}
+    >
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex antialiased">
       {/* Toast Notification */}
       {toast && (
@@ -665,57 +670,36 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
 
           {/* Right User Bar */}
           <div className="flex items-center gap-4 relative">
+            <button
+              type="button"
+              onClick={() => {
+                if (chatTarget?.id && chatTarget.id !== 'all') {
+                  setShowChatDrawer(true);
+                  return;
+                }
+                const fromProposal = proposals.find((p) => p.investor_id || p.investorId);
+                const fromList = investorsList[0];
+                const next = fromProposal
+                  ? { name: fromProposal.investor_name || 'Investor', id: fromProposal.investor_id || fromProposal.investorId }
+                  : fromList
+                    ? { name: fromList.name || fromList.institution || 'Investor', id: fromList.id || fromList._id }
+                    : null;
+                if (!next?.id) {
+                  showToast('Choose an investor from Investors or AI Matches to start a conversation.', 'info');
+                  return;
+                }
+                setChatTarget(next);
+                setShowChatDrawer(true);
+              }}
+              className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+              title="Open Active Chat Inbox"
+            >
+              <MessageSquare className="w-4.5 h-4.5" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+            </button>
+
             <div className="relative">
-              <button 
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className="relative p-2 text-slate-500 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <Bell className="w-4.5 h-4.5" />
-                {notifications.filter(n => !n.is_read).length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white animate-pulse"></span>
-                )}
-              </button>
-
-              {/* Notification Popover Dropdown */}
-              {isNotifOpen && (
-                <div className="absolute right-0 top-11 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-4 space-y-3 animate-fadeIn text-left">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                    <h4 className="text-xs font-bold text-slate-900">System Notifications</h4>
-                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                      {notifications.filter(n => !n.is_read).length} Unread
-                    </span>
-                  </div>
-
-                  <div className="max-h-64 overflow-y-auto space-y-2 text-xs">
-                    {notifications.length > 0 ? (
-                      notifications.map(n => (
-                        <div 
-                          key={n.id || n._id}
-                          onClick={async () => {
-                            try {
-                              await fetch(`${API_BASE_URL}/api/notifications/${n.id || n._id}/read`, { method: 'PUT' });
-                              setNotifications(prev => prev.map(x => (x.id === n.id || x._id === n._id ? { ...x, is_read: true } : x)));
-                            } catch(e){}
-                          }}
-                          className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                            !n.is_read ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-100 opacity-75'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-1">
-                            <span className="font-bold text-slate-900 text-[11px] block">{n.title}</span>
-                            <span className="text-[9px] text-slate-400 font-mono whitespace-nowrap">
-                              {n.created_at ? new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 leading-tight mt-1">{n.message}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="py-6 text-center text-xs text-slate-400">No notifications yet.</p>
-                    )}
-                  </div>
-                </div>
-              )}
+              <NotificationBell />
             </div>
 
             <div className="h-6 w-px bg-slate-200 my-auto"></div>
@@ -1681,11 +1665,12 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      showToast(`Opening negotiation message channel with ${p.investor_name || 'Investor'}...`, 'info');
-                                    }}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setChatTarget({ name: p.investor_name || 'Investor', id: p.investor_id || p.investorId });
+                                        setShowChatDrawer(true);
+                                      }}
                                     className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
                                     title="Send direct message to investor"
                                   >
@@ -1733,6 +1718,23 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                           </div>
 
                           <div className="space-y-3 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPublicProfile({ type: 'investor', id: selectedProposal.investor_id || selectedProposal.investorId })}
+                                className="text-[10px] font-semibold text-emerald-700 hover:underline"
+                              >
+                                Open investor profile
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPublicProfile({ type: 'investor', id: selectedProposal.investor_id || selectedProposal.investorId })}
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 hover:underline"
+                              >
+                                <Flag className="w-3 h-3" />
+                                Report investor
+                              </button>
+                            </div>
                             <div className="flex justify-between py-1.5 border-b border-slate-100">
                               <span className="text-slate-500">Return Terms</span>
                               <span className="font-bold text-slate-900">{selectedProposal.return_structure || selectedProposal.terms || 'Standard'}</span>
@@ -1913,67 +1915,20 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
               {activeTab === 'milestones' && (
                 <div className="space-y-6">
                   <div>
-                    <span className="text-[10px] font-mono uppercase text-[#0284C7] tracking-widest font-bold block">ACTIVE PROJECT TRACKING</span>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display mt-0.5">Milestone Submissions</h1>
-                    <p className="text-xs text-slate-500 mt-1">Submit evidence for completed milestones to unlock funding tranches.</p>
+                    <span className="text-[10px] font-mono uppercase text-[#0284C7] tracking-widest font-bold block">TRANSACTION LIFECYCLE</span>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display mt-0.5">Milestone Tracker</h1>
+                    <p className="text-xs text-slate-500 mt-1">Follow each accepted investment from escrow through funding requests, proof, and investor verification.</p>
                   </div>
-
-                  {activeCampaign && activeCampaign.milestones && activeCampaign.milestones.length > 0 ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                      <div className="space-y-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                        <h3 className="font-bold text-slate-900 text-base">Configured Milestones</h3>
-                        <div className="space-y-3">
-                          {activeCampaign.milestones.map((m, idx) => (
-                            <div
-                              key={idx}
-                              onClick={() => setSelectedMilestone(m._id || m.title || idx)}
-                              className="p-4 rounded-xl border border-slate-200 hover:border-sky-500 cursor-pointer bg-slate-50/50"
-                            >
-                              <div className="flex justify-between items-center">
-                                <h4 className="font-bold text-slate-900 text-sm">{m.name || m.title || `Milestone #${idx + 1}`}</h4>
-                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${m.status === 'done' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                                  }`}>
-                                  {(m.status || 'PENDING').toUpperCase()}
-                                </span>
-                              </div>
-                              <span className="text-xs text-slate-500 block mt-1">Target: {m.targetDate || m.target || 'TBD'}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-                        <h3 className="font-bold text-slate-900 text-base">Proof Upload Zone</h3>
-                        <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center bg-slate-50 space-y-2">
-                          <Upload className="w-8 h-8 text-sky-600 mx-auto" />
-                          <span className="text-xs font-bold text-slate-800 block">Click to upload milestone proof files</span>
-                          <span className="text-[11px] text-slate-400 block">PDF, JPG, or PNG (Max 10MB)</span>
-                        </div>
-                        <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={certifyChecked}
-                            onChange={(e) => setCertifyChecked(e.target.checked)}
-                            className="mt-0.5 rounded text-emerald-600"
-                          />
-                          <span>I certify all submitted documents are accurate.</span>
-                        </label>
-                        <button
-                          onClick={() => {
-                            if (!certifyChecked) return alert('Please check the accuracy certification box.');
-                            showToast('Proof files submitted for verification!', 'success');
-                          }}
-                          className="w-full py-3 bg-[#047857] hover:bg-[#065f46] text-white font-bold text-xs rounded-xl cursor-pointer"
-                        >
-                          Submit Proof to Database
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="py-12 text-center bg-white border border-slate-200 rounded-2xl text-xs text-slate-400">
-                      No milestones set for this campaign in database yet.
-                    </div>
-                  )}
+                  <TransactionMilestoneTracker
+                    role="founder"
+                    userId={user.id || user._id}
+                    API_BASE_URL={API_BASE_URL}
+                    showToast={showToast}
+                    onMessage={(target) => {
+                      setChatTarget(target);
+                      setShowChatDrawer(true);
+                    }}
+                  />
                 </div>
               )}
 
@@ -2287,14 +2242,75 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
         </div>
       )}
 
+      {showChatDrawer && (
+        <div className="fixed right-6 bottom-6 z-50 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col h-[480px]">
+          <div className="p-4 bg-[#047857] text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              <span className="font-bold text-xs">{chatTarget?.name || 'Direct Messaging'}</span>
+            </div>
+            <button type="button" onClick={() => setShowChatDrawer(false)} className="text-emerald-100 hover:text-white cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs bg-slate-50">
+            {chatLoading ? (
+              <div className="py-16 text-center text-slate-400">Loading conversation…</div>
+            ) : chatError ? (
+              <div className="py-16 text-center text-rose-600">{chatError}</div>
+            ) : chatMessages.length > 0 ? (
+              chatMessages.map((m, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-2xl max-w-[80%] text-xs ${
+                    m.sender_id === user.id ? 'bg-[#047857] text-white ml-auto rounded-br-xs' : 'bg-white border border-slate-200 text-slate-800 mr-auto rounded-bl-xs'
+                  }`}
+                >
+                  <p>{m.text}</p>
+                  <span className="text-[9px] opacity-75 font-mono block text-right mt-1">
+                    {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now'}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="py-16 text-center text-slate-400 space-y-1">
+                <MessageSquare className="w-8 h-8 mx-auto text-slate-300" />
+                <p>Start a direct conversation with your investor.</p>
+              </div>
+            )}
+          </div>
+          <form onSubmit={handleSendChatMessage} className="p-3 bg-white border-t border-slate-200 flex gap-2">
+            <input
+              type="text"
+              placeholder="Type your message..."
+              value={chatInputText}
+              onChange={(e) => setChatInputText(e.target.value)}
+              maxLength={2000}
+              disabled={!chatTarget?.id || chatTarget?.id === 'all'}
+              className="flex-1 px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
+            />
+            <button type="submit" disabled={!chatInputText.trim() || !chatTarget?.id || chatTarget?.id === 'all'} className="p-2 bg-[#047857] hover:bg-[#065f46] text-white rounded-xl cursor-pointer disabled:cursor-not-allowed disabled:opacity-50">
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
+      )}
+
       {selectedPublicProfile && (
         <PublicProfileModal
           profileType={selectedPublicProfile.type}
           profileId={selectedPublicProfile.id}
           API_BASE_URL={API_BASE_URL}
+          reporter={{
+            id: currentUser?.id || currentUser?._id || user.id,
+            name: profileUser.name || user.name,
+            role: 'founder'
+          }}
+          onReported={() => showToast('Report submitted to platform administrators.', 'success')}
           onClose={() => setSelectedPublicProfile(null)}
         />
       )}
     </div>
+    </NotificationProvider>
   );
 }

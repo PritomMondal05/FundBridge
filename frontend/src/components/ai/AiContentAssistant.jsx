@@ -28,19 +28,35 @@ export default function AiContentAssistant({
   const [originalSnapshot, setOriginalSnapshot] = useState('');
 
   const isBio = kind === 'bio';
-  const generatePath = isBio ? '/api/ai/founder/bio/generate' : '/api/ai/founder/campaign/generate';
-  const improvePath = isBio ? '/api/ai/founder/bio/improve' : '/api/ai/founder/campaign/improve';
+  const isInvestorBio = kind === 'investor-bio';
+  const generatePath = isInvestorBio
+    ? '/api/ai/investor/bio/generate'
+    : (isBio ? '/api/ai/founder/bio/generate' : '/api/ai/founder/campaign/generate');
+  const improvePath = isInvestorBio
+    ? '/api/ai/investor/bio/improve'
+    : (isBio ? '/api/ai/founder/bio/improve' : '/api/ai/founder/campaign/improve');
 
   const run = async (mode) => {
     if (!userId) {
-      setError('You need to be signed in as a founder to use the AI assistant.');
+      setError('You need to be signed in to use the AI assistant.');
       return;
     }
     setLoading(true);
     setError('');
     setOriginalSnapshot(value || '');
     try {
-      const payload = isBio
+      const payload = isInvestorBio
+        ? {
+            investorId: userId,
+            userId,
+            name: context.name,
+            institution: context.institution,
+            sectors: context.sectors,
+            existingBio: value,
+            bio: value,
+            ...notes
+          }
+        : isBio
         ? {
             founderId: userId,
             name: context.name,
@@ -89,7 +105,7 @@ export default function AiContentAssistant({
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
           <Sparkles className="w-4 h-4 text-emerald-700" />
-          {isBio ? 'AI Bio Assistant' : 'AI Campaign Assistant'}
+          {isInvestorBio ? 'AI Investor Bio Assistant' : isBio ? 'AI Bio Assistant' : 'AI Campaign Assistant'}
         </span>
         <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-700/70">FundBridge Intelligence</span>
       </div>
@@ -97,7 +113,7 @@ export default function AiContentAssistant({
         Suggestions stay in preview until you apply them. The assistant will not invent traction, funding, or awards.
       </p>
 
-      {isBio ? (
+      {(isBio || isInvestorBio) ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <input value={notes.experience} onChange={(e) => setNotes({ ...notes, experience: e.target.value })} placeholder="Experience (optional, verified facts only)" className="px-3 py-2 bg-white border border-emerald-200 rounded-xl text-xs" />
           <input value={notes.skills} onChange={(e) => setNotes({ ...notes, skills: e.target.value })} placeholder="Skills (optional)" className="px-3 py-2 bg-white border border-emerald-200 rounded-xl text-xs" />

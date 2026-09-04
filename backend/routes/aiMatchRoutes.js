@@ -5,6 +5,8 @@ import {
   improveBioHandler,
   generateCampaignHandler,
   improveCampaignHandler,
+  generateInvestorBioHandler,
+  improveInvestorBioHandler,
   whatsBurningHandler,
   legacyGenerateHandler
 } from '../controllers/aiOptimizationController.js';
@@ -19,6 +21,8 @@ router.post('/founder/bio/generate', generateBioHandler);
 router.post('/founder/bio/improve', improveBioHandler);
 router.post('/founder/campaign/generate', generateCampaignHandler);
 router.post('/founder/campaign/improve', improveCampaignHandler);
+router.post('/investor/bio/generate', generateInvestorBioHandler);
+router.post('/investor/bio/improve', improveInvestorBioHandler);
 router.get('/whats-burning', whatsBurningHandler);
 router.get('/trends', whatsBurningHandler);
 router.get('/trends/relevant', whatsBurningHandler);

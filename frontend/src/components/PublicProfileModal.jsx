@@ -4,6 +4,7 @@ import {
   Briefcase,
   Building2,
   CheckCircle2,
+  Flag,
   GraduationCap,
   ShieldCheck,
   TrendingUp,
@@ -32,10 +33,22 @@ function Stat({ label, value }) {
   );
 }
 
-export default function PublicProfileModal({ profileType, profileId, API_BASE_URL, onClose }) {
+export default function PublicProfileModal({
+  profileType,
+  profileId,
+  API_BASE_URL,
+  onClose,
+  reporter = null,
+  onReported
+}) {
   const [data, setData] = useState(emptyProfile);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportIssue, setReportIssue] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportError, setReportError] = useState('');
 
   useEffect(() => {
     if (!profileId) return;
@@ -46,6 +59,10 @@ export default function PublicProfileModal({ profileType, profileId, API_BASE_UR
 
     setLoading(true);
     setError('');
+    setShowReportForm(false);
+    setReportIssue('');
+    setReportDetails('');
+    setReportError('');
     fetch(`${API_BASE_URL}${path}`, { signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json();
@@ -64,6 +81,46 @@ export default function PublicProfileModal({ profileType, profileId, API_BASE_UR
   const profile = data.profile || {};
   const trackRecord = data.trackRecord || {};
   const isFounder = profileType === 'founder';
+  const reporterId = String(reporter?.id || reporter?._id || '').trim();
+  const viewingOwnProfile = Boolean(reporterId && String(profileId) === reporterId);
+  const canReport = Boolean(reporterId && !viewingOwnProfile && profile.name);
+
+  const submitReport = async (event) => {
+    event.preventDefault();
+    if (!canReport || reportBusy) return;
+    setReportBusy(true);
+    setReportError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/disputes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          complainantName: reporter.name || 'FundBridge member',
+          complainantId: reporterId,
+          complainantRole: reporter.role || (isFounder ? 'investor' : 'founder'),
+          reportedUser: profile.name,
+          reportedUserId: profile.id || profile._id || profileId,
+          reportedRole: isFounder ? 'founder' : 'investor',
+          campaignTitle: `${isFounder ? 'Founder' : 'Investor'} profile: ${profile.name}`,
+          issueType: reportIssue,
+          category: reportIssue,
+          reason: reportDetails,
+          description: reportDetails,
+          severity: 'High'
+        })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Unable to submit report.');
+      setShowReportForm(false);
+      setReportIssue('');
+      setReportDetails('');
+      if (typeof onReported === 'function') onReported(payload);
+    } catch (err) {
+      setReportError(err.message || 'Unable to submit report.');
+    } finally {
+      setReportBusy(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
@@ -93,14 +150,70 @@ export default function PublicProfileModal({ profileType, profileId, API_BASE_UR
         {!loading && !error && (
           <div className="space-y-6 p-6">
             <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <User className="h-4 w-4 text-sky-700" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">Professional overview</h3>
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-sky-700" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">Professional overview</h3>
+                </div>
+                {canReport && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowReportForm((open) => !open); setReportError(''); }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-rose-700 hover:bg-rose-50"
+                    title={`Report this ${isFounder ? 'founder' : 'investor'}`}
+                  >
+                    <Flag className="h-3 w-3" />
+                    {showReportForm ? 'Cancel' : 'Report / Flag'}
+                  </button>
+                )}
               </div>
               <p className="text-sm leading-relaxed text-slate-600">{profile.bio || 'No public biography has been added yet.'}</p>
               <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-500">
                 {isFounder ? <><span>Department: <strong className="text-slate-800">{profile.department || 'Not provided'}</strong></span><span>Student ID: <strong className="text-slate-800">{profile.studentId || 'Not provided'}</strong></span></> : <><span>Focus: <strong className="text-slate-800">{(profile.sectorInterests || []).join(', ') || 'Broad early-stage ventures'}</strong></span><span>Ticket range: <strong className="text-slate-800">{money(profile.investmentBudgetMin)} - {money(profile.investmentBudgetMax)}</strong></span></>}
               </div>
+              {showReportForm && canReport && (
+                <form onSubmit={submitReport} className="mt-4 space-y-3 rounded-xl border border-rose-200 bg-white p-4">
+                  <p className="text-[11px] text-slate-600">
+                    Flag <strong>{profile.name}</strong> to platform administrators. This does not freeze the deal automatically.
+                  </p>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Reason</label>
+                    <select
+                      required
+                      value={reportIssue}
+                      onChange={(e) => setReportIssue(e.target.value)}
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs"
+                    >
+                      <option value="">Select reason…</option>
+                      <option value="Harassment or abusive conduct">Harassment or abusive conduct</option>
+                      <option value="Misleading claims or identity">Misleading claims or identity</option>
+                      <option value="Fraud or escrow concern">Fraud or escrow concern</option>
+                      <option value="Spam or solicitation">Spam or solicitation</option>
+                      <option value="Other policy violation">Other policy violation</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Details</label>
+                    <textarea
+                      required
+                      rows={3}
+                      minLength={12}
+                      value={reportDetails}
+                      onChange={(e) => setReportDetails(e.target.value)}
+                      placeholder="Describe what happened and any evidence admins should review."
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs"
+                    />
+                  </div>
+                  {reportError && <p className="text-[11px] text-rose-600">{reportError}</p>}
+                  <button
+                    type="submit"
+                    disabled={reportBusy}
+                    className="w-full rounded-xl bg-rose-600 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                  >
+                    {reportBusy ? 'Submitting…' : 'Submit report'}
+                  </button>
+                </form>
+              )}
             </section>
 
             <section>

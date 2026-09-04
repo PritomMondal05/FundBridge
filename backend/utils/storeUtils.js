@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { supabase, isSupabaseConfigured } from '../config/supabase.js';
 import { getIO } from '../config/socket.js';
+import { normalizeNotificationType } from '../lib/notificationTypes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +47,7 @@ const S3_HANDOVER_STORE_PATH = path.join(BACKEND_DIR, 's3_handover_requests.json
 const S3_COFOUNDER_APP_STORE_PATH = path.join(BACKEND_DIR, 's3_cofounder_applications.json');
 const S3_PROPOSAL_STORE_PATH = path.join(BACKEND_DIR, 's3_proposals.json');
 const S3_MESSAGE_STORE_PATH = path.join(BACKEND_DIR, 's3_messages.json');
+const S3_NOTIFICATION_STORE_PATH = path.join(BACKEND_DIR, 's3_notifications.json');
 const S3_AUDIT_STORE_PATH = path.join(BACKEND_DIR, 's3_audit_logs.json');
 const S3_UPDATE_STORE_PATH = path.join(BACKEND_DIR, 's3_campaign_updates.json');
 const S3_PROGRESS_TAG_STORE_PATH = path.join(BACKEND_DIR, 's3_progress_tags.json');
@@ -252,6 +254,27 @@ export const persistS3MessageStore = () => {
   }
 };
 loadS3MessageStore();
+
+export const loadS3NotificationStore = () => {
+  try {
+    if (!fs.existsSync(S3_NOTIFICATION_STORE_PATH)) return;
+    const parsed = JSON.parse(fs.readFileSync(S3_NOTIFICATION_STORE_PATH, 'utf8'));
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      fallbackNotifications.length = 0;
+      fallbackNotifications.push(...parsed);
+    }
+  } catch (e) {
+    console.warn('Notification store load warning:', e.message);
+  }
+};
+export const persistS3NotificationStore = () => {
+  try {
+    fs.writeFileSync(S3_NOTIFICATION_STORE_PATH, JSON.stringify(fallbackNotifications.slice(0, 400), null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Notification store save warning:', e.message);
+  }
+};
+loadS3NotificationStore();
 
 export const hydrateChatFromSupabase = async () => {
   if (!isSupabaseConfigured || !supabase) return;
@@ -931,30 +954,73 @@ export const auditBelongsToFounder = (r, founderId) => {
   return String(fid) === String(founderId);
 };
 
-export const createAndDispatchNotification = async (userId, title, message, type = 'info') => {
+export const createAndDispatchNotification = async (userId, title, message, type = 'info', meta = {}) => {
+  const recipientId = String(userId || '').trim();
+  if (!recipientId || !title) return null;
+
+  const eventKey = meta.eventKey ? String(meta.eventKey) : null;
+  if (eventKey && fallbackNotifications.some((n) => n.event_key === eventKey && String(n.user_id) === recipientId)) {
+    return fallbackNotifications.find((n) => n.event_key === eventKey && String(n.user_id) === recipientId);
+  }
+
   const notifObj = {
     id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-    user_id: userId,
-    title,
-    message,
-    type,
+    user_id: recipientId,
+    recipient_id: recipientId,
+    sender_id: meta.senderId || null,
+    type: normalizeNotificationType(type),
+    title: String(title),
+    message: String(message || ''),
+    link_url: meta.linkUrl || null,
+    event_key: eventKey,
     is_read: false,
     created_at: new Date().toISOString()
   };
   fallbackNotifications.unshift(notifObj);
+  persistS3NotificationStore();
 
   if (isSupabaseConfigured && supabase) {
     try {
-      await supabase.from('notifications').insert([notifObj]);
+      await supabase.from('notifications').insert([{
+        id: notifObj.id,
+        user_id: notifObj.user_id,
+        sender_id: notifObj.sender_id,
+        type: notifObj.type,
+        title: notifObj.title,
+        message: notifObj.message,
+        link_url: notifObj.link_url,
+        event_key: notifObj.event_key,
+        is_read: false,
+        created_at: notifObj.created_at
+      }]);
     } catch (e) {}
   }
 
   const io = getIO();
   if (io) {
-    io.to(userId).emit('receive_notification', notifObj);
-    io.emit('new_notification_broadcast', notifObj);
+    io.to(recipientId).emit('receive_notification', notifObj);
   }
   return notifObj;
+};
+
+export const notifyCampaignBackers = async (campaignId, title, message, type, meta = {}) => {
+  const cid = String(campaignId || '');
+  if (!cid) return;
+  const recipients = new Set();
+  fallbackProposals.forEach((p) => {
+    if (String(p.campaign_id || p.campaignId) !== cid) return;
+    const status = String(p.status || '').toLowerCase();
+    if (!['accepted', 'funded'].includes(status)) return;
+    const inv = p.investor_id || p.investorId;
+    if (inv) recipients.add(String(inv));
+  });
+  for (const investorId of recipients) {
+    await createAndDispatchNotification(investorId, title, message, type, {
+      ...meta,
+      eventKey: meta.eventKey ? `${meta.eventKey}:${investorId}` : undefined,
+      linkUrl: meta.linkUrl || 'tab:portfolio'
+    });
+  }
 };
 
 export const handleSocketDirectMessage = async (data, io) => {

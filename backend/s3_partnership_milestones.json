@@ -89,12 +89,12 @@
         "purpose": "Tranche release for Phase 2: R&D Installation",
         "expected_outcome": "Installation of high-capacity centrifuge and bio-reactor modules",
         "timeline": "1 Month",
-        "status": "pending_review",
+        "status": "completed",
         "lifecycle": {
           "requested": true,
-          "investor_review": "pending",
-          "payment": "locked",
-          "completion": "locked"
+          "investor_review": "approved",
+          "payment": "funded",
+          "completion": "completed"
         },
         "request_details": {
           "requested_amount": 450000,
@@ -130,8 +130,42 @@
           "geotagged_photo_verification": true,
           "third_party_inspector_attestation": false
         },
-        "release_details": null,
-        "completion_report": null
+        "release_details": {
+          "approved_amount": 450000,
+          "funded_date": "2026-09-04T18:23:44.356Z",
+          "reference_id": "TRX-MFS-46224356",
+          "payment_method": "Secured MFS / Bank Escrow Transfer"
+        },
+        "completion_report": {
+          "version": 1,
+          "completed_objectives": "Pilot arrays installed and calibration complete.",
+          "amount_spent": 450000,
+          "remaining_amount": 0,
+          "progress_description": "API test proof v1",
+          "media_urls": [],
+          "submitted_at": "2026-09-04T18:30:07.480Z",
+          "verified_by_investor": true,
+          "verified_at": "2026-09-04T18:30:09.165Z",
+          "investor_notes": ""
+        },
+        "progress": 100,
+        "progress_note": "R&D install in progress",
+        "progress_updated_at": "2026-09-04T18:30:06.811Z",
+        "proof_history": [
+          {
+            "version": 1,
+            "completed_objectives": "Pilot arrays installed and calibration complete.",
+            "amount_spent": 450000,
+            "remaining_amount": 0,
+            "progress_description": "API test proof v1",
+            "media_urls": [],
+            "submitted_at": "2026-09-04T18:30:07.480Z",
+            "verified_by_investor": true,
+            "verified_at": "2026-09-04T18:30:09.165Z",
+            "investor_notes": ""
+          }
+        ],
+        "completed_at": "2026-09-04T18:30:09.165Z"
       },
       {
         "id": "phase_3",
@@ -142,21 +176,59 @@
         "purpose": "Automated conveyor assembly and quality assurance line",
         "expected_outcome": "Industrial capacity scale-up to 2,000L/day",
         "timeline": "3 Months",
-        "status": "locked",
+        "status": "proof_submitted",
         "lifecycle": {
-          "requested": false,
-          "investor_review": "locked",
-          "payment": "locked",
-          "completion": "locked"
+          "requested": true,
+          "investor_review": "approved",
+          "payment": "funded",
+          "completion": "pending_verification"
         },
-        "request_details": null,
+        "request_details": {
+          "requested_amount": 750000,
+          "purpose": "Automated conveyor assembly and quality assurance line",
+          "explanation": "Scale production line for Phase 3 QA automation.",
+          "fund_usage": "",
+          "expected_outcome": "Industrial capacity scale-up to 2,000L/day",
+          "timeline": "3 Months",
+          "supporting_documents": [],
+          "requested_at": "2026-09-04T18:43:32.926Z"
+        },
         "mandatory_checks": {
           "vendor_invoice_reconciliation": false,
           "geotagged_photo_verification": false,
           "third_party_inspector_attestation": false
         },
-        "release_details": null,
-        "completion_report": null
+        "release_details": {
+          "approved_amount": 750000,
+          "funded_date": "2026-09-04T19:04:12.724Z",
+          "reference_id": "TRX-MFS-48652724",
+          "payment_method": "Secured MFS / Bank Escrow Transfer"
+        },
+        "completion_report": {
+          "version": 1,
+          "completed_objectives": "qswadw",
+          "amount_spent": 750000,
+          "remaining_amount": 0,
+          "progress_description": "qswadw",
+          "media_urls": [],
+          "submitted_at": "2026-09-04T19:06:46.698Z",
+          "verified_by_investor": false
+        },
+        "progress": 75,
+        "progress_note": "",
+        "progress_updated_at": "2026-09-04T19:06:42.975Z",
+        "proof_history": [
+          {
+            "version": 1,
+            "completed_objectives": "qswadw",
+            "amount_spent": 750000,
+            "remaining_amount": 0,
+            "progress_description": "qswadw",
+            "media_urls": [],
+            "submitted_at": "2026-09-04T19:06:46.698Z",
+            "verified_by_investor": false
+          }
+        ]
       },
       {
         "id": "phase_4",
@@ -183,6 +255,112 @@
         "release_details": null,
         "completion_report": null
       }
-    ]
+    ],
+    "activity": [
+      {
+        "id": "evt_1788548806698_wd9w",
+        "created_at": "2026-09-04T19:06:46.698Z",
+        "actor_role": "founder",
+        "actor_id": "usr_founder_1",
+        "event": "proof_submitted",
+        "label": "Founder submitted proof v1 for Phase 3: Production Scaling & Automation",
+        "milestone_id": "phase_3"
+      },
+      {
+        "id": "evt_1788548802975_hpi2",
+        "created_at": "2026-09-04T19:06:42.975Z",
+        "actor_role": "founder",
+        "actor_id": "usr_founder_1",
+        "event": "progress_updated",
+        "label": "Founder updated progress to 75%",
+        "milestone_id": "phase_3"
+      },
+      {
+        "id": "evt_1788548786240_m674",
+        "created_at": "2026-09-04T19:06:26.240Z",
+        "actor_role": "founder",
+        "actor_id": "usr_founder_1",
+        "event": "progress_updated",
+        "label": "Founder updated progress to 100%",
+        "milestone_id": "phase_3"
+      },
+      {
+        "id": "evt_1788548776948_9zn6",
+        "created_at": "2026-09-04T19:06:16.948Z",
+        "actor_role": "founder",
+        "actor_id": "usr_founder_1",
+        "event": "progress_updated",
+        "label": "Founder updated progress to 0%",
+        "milestone_id": "phase_3"
+      },
+      {
+        "id": "evt_1788548652725_txma",
+        "created_at": "2026-09-04T19:04:12.725Z",
+        "actor_role": "investor",
+        "actor_id": "usr_investor_1",
+        "event": "funds_released",
+        "label": "Investor released ৳ 750,000 for Phase 3: Production Scaling & Automation",
+        "amount": 750000,
+        "milestone_id": "phase_3",
+        "reference_id": "TRX-MFS-48652724"
+      },
+      {
+        "id": "evt_1788547412926_oatv",
+        "created_at": "2026-09-04T18:43:32.926Z",
+        "actor_role": "founder",
+        "actor_id": "usr_founder_1",
+        "event": "funding_requested",
+        "label": "Founder requested ৳ 750,000 for Phase 3: Production Scaling & Automation",
+        "amount": 750000,
+        "milestone_id": "phase_3"
+      },
+      {
+        "id": "evt_1788546609166_d6yh",
+        "created_at": "2026-09-04T18:30:09.166Z",
+        "actor_role": "investor",
+        "actor_id": "usr_investor_1",
+        "event": "milestone_approved",
+        "label": "Investor approved Phase 2: R&D Installation & Testing",
+        "milestone_id": "phase_2"
+      },
+      {
+        "id": "evt_1788546609165_19wh",
+        "created_at": "2026-09-04T18:30:09.166Z",
+        "actor_role": "system",
+        "event": "milestone_activated",
+        "label": "Phase 3: Production Scaling & Automation activated",
+        "milestone_id": "phase_3"
+      },
+      {
+        "id": "evt_1788546607480_2t79",
+        "created_at": "2026-09-04T18:30:07.480Z",
+        "actor_role": "founder",
+        "actor_id": "usr_founder_1",
+        "event": "proof_submitted",
+        "label": "Founder submitted proof v1 for Phase 2: R&D Installation & Testing",
+        "milestone_id": "phase_2"
+      },
+      {
+        "id": "evt_1788546606811_slcp",
+        "created_at": "2026-09-04T18:30:06.811Z",
+        "actor_role": "founder",
+        "actor_id": "usr_founder_1",
+        "event": "progress_updated",
+        "label": "Founder updated progress to 40%",
+        "milestone_id": "phase_2"
+      },
+      {
+        "id": "evt_1788546224357_tsha",
+        "created_at": "2026-09-04T18:23:44.357Z",
+        "actor_role": "investor",
+        "actor_id": "usr_investor_1",
+        "event": "funds_released",
+        "label": "Investor released ৳ 450,000 for Phase 2: R&D Installation & Testing",
+        "amount": 450000,
+        "milestone_id": "phase_2",
+        "reference_id": "TRX-MFS-46224356"
+      }
+    ],
+    "updated_at": "2026-09-04T19:06:46.698Z"
   }
 ]

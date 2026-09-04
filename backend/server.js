@@ -3,30 +3,29 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import fs from 'fs';
 import crypto from 'crypto';
-
-// Mongoose Models
-import User from './models/User.js';
-import Campaign from './models/Campaign.js';
-import Proposal from './models/Proposal.js';
-import Payout from './models/Payout.js';
-import Dispute from './models/Dispute.js';
-import AuditLog from './models/AuditLog.js';
-import Message from './models/Message.js';
-import CampaignUpdate from './models/CampaignUpdate.js';
-import Notification from './models/Notification.js';
 import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
 
 import aiMatchRoutes from './routes/aiMatchRoutes.js';
+import partnershipRoutes from './routes/partnershipRoutes.js';
+import disputeRoutes from './routes/disputeRoutes.js';
 import { persistUserMatchingPrefs, loadInvestorRecord } from './lib/matchCatalog.js';
+import { partnershipModel } from './models/partnershipModel.js';
+import { setIO } from './config/socket.js';
+import {
+  fallbackNotifications,
+  createAndDispatchNotification as persistNotification,
+  notifyCampaignBackers,
+  persistS3NotificationStore
+} from './utils/storeUtils.js';
+import { NOTIFICATION_TYPES } from './lib/notificationTypes.js';
 
 
 // Supabase Integration
@@ -45,11 +44,14 @@ const io = new Server(server, {
     methods: ['GET', 'POST']
   }
 });
+setIO(io);
 
 app.use(cors());
 app.use(express.json());
 
 app.use('/api/ai', aiMatchRoutes);
+app.use('/api', partnershipRoutes);
+app.use('/api', disputeRoutes);
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'uploads');
@@ -1397,10 +1399,6 @@ const syncInvestorWallet = (investorId) => {
 const fallbackWatchlist = [];
 const fallbackConnections = [];
 const fallbackBookmarkedFounders = [];
-const fallbackNotifications = [
-  { id: 'notif_1', user_id: 'usr_founder_1', title: 'New Proposal Received', message: 'Angel Backer Zaman submitted an 8% Rev. Share proposal for CampusBites.', type: 'info', is_read: false, created_at: new Date().toISOString() },
-  { id: 'notif_2', user_id: 'usr_investor_1', title: 'Vetting Verified', message: 'Your investor identity vetting has been approved by platform administration.', type: 'success', is_read: true, created_at: new Date().toISOString() }
-];
 
 // NORMALIZATION HELPERS
 const normalizeUser = (u) => {
@@ -1616,31 +1614,8 @@ const s3SyncProposalToSupabase = async (fp) => {
   } catch (e) {}
 };
 
-// Helper function to create and broadcast real-time notifications
-async function createAndDispatchNotification(userId, title, message, type = 'info') {
-  const notifObj = {
-    id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-    user_id: userId,
-    title,
-    message,
-    type,
-    is_read: false,
-    created_at: new Date().toISOString()
-  };
-  fallbackNotifications.unshift(notifObj);
-
-  if (isSupabaseConfigured && supabase) {
-    try {
-      await supabase.from('notifications').insert([notifObj]);
-    } catch (e) {}
-  }
-
-  // Socket.io real-time broadcast
-  if (typeof io !== 'undefined' && io) {
-    io.to(userId).emit('receive_notification', notifObj);
-    io.emit('new_notification_broadcast', notifObj);
-  }
-  return notifObj;
+async function createAndDispatchNotification(userId, title, message, type = 'info', meta = {}) {
+  return persistNotification(userId, title, message, type, meta);
 }
 
 // Health Check API
@@ -1650,9 +1625,6 @@ app.get('/api/health', async (req, res) => {
   if (isSupabaseConfigured && supabase) {
     dbStatus = 'connected';
     provider = 'supabase';
-  } else if (mongoose.connection.readyState === 1) {
-    dbStatus = 'connected';
-    provider = 'mongodb';
   } else {
     dbStatus = 'in_memory_fallback';
   }
@@ -1722,7 +1694,7 @@ app.post('/api/users/register', cpUpload, async (req, res) => {
       }
     }
 
-    if (!createdUser && mongoose.connection.readyState === 1) {
+    if (!createdUser && false) {
       try {
         const mongoUser = await User.create({
           name,
@@ -1789,7 +1761,7 @@ app.post('/api/users/login', async (req, res) => {
       }
     }
 
-    if (!user && mongoose.connection.readyState === 1) {
+    if (!user && false) {
       try {
         const mongoUser = await User.findOne({ email: email.toLowerCase() });
         if (mongoUser) {
@@ -1862,7 +1834,7 @@ app.post('/api/admin/login', async (req, res) => {
       } catch (e) {}
     }
 
-    if (!user && mongoose.connection.readyState === 1) {
+    if (!user && false) {
       try {
         user = await User.findOne({ email, role: 'admin' });
       } catch (e) {}
@@ -1893,7 +1865,7 @@ app.get('/api/vetting/applicants', async (req, res) => {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('users').select('*').eq('vetting_status', 'pending');
       if (!error && data) pendingUsers = data.map(normalizeUser);
-    } else if (mongoose.connection.readyState === 1) {
+    } else if (false) {
       const users = await User.find({ vettingStatus: 'pending' });
       if (users) pendingUsers = users.map(normalizeUser);
     } else {
@@ -1925,7 +1897,7 @@ app.post('/api/vetting/status', async (req, res) => {
         await supabase.from('users').update({ vetting_status: status, vetting_date: new Date().toISOString() }).eq('id', userId);
       } catch (e) {}
     }
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       try {
         await User.findByIdAndUpdate(userId, { vettingStatus: status });
       } catch (e) {}
@@ -1938,11 +1910,16 @@ app.post('/api/vetting/status', async (req, res) => {
       fu.vettingDate = new Date().toISOString();
     }
 
+    const statusKey = String(status || '').toLowerCase();
+    const vetType = statusKey === 'verified' || statusKey === 'approved'
+      ? NOTIFICATION_TYPES.VERIFICATION_APPROVED
+      : (statusKey === 'rejected' ? NOTIFICATION_TYPES.VERIFICATION_REJECTED : NOTIFICATION_TYPES.VERIFICATION_PENDING);
     await createAndDispatchNotification(
       userId,
       `Trust Vetting Status Updated! 🛡️`,
       `Your FundBridge user profile vetting status has been updated to "${status.toUpperCase()}".`,
-      status === 'verified' ? 'success' : 'warning'
+      vetType,
+      { eventKey: `vetting:${userId}:${statusKey}`, linkUrl: 'tab:settings' }
     );
 
     res.status(200).json({ message: `Applicant status updated to ${status}.`, user: fu ? normalizeUser(fu) : { id: userId, vettingStatus: status } });
@@ -2033,7 +2010,7 @@ app.get('/api/admin/users/founders', async (req, res) => {
       const { data, error } = await supabase.from('users').select('*').eq('role', 'founder');
       if (!error && data) return res.status(200).json(data.map(normalizeUser));
     }
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       const founders = await User.find({ role: 'founder' });
       if (founders) return res.status(200).json(founders.map(normalizeUser));
     }
@@ -2052,7 +2029,7 @@ app.get('/api/users/founders', async (req, res) => {
       const { data, error } = await supabase.from('users').select('*').eq('role', 'founder');
       if (!error && data) return res.status(200).json(data.map(normalizeUser));
     }
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       const founders = await User.find({ role: 'founder' });
       if (founders) return res.status(200).json(founders.map(normalizeUser));
     }
@@ -2070,7 +2047,7 @@ app.get('/api/admin/users/investors', async (req, res) => {
       const { data, error } = await supabase.from('users').select('*').eq('role', 'investor');
       if (!error && data) return res.status(200).json(data.map(normalizeUser));
     }
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       const investors = await User.find({ role: 'investor' });
       if (investors) return res.status(200).json(investors.map(normalizeUser));
     }
@@ -2268,7 +2245,7 @@ app.get('/api/campaigns', async (req, res) => {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('campaigns').select('*');
       if (!error && data) rawList = data.map(normalizeCampaign);
-    } else if (mongoose.connection.readyState === 1) {
+    } else if (false) {
       const campaigns = await Campaign.find();
       if (campaigns) rawList = campaigns.map(normalizeCampaign);
     } else {
@@ -2320,7 +2297,7 @@ app.get('/api/admin/campaigns/pending', async (req, res) => {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('campaigns').select('*');
       if (!error && data) allCampaigns = data.map(normalizeCampaign);
-    } else if (mongoose.connection.readyState === 1) {
+    } else if (false) {
       const campaigns = await Campaign.find();
       if (campaigns) allCampaigns = campaigns.map(normalizeCampaign);
     } else {
@@ -2351,7 +2328,7 @@ app.post('/api/admin/campaigns/:id/verify', async (req, res) => {
         await supabase.from('campaigns').update({ status: 'verified', verified: true }).eq('id', id);
       } catch (e) {}
     }
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       try {
         await Campaign.findOneAndUpdate({ id }, { status: 'verified', verified: true });
       } catch (e) {}
@@ -2617,7 +2594,7 @@ app.get('/api/campaigns/founder/:founderId', async (req, res) => {
         return res.status(200).json(data.map(normalizeCampaign));
       }
     }
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       try {
         const campaigns = await Campaign.find({ founder: founderId });
         if (campaigns) return res.status(200).json(campaigns.map(normalizeCampaign));
@@ -2701,7 +2678,7 @@ app.post('/api/campaigns', async (req, res) => {
       }
     }
 
-    if (!resultCampaign && mongoose.connection.readyState === 1) {
+    if (!resultCampaign && false) {
       try {
         resultCampaign = await Campaign.findOneAndUpdate({ id: campaignId }, campaignData, { upsert: true, new: true });
         if (resultCampaign) resultCampaign = normalizeCampaign(resultCampaign);
@@ -2774,7 +2751,7 @@ app.post('/api/campaigns/:id/proposals', async (req, res) => {
       }
     }
 
-    if (!createdProp && mongoose.connection.readyState === 1) {
+    if (!createdProp && false) {
       try {
         const mongoProp = await Proposal.create({
           campaign: id,
@@ -2802,13 +2779,16 @@ app.post('/api/campaigns/:id/proposals', async (req, res) => {
 
     // Send real-time notification to Founder
     const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
-    const targetFounderId = finalProp.founder_id || cmp?.founder_id || cmp?.founder?._id || cmp?.founder?.id || 'usr_founder_1';
-    await createAndDispatchNotification(
-      targetFounderId,
-      'New Investment Proposal Received! 💰',
-      `${investorName || 'An investor'} submitted a BDT ৳${Number(amount).toLocaleString()} funding proposal for your startup.`,
-      'info'
-    );
+    const targetFounderId = finalProp.founder_id || cmp?.founder_id || cmp?.founder?._id || cmp?.founder?.id;
+    if (targetFounderId) {
+      await createAndDispatchNotification(
+        targetFounderId,
+        'New Investment Proposal Received! 💰',
+        `${investorName || 'An investor'} submitted a BDT ৳${Number(amount).toLocaleString()} funding proposal for your startup.`,
+        NOTIFICATION_TYPES.NEW_INVESTMENT_PROPOSAL,
+        { senderId: finalProp.investor_id || investorId, eventKey: `proposal_new:${finalProp.id}`, linkUrl: 'tab:investors' }
+      );
+    }
 
     res.status(201).json({ message: 'Investment proposal submitted to Founder.', proposal: finalProp });
   } catch (err) {
@@ -2831,7 +2811,7 @@ app.get('/api/proposals/campaign/:campaignId', async (req, res) => {
       } catch (e) {}
     }
 
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       try {
         const dbProps = await Proposal.find({ campaign: campaignId });
         if (dbProps && dbProps.length > 0) {
@@ -2870,7 +2850,7 @@ app.get('/api/proposals/investor/:investorId', async (req, res) => {
       } catch (e) {}
     }
 
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       try {
         const dbProps = await Proposal.find({ investor: investorId });
         if (dbProps && dbProps.length > 0) {
@@ -3050,10 +3030,18 @@ app.post('/api/founder/proposals/:proposalId/status', async (req, res) => {
         invId,
         `Proposal ${status.toUpperCase()}! 📄`,
         `The founder has ${status} your investment proposal of ৳ ${Number(fp.amount || 0).toLocaleString()}.`,
-        status === 'accepted' ? 'success' : 'warning'
+        status === 'accepted' ? NOTIFICATION_TYPES.PROPOSAL_ACCEPTED : NOTIFICATION_TYPES.PROPOSAL_REJECTED,
+        { eventKey: `proposal_${status}:${fp.id || proposalId}`, linkUrl: 'tab:portfolio' }
       );
     }
     s3EmitProposalUpdated(fp); // S3
+    if (status === 'accepted') {
+      try {
+        partnershipModel.createFromAcceptedProposal(fp, cmp);
+      } catch (partErr) {
+        console.warn('Partnership create on accept skipped:', partErr.message);
+      }
+    }
     res.status(200).json({ message: `Proposal ${status}.`, proposal: normalizeProposal(fp) });
   } catch (err) {
     res.status(500).json({ error: 'Error updating proposal.' });
@@ -3101,7 +3089,8 @@ app.post('/api/founder/proposals/:proposalId/negotiate', async (req, res) => {
         invId,
         'Founder sent a counter-offer 💬',
         `The founder proposes ৳ ${counterAmount.toLocaleString()} on terms "${counterTerms}".${fp.negotiate_message ? ' Note: ' + fp.negotiate_message : ''}`,
-        'info'
+        NOTIFICATION_TYPES.PROPOSAL_COUNTERED,
+        { eventKey: `proposal_counter:${fp.id}:${fp.negotiated_at}`, linkUrl: 'tab:campaigns' }
       );
     }
     const n = normalizeProposal(fp);
@@ -3137,7 +3126,7 @@ app.put('/api/campaigns/:id/proposals/:proposalId/status', async (req, res) => {
       } catch (e) {}
     }
 
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       try {
         await Proposal.findByIdAndUpdate(proposalId, { status });
       } catch (e) {}
@@ -3186,12 +3175,12 @@ app.put('/api/campaigns/:id/proposals/:proposalId/status', async (req, res) => {
 
     if (fp && (fp.investorId || fp.investor_id)) {
       const targetInvId = fp.investorId || fp.investor_id;
-      const type = status === 'accepted' ? 'success' : 'warning';
       await createAndDispatchNotification(
         targetInvId,
         `Proposal ${status.toUpperCase()}! 📄`,
         `The founder has ${status} your investment proposal.`,
-        type
+        status === 'accepted' ? NOTIFICATION_TYPES.PROPOSAL_ACCEPTED : NOTIFICATION_TYPES.PROPOSAL_REJECTED,
+        { eventKey: `proposal_${status}:${fp.id || proposalId}`, linkUrl: 'tab:portfolio' }
       );
     }
 
@@ -3211,7 +3200,7 @@ app.post('/api/proposals/:proposalId/withdraw', async (req, res) => {
       } catch (e) {}
     }
 
-    if (mongoose.connection.readyState === 1) {
+    if (false) {
       try {
         await Proposal.findByIdAndUpdate(proposalId, { status: 'withdrawn' });
       } catch (e) {}
@@ -3222,6 +3211,16 @@ app.post('/api/proposals/:proposalId/withdraw', async (req, res) => {
       fp.status = 'withdrawn';
       persistS3ProposalStore(); // S3
       s3EmitProposalUpdated(fp); // S3
+      const founderId = fp.founder_id || fallbackCampaigns.find((c) => c.id === fp.campaign_id)?.founder_id;
+      if (founderId) {
+        await createAndDispatchNotification(
+          founderId,
+          'Investment proposal withdrawn',
+          `An investor withdrew a proposal on your campaign.`,
+          NOTIFICATION_TYPES.PROPOSAL_WITHDRAWN,
+          { senderId: fp.investor_id || fp.investorId, eventKey: `proposal_withdrawn:${fp.id || proposalId}`, linkUrl: 'tab:investors' }
+        );
+      }
     }
 
     res.status(200).json({ message: 'Proposal withdrawn successfully.' });
@@ -3495,23 +3494,26 @@ io.on('connection', (socket) => {
   });
 
   socket.on('send_message', async (data) => {
+    const senderId = String(data.senderId || data.sender || '').trim();
+    const receiverId = String(data.receiverId || '').trim();
+    const text = String(data.text || '').trim();
+    if (!senderId || !receiverId || receiverId === 'all' || senderId === receiverId || !text || text.length > 2000) return;
     const msgObj = {
       id: 'msg_' + Date.now(),
-      sender_id: data.senderId || data.sender,
-      receiver_id: data.receiverId || 'all',
+      sender_id: senderId,
+      receiver_id: receiverId,
       sender_name: data.senderName || 'User',
       campaign_id: data.campaignId || '',
-      text: data.text,
+      text,
       created_at: new Date().toISOString()
     };
     fallbackMessages.push(msgObj);
+    persistS3MessageStore();
     if (isSupabaseConfigured && supabase) {
       try { await supabase.from('messages').insert([msgObj]); } catch (e) {}
     }
 
-    const targetRoom = data.roomId || data.campaignId || 'general';
-    io.to(targetRoom).emit('receive_message', msgObj);
-    io.emit('new_direct_message', msgObj);
+    io.to(senderId).to(receiverId).emit('new_direct_message', msgObj);
   });
 });
 
@@ -3524,6 +3526,9 @@ io.on('connection', (socket) => {
 app.get('/api/chat/messages', async (req, res) => {
   try {
     const { senderId, receiverId, campaignId } = req.query;
+    if ((!senderId || !receiverId) && !campaignId) {
+      return res.status(400).json({ error: 'senderId and receiverId are required for a direct conversation.' });
+    }
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('messages').select('*').order('created_at', { ascending: true });
       if (!error && data) {
@@ -3559,6 +3564,7 @@ app.get('/api/chat/thread', async (req, res) => {
     const senderId = String(req.query.senderId || '');
     const receiverId = String(req.query.receiverId || '');
     if (!senderId || !receiverId) return res.status(400).json({ error: 'senderId and receiverId are required.' });
+    if (senderId === receiverId || receiverId === 'all') return res.status(400).json({ error: 'Choose a different participant for a direct conversation.' });
     const inThread = (m) => {
       const s = String(m.sender_id || m.senderId || '');
       const r = String(m.receiver_id || m.receiverId || '');
@@ -3589,15 +3595,21 @@ app.get('/api/chat/thread', async (req, res) => {
 app.post('/api/chat/messages', async (req, res) => {
   try {
     const { senderId, receiverId, campaignId, senderName, text } = req.body;
-    if (!senderId || !text) return res.status(400).json({ error: 'Sender ID and text are required.' });
+    const cleanSenderId = String(senderId || '').trim();
+    const cleanReceiverId = String(receiverId || '').trim();
+    const cleanText = String(text || '').trim();
+    if (!cleanSenderId || !cleanReceiverId || cleanReceiverId === 'all' || cleanSenderId === cleanReceiverId || !cleanText) {
+      return res.status(400).json({ error: 'A recipient and non-empty direct message are required.' });
+    }
+    if (cleanText.length > 2000) return res.status(400).json({ error: 'Messages cannot exceed 2,000 characters.' });
 
     const msgObj = {
       id: 'msg_' + Date.now(),
-      sender_id: senderId,
-      receiver_id: receiverId || 'all',
+      sender_id: cleanSenderId,
+      receiver_id: cleanReceiverId,
       sender_name: senderName || 'User',
       campaign_id: campaignId || '',
-      text,
+      text: cleanText,
       created_at: new Date().toISOString()
     };
 
@@ -3605,12 +3617,21 @@ app.post('/api/chat/messages', async (req, res) => {
       try { await supabase.from('messages').insert([msgObj]); } catch (e) {}
     }
     fallbackMessages.push(msgObj);
+    persistS3MessageStore();
 
-    const targetRoom = campaignId || 'general';
-    io.to(targetRoom).emit('receive_message', msgObj);
-    io.emit('new_direct_message', msgObj);
+    if (cleanReceiverId !== cleanSenderId) {
+      await createAndDispatchNotification(
+        cleanReceiverId,
+        'New direct message',
+        `${senderName || 'A user'} sent you a message.`,
+        NOTIFICATION_TYPES.DIRECT_MESSAGE,
+        { senderId: cleanSenderId, eventKey: `dm:${msgObj.id}`, linkUrl: 'tab:messages' }
+      );
+    }
 
-    res.status(201).json(msgObj);
+    io.to(cleanSenderId).to(cleanReceiverId).emit('new_direct_message', msgObj);
+
+    res.status(201).json({ message: 'Message sent.', chatMessage: msgObj });
   } catch (err) {
     res.status(500).json({ error: 'Error sending message.' });
   }
@@ -5661,6 +5682,15 @@ app.post('/api/admin/campaign-updates/:updateId/status', async (req, res) => {
           status === 'approved' ? 'success' : 'warning'
         );
       }
+      if (status === 'approved') {
+        await notifyCampaignBackers(
+          upd.campaign_id,
+          'Campaign milestone update',
+          `A progress update was published: “${upd.title}”.`,
+          NOTIFICATION_TYPES.CAMPAIGN_MILESTONE_UPDATE,
+          { eventKey: `milestone_update:${upd.id}`, linkUrl: 'tab:campaigns' }
+        );
+      }
     } catch (e) {}
     res.status(200).json({ message: `Update ${status}.`, update: upd });
   } catch (err) {
@@ -5844,6 +5874,16 @@ app.post('/api/investors/watchlist', async (req, res) => {
       if (isSupabaseConfigured && supabase) {
         try { await supabase.from('watchlist').insert([item]); } catch(e){}
       }
+      const camp = fallbackCampaigns.find((c) => c.id === campaignId || c._id === campaignId);
+      if (camp?.founder_id && String(camp.founder_id) !== String(userId)) {
+        await createAndDispatchNotification(
+          camp.founder_id,
+          'Startup added to a watchlist',
+          `An investor bookmarked ${camp.title || 'your campaign'}.`,
+          NOTIFICATION_TYPES.STARTUP_BOOKMARKED,
+          { senderId: userId, eventKey: `watch:${userId}:${campaignId}`, linkUrl: 'tab:overview' }
+        );
+      }
     }
 
     res.status(200).json({ status, campaignId });
@@ -5858,44 +5898,86 @@ app.post('/api/investors/watchlist', async (req, res) => {
 app.get('/api/notifications', async (req, res) => {
   try {
     const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId is required.' });
+    const uid = String(userId);
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
-      if (!error && data) {
-        const filtered = data.filter(n => !userId || n.user_id === userId);
-        return res.status(200).json(filtered);
-      }
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!error && data) return res.status(200).json(data);
     }
-    const list = fallbackNotifications.filter(n => !userId || n.user_id === userId);
+    const list = fallbackNotifications.filter((n) => String(n.user_id) === uid).slice(0, 50);
     res.status(200).json(list);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching notifications.' });
   }
 });
 
+app.put('/api/notifications/read-all', async (req, res) => {
+  try {
+    const userId = String(req.body?.userId || req.query?.userId || '');
+    if (!userId) return res.status(400).json({ error: 'userId is required.' });
+    fallbackNotifications.forEach((n) => {
+      if (String(n.user_id) === userId) n.is_read = true;
+    });
+    persistS3NotificationStore();
+    if (isSupabaseConfigured && supabase) {
+      try { await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId); } catch (e) {}
+    }
+    res.status(200).json({ message: 'All notifications marked as read.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error marking notifications read.' });
+  }
+});
+
 app.put('/api/notifications/:id/read', async (req, res) => {
   try {
     const { id } = req.params;
-    if (isSupabaseConfigured && supabase) {
-      try { await supabase.from('notifications').update({ is_read: true }).eq('id', id); } catch(e){}
+    const actorId = String(req.body?.userId || req.query?.userId || '');
+    const notif = fallbackNotifications.find((n) => n.id === id);
+    if (actorId && notif && String(notif.user_id) !== actorId) {
+      return res.status(403).json({ error: 'You can only update your own notifications.' });
     }
-    const notif = fallbackNotifications.find(n => n.id === id);
     if (notif) notif.is_read = true;
-    res.status(200).json({ message: 'Notification marked as read.' });
+    persistS3NotificationStore();
+    if (isSupabaseConfigured && supabase) {
+      let q = supabase.from('notifications').update({ is_read: true }).eq('id', id);
+      if (actorId) q = q.eq('user_id', actorId);
+      try { await q; } catch (e) {}
+    }
+    res.status(200).json({ message: 'Notification marked as read.', notification: notif });
   } catch (err) {
     res.status(500).json({ error: 'Error marking notification read.' });
   }
 });
 
-app.post('/api/notifications', async (req, res) => {
+app.delete('/api/notifications/:id', async (req, res) => {
   try {
-    const { userId, title, message, type } = req.body;
-    if (!userId || !title) return res.status(400).json({ error: 'User ID and title required.' });
-
-    const notif = await createAndDispatchNotification(userId, title, message || '', type || 'info');
-    res.status(201).json(notif);
+    const { id } = req.params;
+    const actorId = String(req.body?.userId || req.query?.userId || '');
+    const idx = fallbackNotifications.findIndex((n) => n.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Notification not found.' });
+    if (actorId && String(fallbackNotifications[idx].user_id) !== actorId) {
+      return res.status(403).json({ error: 'You can only delete your own notifications.' });
+    }
+    const [removed] = fallbackNotifications.splice(idx, 1);
+    persistS3NotificationStore();
+    if (isSupabaseConfigured && supabase) {
+      let q = supabase.from('notifications').delete().eq('id', id);
+      if (actorId) q = q.eq('user_id', actorId);
+      try { await q; } catch (e) {}
+    }
+    res.status(200).json({ message: 'Notification deleted.', notification: removed });
   } catch (err) {
-    res.status(500).json({ error: 'Error sending notification.' });
+    res.status(500).json({ error: 'Error deleting notification.' });
   }
+});
+
+app.post('/api/notifications', async (req, res) => {
+  return res.status(403).json({ error: 'Notifications are created by the server after a successful event.' });
 });
 
 // ============================================================================
@@ -6036,6 +6118,13 @@ app.post('/api/investors/bookmark-founder', async (req, res) => {
       if (isSupabaseConfigured && supabase) {
         try { await supabase.from('bookmarked_founders').insert([item]); } catch(e){}
       }
+      await createAndDispatchNotification(
+        founderId,
+        'An investor bookmarked your profile',
+        'A verified investor saved your founder profile.',
+        NOTIFICATION_TYPES.STARTUP_BOOKMARKED,
+        { senderId: investorId, eventKey: `bookmark:${investorId}:${founderId}`, linkUrl: 'tab:overview' }
+      );
     }
 
     res.status(200).json({ status, founderId });

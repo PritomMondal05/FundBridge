@@ -4,6 +4,8 @@ import {
   generateFounderBio,
   improveCampaignDescription,
   improveFounderBio,
+  generateInvestorBio,
+  improveInvestorBio,
   requireInvestor
 } from '../services/aiOptimizationService.js';
 import { getWhatsBurning } from '../services/investmentTrendsService.js';
@@ -54,6 +56,33 @@ export async function improveBioHandler(req, res) {
     res.status(200).json(result);
   } catch (err) {
     sendError(res, err, 'Failed to improve founder bio.');
+  }
+}
+
+export async function generateInvestorBioHandler(req, res) {
+  try {
+    const investorId = req.body?.investorId || req.body?.userId;
+    if (!investorId) return res.status(400).json({ error: 'investorId is required.' });
+    if (!applyLimit(req, res, `inv-bio:${investorId}`)) return;
+    const result = await generateInvestorBio({ investorId, extras: req.body || {} });
+    res.status(200).json(result);
+  } catch (err) {
+    sendError(res, err, 'Failed to generate investor bio.');
+  }
+}
+
+export async function improveInvestorBioHandler(req, res) {
+  try {
+    const investorId = req.body?.investorId || req.body?.userId;
+    if (!investorId) return res.status(400).json({ error: 'investorId is required.' });
+    if (!applyLimit(req, res, `inv-bio:${investorId}`)) return;
+    const result = await improveInvestorBio({
+      investorId,
+      extras: { ...(req.body || {}), existingBio: req.body?.existingBio || req.body?.bio }
+    });
+    res.status(200).json(result);
+  } catch (err) {
+    sendError(res, err, 'Failed to improve investor bio.');
   }
 }
 

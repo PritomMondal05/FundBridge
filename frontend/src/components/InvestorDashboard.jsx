@@ -1,4 +1,4 @@
-                                import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import {
   LayoutDashboard,
@@ -7,7 +7,6 @@ import {
   Users,
   History,
   Settings,
-  Bell,
   MessageSquare,
   Search,
   FileText,
@@ -49,6 +48,10 @@ import PublicProfileModal from './PublicProfileModal';
 import InvestorMatchView from './ai/InvestorMatchView';
 import AIMatchCarousel from './AIMatchCarousel';
 import WhatsBurning from './ai/WhatsBurning';
+import TransactionMilestoneTracker from './TransactionMilestoneTracker';
+import { NotificationProvider } from '../contexts/NotificationContext.jsx';
+import NotificationBell from './notifications/NotificationBell.jsx';
+import AiContentAssistant from './ai/AiContentAssistant';
 
 export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL, triggerAlert }) {
   const user = currentUser || {
@@ -65,12 +68,13 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
   // Header State
   const [globalSearch, setGlobalSearch] = useState('');
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [showChatDrawer, setShowChatDrawer] = useState(false);
   const [chatTarget, setChatTarget] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInputText, setChatInputText] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
 
   const [profileUser, setProfileUser] = useState({
     name: user.name || 'Javeria Doe',
@@ -117,7 +121,6 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   const [addMoneyNote, setAddMoneyNote] = useState('');
   const [addMoneyProof, setAddMoneyProof] = useState(null);
   const [submittingAddMoney, setSubmittingAddMoney] = useState(false);
-  const [notifications, setNotifications] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
   const [bookmarkedFounders, setBookmarkedFounders] = useState([]);
   const [investorConnections, setInvestorConnections] = useState([]);
@@ -305,15 +308,6 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
         } catch (e) {}
       }
 
-      // 7. Fetch Real-Time Notifications
-      if (userId) {
-        const notifRes = await fetch(`${API_BASE_URL}/api/notifications?userId=${userId}`);
-        if (notifRes.ok) {
-          const notifData = await notifRes.json();
-          setNotifications(notifData || []);
-        }
-      }
-
       // 8. Fetch Watchlist Pins
       if (userId) {
         const watchRes = await fetch(`${API_BASE_URL}/api/investors/watchlist?userId=${userId}`);
@@ -361,9 +355,6 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
     newSocket.on('receive_notification', (newNotif) => {
       if (newNotif.user_id === userId || newNotif.user_id === 'all') {
-        setNotifications(prev => [newNotif, ...prev]);
-        showToast(`🔔 ${newNotif.title}: ${newNotif.message}`, 'info');
-        // S3: reload proposals when founder accepts / declines / counters
         const t = String(newNotif.title || '').toLowerCase();
         if (t.includes('proposal') || t.includes('counter-offer') || t.includes('counter')) {
           (async () => {
@@ -375,12 +366,6 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
             } catch (e) { /* keep prior */ }
           })();
         }
-      }
-    });
-
-    newSocket.on('new_notification_broadcast', (newNotif) => {
-      if (!newNotif.user_id || newNotif.user_id === userId || newNotif.user_id === 'all') {
-        setNotifications(prev => [newNotif, ...prev]);
       }
     });
 
@@ -644,13 +629,16 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           complainantName: profileUser.name || 'Investor Backer',
+          complainantId: currentUser?.id || currentUser?._id || user.id,
           complainantRole: 'investor',
           reportedUser: flagModalCampaign.founder?.name || 'Student Founder',
-          reportedUserId: flagModalCampaign.founder_id || flagModalCampaign.founderId || '',
+          reportedUserId: flagModalCampaign.founder_id || flagModalCampaign.founderId || flagModalCampaign.founder?.id || flagModalCampaign.founder?._id || '',
           reportedRole: 'founder',
           campaignTitle: flagModalCampaign.title,
           campaignId: flagModalCampaign.id || flagModalCampaign._id,
           issueType: flagReason || 'Fraudulent Activity Concern',
+          category: flagReason || 'Fraudulent Activity Concern',
+          reason: flagDescription || 'Investor flagged campaign for review by admins.',
           description: flagDescription || 'Investor flagged campaign for review by admins.',
           severity: 'High'
         })
@@ -705,31 +693,54 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   // Direct Messaging
   const handleSendChatMessage = async (e) => {
     if (e) e.preventDefault();
-    if (!chatInputText.trim()) return;
+    const text = chatInputText.trim();
+    const investorId = currentUser?.id || currentUser?._id || user.id;
+    const receiverId = chatTarget?._id || chatTarget?.id;
+    if (!text || !receiverId || receiverId === 'all') return;
     try {
       const res = await fetch(`${API_BASE_URL}/api/chat/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          senderId: currentUser?.id || currentUser?._id || user.id,
+          senderId: investorId,
           senderName: profileUser.name || user.name || 'Investor',
-          receiverId: chatTarget?._id || chatTarget?.id || 'all',
-          text: chatInputText
+          receiverId,
+          text
         })
       });
       if (res.ok) {
-        setChatMessages(prev => [...prev, {
-          sender_id: user.id,
-          sender_name: profileUser.name,
-          text: chatInputText,
-          created_at: new Date().toISOString()
-        }]);
+        const data = await res.json();
+        const created = data.chatMessage;
+        if (created) setChatMessages((prev) => prev.some((message) => message.id === created.id) ? prev : [...prev, created]);
         setChatInputText('');
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || 'Unable to send message.');
       }
     } catch (err) {
-      showToast('Error sending message.', 'error');
+      setChatError(err.message || 'Unable to send message.');
     }
   };
+
+  useEffect(() => {
+    const investorId = currentUser?.id || currentUser?._id || user.id;
+    const founderId = chatTarget?._id || chatTarget?.id;
+    if (!showChatDrawer || !investorId || !founderId || founderId === 'all') { setChatMessages([]); return undefined; }
+    const controller = new AbortController();
+    setChatLoading(true); setChatError('');
+    fetch(`${API_BASE_URL}/api/chat/thread?senderId=${encodeURIComponent(investorId)}&receiverId=${encodeURIComponent(founderId)}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('Unable to load this conversation.')))
+      .then((messages) => setChatMessages(Array.isArray(messages) ? messages : []))
+      .catch((err) => { if (err.name !== 'AbortError') setChatError(err.message); })
+      .finally(() => { if (!controller.signal.aborted) setChatLoading(false); });
+    const socket = io(API_BASE_URL);
+    socket.emit('join_room', investorId);
+    socket.on('new_direct_message', (message) => {
+      const participants = [String(message.sender_id), String(message.receiver_id)];
+      if (participants.includes(String(investorId)) && participants.includes(String(founderId))) setChatMessages((prev) => prev.some((item) => item.id === message.id) ? prev : [...prev, message]);
+    });
+    return () => { controller.abort(); socket.disconnect(); };
+  }, [showChatDrawer, chatTarget?.id, chatTarget?._id, currentUser?.id, currentUser?._id, API_BASE_URL]);
 
   // Save Profile
   const handleSaveProfile = async (e) => {
@@ -930,6 +941,14 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   };
 
   return (
+    <NotificationProvider
+      userId={user.id || user._id}
+      apiBase={API_BASE_URL}
+      onToast={showToast}
+      onNavigate={(link) => {
+        if (String(link || '').startsWith('tab:')) setActiveTab(String(link).slice(4));
+      }}
+    >
     <div className="min-h-screen bg-[#FAFAFC] text-slate-900 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
       {/* Toast Notification Alert */}
       {toast && (
@@ -981,7 +1000,12 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
           {/* Active Chat Inbox */}
           <button
             onClick={() => {
-              setChatTarget({ name: 'All Founders & Co-Investors', id: 'all' });
+              const founder = foundersList[0];
+              if (!founder) {
+                showToast('Choose a founder from Explore Campaigns to start a conversation.', 'info');
+                return;
+              }
+              setChatTarget({ name: founder.name || 'Founder', id: founder.id || founder._id });
               setShowChatDrawer(true);
             }}
             className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
@@ -993,61 +1017,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
           {/* Real-time Notifications Bell */}
           <div className="relative">
-            <button
-              onClick={() => setIsNotifOpen(!isNotifOpen)}
-              className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-              title="Notifications"
-            >
-              <Bell className="w-4.5 h-4.5" />
-              {notifications.filter(n => !n.is_read).length > 0 && (
-                <span className="absolute top-1 right-1 px-1 py-0.2 bg-[#047857] hover:bg-[#065f46] text-white text-[9px] font-bold rounded-full ring-2 ring-white">
-                  {notifications.filter(n => !n.is_read).length}
-                </span>
-              )}
-            </button>
-
-            {isNotifOpen && (
-              <div className="absolute right-0 top-12 w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-fadeIn text-left">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <Bell className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Real-Time Notifications</span>
-                  </h4>
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-mono">
-                    {notifications.filter(n => !n.is_read).length} Unread
-                  </span>
-                </div>
-
-                <div className="max-h-72 overflow-y-auto space-y-2 text-xs">
-                  {notifications.length > 0 ? (
-                    notifications.map(n => (
-                      <div
-                        key={n.id || n._id}
-                        onClick={async () => {
-                          try {
-                            await fetch(`${API_BASE_URL}/api/notifications/${n.id || n._id}/read`, { method: 'PUT' });
-                            setNotifications(prev => prev.map(x => (x.id === n.id || x._id === n._id ? { ...x, is_read: true } : x)));
-                          } catch(e){}
-                        }}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                          !n.is_read ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-50 border-slate-100 opacity-75'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-1">
-                          <span className="font-bold text-slate-900 text-[11px] block">{n.title}</span>
-                          <span className="text-[9px] text-slate-400 font-mono whitespace-nowrap">
-                            {n.created_at ? new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-600 leading-tight mt-1">{n.message}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="py-6 text-center text-xs text-slate-400">No notifications yet.</p>
-                  )}
-                </div>
-              </div>
-            )}
+            <NotificationBell />
           </div>
 
           <div className="h-6 w-px bg-slate-200 my-auto"></div>
@@ -1946,9 +1916,8 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                       <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">My Investments & Funded Startups</h1>
-                      <p className="text-xs text-slate-500 mt-0.5">Track growth status, operational stages (Level 1, Level 2), and upcoming milestone funding tranches.</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Track committed capital, escrow releases, proof review, and milestone verification.</p>
                     </div>
-
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setShowProposalsModal(true)}
@@ -1957,7 +1926,6 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                         <FileText className="w-4 h-4 text-sky-600" />
                         <span>Submitted Proposals ({proposals.length})</span>
                       </button>
-
                       <button
                         onClick={() => {
                           if (campaigns.length > 0) {
@@ -1974,6 +1942,16 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                       </button>
                     </div>
                   </div>
+                  <TransactionMilestoneTracker
+                    role="investor"
+                    userId={user.id || user._id}
+                    API_BASE_URL={API_BASE_URL}
+                    showToast={showToast}
+                    onMessage={(target) => {
+                      setChatTarget(target);
+                      setShowChatDrawer(true);
+                    }}
+                  />
 
                   {fundedCampaigns.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2011,7 +1989,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                               </div>
                               <div>
                                 <span className="text-slate-400 block text-[10px]">UPCOMING TRANCHE RELEASE</span>
-                                <span className="text-sm font-bold text-emerald-700">৳ 1,50,000 (Tranche #2)</span>
+                                <span className="text-sm font-bold text-emerald-700">৳ {Number(c.raised || 0).toLocaleString()} raised</span>
                               </div>
                             </div>
 
@@ -2479,12 +2457,25 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
                       <div className="md:col-span-2">
                         <label className="font-semibold text-slate-700 block mb-1">Investment Bio</label>
-                        <textarea
-                          rows={3}
-                          value={profileUser.bio}
-                          onChange={(e) => setProfileUser({ ...profileUser, bio: e.target.value })}
-                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                        ></textarea>
+                      <textarea
+                        rows={3}
+                        value={profileUser.bio}
+                        onChange={(e) => setProfileUser({ ...profileUser, bio: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                      ></textarea>
+                      <AiContentAssistant
+                        kind="investor-bio"
+                        userId={user.id || user._id}
+                        value={profileUser.bio}
+                        context={{
+                          name: profileUser.name,
+                          institution: profileUser.institution,
+                          sectors: profileUser.sectorInterests
+                        }}
+                        API_BASE_URL={API_BASE_URL}
+                        showToast={showToast}
+                        onApply={(content) => setProfileUser({ ...profileUser, bio: content })}
+                      />
                       </div>
 
                       <div>
@@ -3052,11 +3043,22 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                                     <button
                                       onClick={() => setSelectedPublicProfile({
                                         type: 'founder',
-                                        id: selectedCampaignDetail.founder?.id || selectedCampaignDetail.founder?._id
+                                        id: selectedCampaignDetail.founder?.id || selectedCampaignDetail.founder?._id || selectedCampaignDetail.founder_id || selectedCampaignDetail.founderId
                                       })}
                                       className="mt-1 block text-[10px] font-semibold text-emerald-700 hover:underline"
                                     >
                                       Open full founder profile
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedPublicProfile({
+                                        type: 'founder',
+                                        id: selectedCampaignDetail.founder?.id || selectedCampaignDetail.founder?._id || selectedCampaignDetail.founder_id || selectedCampaignDetail.founderId
+                                      })}
+                                      className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 hover:underline"
+                                    >
+                                      <Flag className="w-3 h-3" />
+                                      Report founder
                                     </button>
                   </div>
                   <div>
@@ -3857,7 +3859,11 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
           </div>
 
           <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs bg-slate-50">
-            {chatMessages.length > 0 ? (
+            {chatLoading ? (
+              <div className="py-16 text-center text-slate-400">Loading conversation…</div>
+            ) : chatError ? (
+              <div className="py-16 text-center text-rose-600">{chatError}</div>
+            ) : chatMessages.length > 0 ? (
               chatMessages.map((m, idx) => (
                 <div
                   key={idx}
@@ -3885,11 +3891,14 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
               placeholder="Type your message..."
               value={chatInputText}
               onChange={(e) => setChatInputText(e.target.value)}
+              maxLength={2000}
+              disabled={!chatTarget?.id || chatTarget?.id === 'all'}
               className="flex-1 px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
             />
             <button
               type="submit"
-              className="p-2 bg-[#047857] hover:bg-[#065f46] text-white rounded-xl cursor-pointer transition-colors"
+              disabled={!chatInputText.trim() || !chatTarget?.id || chatTarget?.id === 'all'}
+              className="p-2 bg-[#047857] hover:bg-[#065f46] text-white rounded-xl cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -3902,9 +3911,16 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
           profileType={selectedPublicProfile.type}
           profileId={selectedPublicProfile.id}
           API_BASE_URL={API_BASE_URL}
+          reporter={{
+            id: currentUser?.id || currentUser?._id || user.id,
+            name: profileUser.name || user.name,
+            role: 'investor'
+          }}
+          onReported={() => showToast('Report submitted to platform administrators.', 'success')}
           onClose={() => setSelectedPublicProfile(null)}
         />
       )}
     </div>
+    </NotificationProvider>
   );
 }
