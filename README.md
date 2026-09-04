@@ -118,6 +118,7 @@ PORT=5000
 JWT_SECRET=your_jwt_secret_key_here
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
+GEMINI_API_KEY=gemini_api_key
 ```
 
 **`frontend/.env`**:
