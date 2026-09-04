@@ -462,3 +462,33 @@ ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, goal = EXCLUDED.goal, rai
 INSERT INTO audit_logs (hash, category, title, status, latency)
 VALUES ('0x8f2a99c4b1d09e1a', 'DISBURSEMENT', 'Escrow Tranche #1 Release', 'VERIFIED', '14ms')
 ON CONFLICT DO NOTHING;
+ALTER TABLE payouts ADD COLUMN IF NOT EXISTS campaign_id TEXT REFERENCES campaigns(id) ON DELETE CASCADE;
+INSERT INTO proposals (id, campaign_id, investor_id, amount, terms, return_structure, status)
+VALUES ('test_prop_1', 'campusbites_1', 'usr_investor_1', 50000, '8% Rev Share', '8% Rev Share', 'accepted');
+
+INSERT INTO payouts (id, founder_id, campaign_id, tranche, amount, method, account_number, status, hash)
+VALUES ('test_payout_1', 'usr_founder_1', 'campusbites_1', 'MVP Launch Tranche', 20000, 'bKash', '01710000000', 'Pending Audit', '0xtest123');
+
+-- ============================================================
+-- AI Optimization Engine — new columns
+-- Run this in the Supabase SQL Editor (Dashboard → SQL Editor)
+-- ============================================================
+
+-- Investor-side signal, added to the existing `users` table.
+-- Design note: I deliberately did NOT add a raw "net_worth" column.
+-- A self-reported budget range gives the LLM the same matching signal
+-- without your app claiming to hold verified financial data it has
+-- no compliance infrastructure to actually protect or verify.
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS investment_budget_min numeric,
+  ADD COLUMN IF NOT EXISTS investment_budget_max numeric,
+  ADD COLUMN IF NOT EXISTS sector_interests text[];  -- e.g. {'FinTech','AgriTech'}
+
+-- Founder/startup-side signal, added to the existing `campaigns` table.
+-- Design note: I did NOT add a separate "business_type" column — the
+-- existing `category` column (already populated: 'FinTech', 'AgriTech', etc.)
+-- already means the same thing. Two columns holding near-duplicate data
+-- is a real schema smell; reusing `category` avoids it.
+ALTER TABLE campaigns
+  ADD COLUMN IF NOT EXISTS revenue_structure text,   -- e.g. 'Subscription', 'Commission', 'One-time Sale'
+  ADD COLUMN IF NOT EXISTS operational_model text;   -- e.g. 'B2C', 'B2B', 'Marketplace', 'D2C'

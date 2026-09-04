@@ -24,6 +24,10 @@ import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
+
+import aiMatchRoutes from './routes/aiMatchRoutes.js';
+
+
 // Supabase Integration
 import { supabase, isSupabaseConfigured } from './supabase.js';
 
@@ -43,6 +47,8 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+
+app.use('/api/ai', aiMatchRoutes);
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'uploads');
@@ -3133,7 +3139,7 @@ app.get('/api/payouts/founder/:founderId', async (req, res) => {
 
 app.post('/api/payouts/request', async (req, res) => {
   try {
-    const { founderId, amount, method, accountNumber, tranche } = req.body;
+    const { founderId, campaignId, amount, method, accountNumber, tranche } = req.body;
     const amt = Number(amount);
     if (!founderId) return res.status(400).json({ error: 'Founder ID is required.' });
     if (!Number.isFinite(amt) || amt <= 0) {
@@ -3152,6 +3158,7 @@ app.post('/api/payouts/request', async (req, res) => {
     const newPayout = {
       id: 'TRX-' + Date.now() + '-' + Math.floor(Math.random() * 900),
       founder_id: founderId,
+      campaign_id: campaignId || null, // SPRINT 5 (Samiul): tag which campaign this belongs to
       tranche: tranche || 'Milestone Escrow Payout',
       amount: amt,
       method: method || 'bKash Merchant',
@@ -3237,6 +3244,122 @@ app.post('/api/investors/:investorId/audit-logs', async (req, res) => {
     res.status(201).json({ ok: true, log: row });
   } catch (err) {
     res.status(500).json({ error: 'Error writing investor audit log.' });
+  }
+});
+
+// ============================================================================
+// SPRINT 5 (Samiul): TRANSACTION TRACKING API — FR-9
+// ============================================================================
+// Founder's transaction tracking dashboard: merges milestones (the roadmap),
+// accepted investor proposals (money coming IN), and payout requests
+// (money going OUT) into one timeline per campaign.
+//
+// NOTE: raisedComputed is calculated fresh from accepted proposals, not read
+// from campaigns.raised — that stored value can drift due to a bug in the
+// proposal-accept endpoint above, which sometimes adds a flat 100000 instead
+// of the real proposal amount. Computing it here guarantees accurate numbers
+// regardless of whether that other bug gets fixed.
+app.get('/api/transactions/founder/:founderId', async (req, res) => {
+  try {
+    const { founderId } = req.params;
+
+    if (!isSupabaseConfigured || !supabase) {
+      return res.status(200).json({ campaigns: [], unattributedPayouts: [] });
+    }
+
+    // 1. This founder's own campaign(s) — exact match only, no demo hacks
+    const { data: campaigns, error: campErr } = await supabase
+      .from('campaigns')
+      .select('*')
+      .eq('founder_id', founderId);
+    if (campErr) throw campErr;
+    if (!campaigns || campaigns.length === 0) {
+      return res.status(200).json({ campaigns: [], unattributedPayouts: [] });
+    }
+
+    const campaignIds = campaigns.map(c => c.id);
+
+    // 2. Money IN: accepted proposals for any of this founder's campaigns
+    const { data: acceptedProposals, error: propErr } = await supabase
+      .from('proposals')
+      .select('*')
+      .in('campaign_id', campaignIds)
+      .eq('status', 'accepted');
+    if (propErr) throw propErr;
+
+    // 3. Money OUT: this founder's payout / tranche requests
+    const { data: payouts, error: payoutErr } = await supabase
+      .from('payouts')
+      .select('*')
+      .eq('founder_id', founderId);
+    if (payoutErr) throw payoutErr;
+
+    // 4. Build one clean object per campaign, matching payouts by campaign_id
+    const result = campaigns.map(campaign => {
+      const incoming = acceptedProposals
+        .filter(p => p.campaign_id === campaign.id)
+        .map(p => ({
+          type: 'investment_in',
+          id: p.id,
+          amount: Number(p.amount),
+          from: p.investor_id,
+          terms: p.return_structure || p.terms,
+          date: p.created_at
+        }));
+
+      const outgoing = payouts
+        .filter(p => p.campaign_id === campaign.id)
+        .map(p => ({
+          type: 'tranche_out',
+          id: p.id,
+          amount: Number(p.amount),
+          tranche: p.tranche,
+          method: p.method,
+          status: p.status,
+          hash: p.hash,
+          date: p.created_at
+        }));
+
+      const raisedComputed = incoming.reduce((sum, t) => sum + t.amount, 0);
+      const totalPaidOut = outgoing.reduce((sum, t) => sum + t.amount, 0);
+
+      const timeline = [...incoming, ...outgoing].sort(
+        (a, b) => new Date(b.date) - new Date(a.date)
+      );
+
+      return {
+        campaignId: campaign.id,
+        title: campaign.title,
+        goal: Number(campaign.goal),
+        raisedStored: Number(campaign.raised || 0),
+        raisedComputed,
+        totalPaidOut,
+        escrowBalance: raisedComputed - totalPaidOut,
+        milestones: campaign.milestones || [],
+        timeline
+      };
+    });
+
+    // Legacy payouts made before campaign_id existed — we can't know which
+    // campaign they really belong to, so we surface them honestly instead
+    // of guessing, rather than silently attaching them to the wrong one.
+    const unattributedPayouts = payouts
+      .filter(p => !p.campaign_id)
+      .map(p => ({
+        type: 'tranche_out',
+        id: p.id,
+        amount: Number(p.amount),
+        tranche: p.tranche,
+        method: p.method,
+        status: p.status,
+        hash: p.hash,
+        date: p.created_at
+      }));
+
+    res.status(200).json({ campaigns: result, unattributedPayouts });
+  } catch (err) {
+    console.error('Error building founder transaction tracking:', err);
+    res.status(500).json({ error: 'Error fetching transaction tracking data.' });
   }
 });
 
@@ -5834,4 +5957,3 @@ server.listen(PORT, () => {
 });
 
 export default app;
-
