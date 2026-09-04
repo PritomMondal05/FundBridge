@@ -47,22 +47,26 @@ const founderBios = [
 // Generate 100 Founders
 const founders = [];
 for (let i = 1; i <= 100; i++) {
+  const isAdib = i === 1;
   const fn = firstNames[(i * 3) % firstNames.length];
   const ln = lastNames[(i * 7) % lastNames.length];
-  const name = `${fn} ${ln}`;
-  const email = `${fn.toLowerCase()}.${ln.toLowerCase()}${i}@univ.edu.bd`;
-  const univ = universities[i % universities.length];
-  const dept = departments[i % departments.length];
+  const name = isAdib ? 'Adib Nayem' : `${fn} ${ln}`;
+  const email = isAdib ? 'adibnayem@gmail.com' : `${fn.toLowerCase()}.${ln.toLowerCase()}${i}@univ.edu.bd`;
+  const pass = isAdib ? '1234' : 'founderpassword';
+  const univ = isAdib ? 'BUET' : universities[i % universities.length];
+  const dept = isAdib ? 'Computer Science & Engineering' : departments[i % departments.length];
   const studentId = `${20100000 + i * 37}`;
   const mfs = `017${String(10000000 + i * 8371).substring(0, 8)}`;
-  const bio = founderBios[i % founderBios.length];
+  const bio = isAdib
+    ? 'Founder of CampusBites researching automated food delivery logistics and student campus ecosystems.'
+    : founderBios[i % founderBios.length];
 
   founders.push({
     _id: `usr_founder_${i}`,
     id: `usr_founder_${i}`,
     name,
     email,
-    password: 'founderpassword',
+    password: pass,
     role: 'founder',
     vettingStatus: 'verified',
     vetting_status: 'verified',
@@ -85,7 +89,7 @@ const investorInstitutions = [
 ];
 
 const investorNames = [
-  'Angel Backer Zaman', 'Kazi Mahmud Hassan', 'Dr. Syeda Nigar Sultana', 'Farhan Ahmed Chowdhury',
+  'Nazmus Sakib', 'Kazi Mahmud Hassan', 'Dr. Syeda Nigar Sultana', 'Farhan Ahmed Chowdhury',
   'Raheed Iftekhar', 'Rubaba Dowla', 'Taufiqur Rahman', 'Zareen Mahmud Hosein',
   'Asif Khan', 'Sonia Bashir Kabir', 'Mustafizur Rahman', 'Waseem Alim',
   'Miran Ali', 'Shams Mahmud', 'Sadia Haque', 'Fahim Mashroor',
@@ -98,8 +102,10 @@ const investorNames = [
 // Generate 30 Investors
 const investors = [];
 for (let i = 1; i <= 30; i++) {
-  const name = investorNames[i - 1] || `Investor Partner ${i}`;
-  const email = `investor${i}@firm.com`;
+  const isNazmus = i === 1;
+  const name = isNazmus ? 'Nazmus Sakib' : (investorNames[i - 1] || `Investor Partner ${i}`);
+  const email = isNazmus ? 'nazmus@gmail.com' : `investor${i}@firm.com`;
+  const pass = isNazmus ? '1234' : 'investorpassword';
   const inst = investorInstitutions[(i - 1) % investorInstitutions.length];
   const mfs = `018${String(20000000 + i * 9182).substring(0, 8)}`;
 
@@ -108,7 +114,7 @@ for (let i = 1; i <= 30; i++) {
     id: `usr_investor_${i}`,
     name,
     email,
-    password: 'investorpassword',
+    password: pass,
     role: 'investor',
     vettingStatus: 'verified',
     vetting_status: 'verified',

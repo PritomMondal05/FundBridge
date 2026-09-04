@@ -2,13 +2,15 @@
 -- 30 INVESTORS, 100 STUDENT FOUNDERS & 50 CAMPAIGNS SEED DATA
 -- ========================================================
 
--- Clean up any legacy conflicting emails before re-seeding
-DELETE FROM users WHERE email IN ('admin@fundbridge.com', 'investor@firm.com', 'anika@brac.edu.bd', 'tanvir@buet.ac.bd', 'nabila@northsouth.edu', 'samiul@du.ac.bd') AND id NOT LIKE 'usr_%';
+-- Clean up any conflicting emails or legacy IDs before re-seeding
+DELETE FROM users WHERE id IN ('usr_founder_adib', 'usr_investor_nazmus');
+DELETE FROM users WHERE email IN ('adibnayem@gmail.com', 'nazmus@gmail.com', 'admin@fundbridge.com', 'investor@firm.com', 'anika@brac.edu.bd', 'tanvir@buet.ac.bd', 'nabila@northsouth.edu', 'samiul@du.ac.bd') AND id NOT IN ('usr_founder_1', 'usr_investor_1', 'usr_admin_1');
+
 
 -- 1. STUDENT FOUNDERS (100 Verified Student Entrepreneurs)
 INSERT INTO users (id, name, email, password, role, vetting_status, university, student_id, department, mfs_number)
 VALUES
-  ('usr_founder_1', 'Ashraf Khan', 'ashraf.khan1@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'BUET', '20100037', 'Electrical & Electronic Engineering', '01710008371'),
+  ('usr_founder_1', 'Adib Nayem', 'adibnayem@gmail.com', '1234', 'founder', 'verified', 'BUET', '20100037', 'Computer Science & Engineering', '01710008371'),
   ('usr_founder_2', 'Aziz Zaman', 'aziz.zaman2@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'North South University', '20100074', 'Business Administration', '01710016742'),
   ('usr_founder_3', 'Fahim Alam', 'fahim.alam3@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'Dhaka University (IBA)', '20100111', 'Software Engineering', '01710025113'),
   ('usr_founder_4', 'Habib Mahmud', 'habib.mahmud4@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'SUST', '20100148', 'Mechanical Engineering', '01710033484'),
@@ -113,7 +115,7 @@ ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email, uni
 -- 2. INVESTORS (30 Verified Alumni & Angel Partners)
 INSERT INTO users (id, name, email, password, role, vetting_status, institution, bank_or_mfs, mfs_number)
 VALUES
-  ('usr_investor_1', 'Angel Backer Zaman', 'investor1@firm.com', 'investorpassword', 'investor', 'verified', 'Vantage Capital LLC', 'City Bank - ACC# 1000004921', '01820009182'),
+  ('usr_investor_1', 'Nazmus Sakib', 'nazmus@gmail.com', '1234', 'investor', 'verified', 'Vantage Capital LLC', 'City Bank - ACC# 1000004921', '01820009182'),
   ('usr_investor_2', 'Kazi Mahmud Hassan', 'investor2@firm.com', 'investorpassword', 'investor', 'verified', 'Dhaka Angels Syndicate', 'City Bank - ACC# 1000009842', '01820018364'),
   ('usr_investor_3', 'Dr. Syeda Nigar Sultana', 'investor3@firm.com', 'investorpassword', 'investor', 'verified', 'Alumni Growth Fund BD', 'City Bank - ACC# 1000014763', '01820027546'),
   ('usr_investor_4', 'Farhan Ahmed Chowdhury', 'investor4@firm.com', 'investorpassword', 'investor', 'verified', 'Silicon Padma Capital', 'City Bank - ACC# 1000019684', '01820036728'),

@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Flag,
   GraduationCap,
+  Heart,
   ShieldCheck,
   TrendingUp,
   User,
@@ -16,6 +17,7 @@ const emptyProfile = {
   profile: {},
   trackRecord: {},
   businesses: [],
+  reliefCampaigns: [],
   portfolio: [],
   activity: []
 };
@@ -80,7 +82,7 @@ export default function PublicProfileModal({
 
   const profile = data.profile || {};
   const trackRecord = data.trackRecord || {};
-  const isFounder = profileType === 'founder';
+  const isFounder = profileType === 'founder' || profile.role === 'founder' || data.profile?.role === 'founder';
   const reporterId = String(reporter?.id || reporter?._id || '').trim();
   const viewingOwnProfile = Boolean(reporterId && String(profileId) === reporterId);
   const canReport = Boolean(reporterId && !viewingOwnProfile && profile.name);
@@ -218,8 +220,8 @@ export default function PublicProfileModal({
 
             <section>
               <div className="mb-3 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-700" /><h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">Track record</h3></div>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {isFounder ? <><Stat label="Businesses started" value={trackRecord.businessesStarted || 0} /><Stat label="Verified businesses" value={trackRecord.verifiedBusinesses || 0} /><Stat label="Total raised" value={money(trackRecord.totalRaised)} /><Stat label="Milestones done" value={trackRecord.completedMilestones || 0} /></> : <><Stat label="Investments made" value={trackRecord.investmentsMade || 0} /><Stat label="Verified partner" value={trackRecord.verifiedPartner ? 'Yes' : 'Pending'} /><Stat label="Total deployed" value={money(trackRecord.totalDeployed)} /><Stat label="Proposals sent" value={trackRecord.proposalsSubmitted || 0} /></>}
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                {isFounder ? <><Stat label="Businesses started" value={trackRecord.businessesStarted || 0} /><Stat label="Verified businesses" value={trackRecord.verifiedBusinesses || 0} /><Stat label="Total raised" value={money(trackRecord.totalRaised)} /><Stat label="Milestones done" value={trackRecord.completedMilestones || 0} /><Stat label="Relief causes" value={trackRecord.reliefCampaignsCount ?? (data.reliefCampaigns || []).length} /></> : <><Stat label="Investments made" value={trackRecord.investmentsMade || 0} /><Stat label="Verified partner" value={trackRecord.verifiedPartner ? 'Yes' : 'Pending'} /><Stat label="Total deployed" value={money(trackRecord.totalDeployed)} /><Stat label="Proposals sent" value={trackRecord.proposalsSubmitted || 0} /></>}
               </div>
             </section>
 
@@ -227,6 +229,82 @@ export default function PublicProfileModal({
               <div className="mb-3 flex items-center gap-2"><Briefcase className="h-4 w-4 text-sky-700" /><h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">{isFounder ? 'Business history' : 'Investment portfolio'}</h3></div>
               {(isFounder ? data.businesses : data.portfolio).length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500">No public history is recorded yet.</p> : <div className="space-y-3">{(isFounder ? data.businesses : data.portfolio).map((item, index) => <div key={item.id || item.campaignId || index} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h4 className="font-bold text-slate-900">{item.title || 'FundBridge investment'}</h4><p className="mt-1 text-xs text-slate-500">{item.category || item.returnStructure || 'Startup venture'}{item.university ? ` - ${item.university}` : ''}</p></div><span className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase ${item.verified || item.status === 'verified' || item.status === 'accepted' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{item.status || (item.verified ? 'Verified' : 'Recorded')}</span></div>{isFounder ? <p className="mt-3 text-xs leading-relaxed text-slate-600">{item.description || item.tagline || 'No business description provided.'}</p> : <p className="mt-3 text-xs text-slate-600">Committed {money(item.amount)} - {item.returnStructure}</p>}</div>)}</div>}
             </section>
+
+            {isFounder && (
+              <section>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Heart className="h-4 w-4 text-rose-600" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">Relief & Charity Campaigns</h3>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400 font-semibold uppercase">
+                    {(data.reliefCampaigns || []).length} Causes
+                  </span>
+                </div>
+                {(data.reliefCampaigns || []).length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500">
+                    No relief or charity campaigns launched yet by this founder.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {(data.reliefCampaigns || []).map((drive, index) => (
+                      <div
+                        key={drive.id || index}
+                        className="rounded-xl border border-rose-100 bg-gradient-to-r from-rose-50/40 via-white to-transparent p-4 space-y-2.5 shadow-sm"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700">
+                                {drive.cause || 'Relief Cause'}
+                              </span>
+                              {drive.university && (
+                                <span className="text-[11px] text-slate-500 font-medium">{drive.university}</span>
+                              )}
+                            </div>
+                            <h4 className="font-bold text-slate-900 text-base mt-1">{drive.title}</h4>
+                            <p className="text-xs text-slate-500">
+                              Beneficiary: <strong className="text-slate-700">{drive.beneficiary || 'Community members'}</strong>
+                            </p>
+                          </div>
+                          <span
+                            className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase ${
+                              drive.status === 'open' || drive.status === 'verified'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : drive.status === 'rejected'
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}
+                          >
+                            {drive.status === 'open' ? 'Active / Open' : drive.status || 'Verified'}
+                          </span>
+                        </div>
+
+                        {drive.description && (
+                          <p className="text-xs leading-relaxed text-slate-600 line-clamp-2">{drive.description}</p>
+                        )}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-rose-100/60 text-xs">
+                          <span className="text-slate-500">
+                            Raised: <strong className="text-emerald-700 font-mono">৳ {Number(drive.raised || 0).toLocaleString()}</strong>
+                            <span className="text-slate-400"> / ৳ {Number(drive.goal || 0).toLocaleString()} Goal</span>
+                          </span>
+                          <span className="text-[11px] font-semibold text-emerald-700">
+                            {Math.round(((drive.raised || 0) / (drive.goal || 1)) * 100)}% Funded
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min(100, Math.round(((drive.raised || 0) / (drive.goal || 1)) * 100))}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
 
             <section>
               <div className="mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-sky-700" /><h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">Verified platform activity</h3></div>

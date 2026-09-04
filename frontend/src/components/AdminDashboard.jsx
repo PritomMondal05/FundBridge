@@ -24,6 +24,7 @@ import {
   CheckSquare,
   Square,
   AlertCircle,
+  Heart,
   Trash2,
   RotateCcw
 } from 'lucide-react';
@@ -701,15 +702,26 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   };
 
   const handleReliefCampaignStatus = async (reliefId, status) => {
+    let reason = '';
+    if (status === 'rejected') {
+      const input = window.prompt('Enter reason for rejecting this relief campaign (it will be moved to the Trash Database):');
+      if (input === null) return;
+      reason = input.trim() || 'Did not meet compliance criteria';
+    }
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/relief-drives/${reliefId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, reason })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to update relief campaign');
-      addToast(`Relief campaign ${status === 'open' || status === 'verified' ? 'approved' : status}.`, 'success');
+      addToast(
+        status === 'open' || status === 'verified'
+          ? 'Relief campaign approved and published to live directory.'
+          : 'Relief campaign rejected and moved to Trash Database.',
+        status === 'open' || status === 'verified' ? 'success' : 'info'
+      );
       fetchDatabaseData();
     } catch (e) {
       addToast(e.message || 'Error updating relief campaign.', 'error');
@@ -1590,11 +1602,13 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
                   }`}
               >
-                <span>Content Approvals</span>
-                {/* S3: badge = all queues on this tab (progress, relief, edits, handover) */}
-                {(pendingUpdates.length + pendingReliefCampaigns.length + pendingEditRequests.length + pendingHandoverRequests.length) > 0 && (
-                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-mono">
-                    {pendingUpdates.length + pendingReliefCampaigns.length + pendingEditRequests.length + pendingHandoverRequests.length}
+                <div className="flex items-center gap-2">
+                  <Heart className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Relief Campaign Verification</span>
+                </div>
+                {(pendingReliefCampaigns.length + pendingUpdates.length + pendingEditRequests.length + pendingHandoverRequests.length) > 0 && (
+                  <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded font-mono font-bold">
+                    {pendingReliefCampaigns.length > 0 ? pendingReliefCampaigns.length : pendingUpdates.length + pendingEditRequests.length + pendingHandoverRequests.length}
                   </span>
                 )}
               </button>
@@ -2652,20 +2666,134 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
             </div>
           )}
 
-          {/* SCREEN [4]: REPORTS & COMPLAINTS */}
+          {/* SCREEN [4]: RELIEF CAMPAIGN VERIFICATION */}
           {activeTab === 'contentApprovals' && (
             <div className="space-y-8">
-              <div>
-                <h2 className="text-xl font-mono text-[#E2E8F0] font-medium">Content Approvals</h2>
-                <p className="text-xs text-[#8E9B93] mt-1">Approve founder progress updates and relief campaigns before they become publicly visible.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#1F2922] pb-5">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <Heart className="w-5 h-5 text-rose-400" />
+                    <h2 className="text-xl font-bold text-[#E2E8F0]">Relief Campaign Verification</h2>
+                  </div>
+                  <p className="text-xs text-[#8E9B93] mt-1">Review, verify, and approve humanitarian relief drives and charitable funding campaigns initiated by student founders.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold rounded-lg">
+                    {pendingReliefCampaigns.length} Pending Approval
+                  </span>
+                </div>
               </div>
 
+              {/* PRIMARY QUEUE: PENDING RELIEF CAMPAIGNS */}
+              <div className="bg-[#111613] border border-[#1F2922] rounded-2xl p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Heart className="w-4 h-4 text-rose-400" />
+                    <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Relief Campaigns ({pendingReliefCampaigns.length})</h3>
+                  </div>
+                  <span className="text-[10px] text-[#8E9B93] font-mono">Charity / Donation Drives</span>
+                </div>
+
+                {pendingReliefCampaigns.length > 0 ? (
+                  <div className="space-y-4">
+                    {pendingReliefCampaigns.map((d) => (
+                      <div key={d.id} className="border border-[#1F2922] bg-[#0B0F0C] rounded-xl p-5 space-y-3 hover:border-rose-500/30 transition-colors">
+                        <div className="flex justify-between gap-3 items-start flex-wrap">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                {d.cause || 'Disaster Relief'}
+                              </span>
+                              <span className="text-[11px] text-[#8E9B93]">{d.university}</span>
+                              <span className="text-[10px] text-[#8E9B93] font-mono">Founder ID: {d.founder_id || d.founderId}</span>
+                            </div>
+                            <h4 className="text-base font-bold text-[#E2E8F0] mt-1.5">{d.title}</h4>
+                            <p className="text-xs text-[#8E9B93]">
+                              Beneficiary: <strong className="text-[#E2E8F0]">{d.beneficiary}</strong>
+                            </p>
+                          </div>
+                          <span className="text-[10px] uppercase px-2.5 py-1 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
+                            PENDING AUDIT
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-[#B8C4BC] leading-relaxed">{d.description}</p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs">
+                          <div className="bg-[#111613] p-3 rounded-lg border border-[#1F2922]">
+                            <span className="text-[10px] text-[#8E9B93] block uppercase font-mono font-semibold">Fundraising Target</span>
+                            <span className="text-sm font-bold text-[#00E676] font-mono">৳ {Number(d.goal || 0).toLocaleString()} BDT</span>
+                          </div>
+                          <div className="bg-[#111613] p-3 rounded-lg border border-[#1F2922]">
+                            <span className="text-[10px] text-[#8E9B93] block uppercase font-mono font-semibold">Duration</span>
+                            <span className="text-sm font-bold text-[#E2E8F0] font-mono">{d.durationDays || 30} Days</span>
+                          </div>
+                        </div>
+
+                        {Array.isArray(d.proofLinks) && d.proofLinks.length > 0 && (
+                          <div className="bg-[#111613] p-3 rounded-lg border border-[#1F2922] space-y-1.5">
+                            <span className="text-[10px] text-[#8E9B93] uppercase font-mono font-semibold block">Attached Verification Documents</span>
+                            <ul className="space-y-1 text-xs">
+                              {d.proofLinks.map((p, i) => (
+                                <li key={i} className="flex items-center gap-2 truncate">
+                                  <span className="text-[#00E676] font-bold">[{p.type || 'Doc'}]:</span>
+                                  <a href={p.url} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline truncate">
+                                    {p.url}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {Array.isArray(d.useOfFunds) && d.useOfFunds.length > 0 && (
+                          <div className="text-xs text-[#8E9B93]">
+                            <span className="text-[10px] uppercase font-mono font-semibold block mb-1">Fund Allocation Plan:</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {d.useOfFunds.map((u, i) => (
+                                <span key={i} className="px-2 py-0.5 rounded bg-[#111613] border border-[#1F2922] text-[#B8C4BC] text-[11px]">
+                                  • {u}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2.5 pt-2 border-t border-[#1F2922]">
+                          <button
+                            type="button"
+                            onClick={() => handleReliefCampaignStatus(d.id, 'open')}
+                            className="px-4 py-2 bg-[#00E676] hover:bg-[#00E575]/90 text-black text-xs font-bold rounded-lg cursor-pointer flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,230,118,0.2)]"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve (Publish Live)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReliefCampaignStatus(d.id, 'rejected')}
+                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold rounded-lg cursor-pointer flex items-center gap-1.5"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Reject to Trash</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center border border-dashed border-[#1F2922] rounded-xl text-xs text-[#8E9B93]">
+                    No pending relief campaigns awaiting review. All causes have been audited.
+                  </div>
+                )}
+              </div>
+
+              {/* SECONDARY QUEUE: PENDING PROGRESS UPDATES */}
               <div className="bg-[#111613] border border-[#1F2922] rounded-2xl p-5 space-y-4">
                 <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Progress Updates ({pendingUpdates.length})</h3>
                 {pendingUpdates.length > 0 ? (
                   <div className="space-y-3">
                     {pendingUpdates.map((u) => (
-                      <div key={u.id} className="border border-[#1F2922] rounded-xl p-4 space-y-2">
+                      <div key={u.id} className="border border-[#1F2922] bg-[#0B0F0C] rounded-xl p-4 space-y-2">
                         <div className="flex justify-between gap-3 items-start">
                           <div>
                             <h4 className="text-sm font-semibold text-[#E2E8F0]">{u.title}</h4>
@@ -2695,52 +2823,6 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   </div>
                 ) : (
                   <p className="text-xs text-[#8E9B93]">No pending progress updates.</p>
-                )}
-              </div>
-
-              <div className="bg-[#111613] border border-[#1F2922] rounded-2xl p-5 space-y-4">
-                <h3 className="text-sm font-bold text-[#E2E8F0]">Pending Relief Campaigns ({pendingReliefCampaigns.length})</h3>
-                {pendingReliefCampaigns.length > 0 ? (
-                  <div className="space-y-3">
-                    {pendingReliefCampaigns.map((d) => (
-                      <div key={d.id} className="border border-[#1F2922] rounded-xl p-4 space-y-2">
-                        <div className="flex justify-between gap-3 items-start">
-                          <div>
-                            <h4 className="text-sm font-semibold text-[#E2E8F0]">{d.title}</h4>
-                            <p className="text-[10px] text-[#8E9B93]">{d.cause} · {d.university} · Help: {d.beneficiary}</p>
-                          </div>
-                          <span className="text-[10px] uppercase text-amber-400 font-bold">pending</span>
-                        </div>
-                        <p className="text-xs text-[#B8C4BC]">{d.description}</p>
-                        <p className="text-[10px] font-mono text-[#8E9B93]">Goal ৳ {Number(d.goal || 0).toLocaleString()}</p>
-                        {Array.isArray(d.proofLinks) && d.proofLinks.length > 0 && (
-                          <ul className="space-y-1 text-[10px] text-[#8E9B93]">
-                            {d.proofLinks.map((p, i) => (
-                              <li key={i} className="truncate"><span className="text-[#E2E8F0]">{p.type}:</span> {p.url}</li>
-                            ))}
-                          </ul>
-                        )}
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleReliefCampaignStatus(d.id, 'open')}
-                            className="px-3 py-1.5 bg-emerald-600/20 text-emerald-400 text-[10px] font-bold rounded-lg cursor-pointer"
-                          >
-                            Approve (public)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleReliefCampaignStatus(d.id, 'rejected')}
-                            className="px-3 py-1.5 bg-rose-600/20 text-rose-400 text-[10px] font-bold rounded-lg cursor-pointer"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-[#8E9B93]">No pending relief campaigns.</p>
                 )}
               </div>
 

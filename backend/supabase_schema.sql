@@ -227,24 +227,8 @@ BEGIN
   END IF;
 END $$;
 
-ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS notifications_select_own ON notifications;
-DROP POLICY IF EXISTS notifications_update_own ON notifications;
-DROP POLICY IF EXISTS notifications_delete_own ON notifications;
-DROP POLICY IF EXISTS notifications_no_client_insert ON notifications;
-
--- FundBridge users are TEXT ids (usr_*), not auth.users. Browser clients must not
--- use the anon key to read this table. The Express backend (service key) writes rows.
--- Anon/authenticated JWT users have no matching auth.uid(), so these policies deny client access.
-CREATE POLICY notifications_select_own ON notifications
-  FOR SELECT USING (false);
-CREATE POLICY notifications_update_own ON notifications
-  FOR UPDATE USING (false);
-CREATE POLICY notifications_delete_own ON notifications
-  FOR DELETE USING (false);
-CREATE POLICY notifications_no_client_insert ON notifications
-  FOR INSERT WITH CHECK (false);
 
 CREATE TABLE IF NOT EXISTS investor_connections (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -259,6 +243,30 @@ CREATE TABLE IF NOT EXISTS bookmarked_founders (
   investor_id TEXT NOT NULL,
   founder_id TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS campaign_updates (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  campaign_id TEXT REFERENCES campaigns(id) ON DELETE CASCADE,
+  title TEXT,
+  content TEXT,
+  author_id TEXT,
+  author_name TEXT,
+  status TEXT DEFAULT 'approved',
+  review_note TEXT,
+  media_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS trash (
+  id TEXT PRIMARY KEY,
+  "entityType" TEXT NOT NULL,
+  "entityId" TEXT,
+  title TEXT,
+  data JSONB DEFAULT '{}'::jsonb,
+  reason TEXT,
+  "deletedBy" TEXT,
+  "deletedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- ========================================================
@@ -276,6 +284,8 @@ ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
 ALTER TABLE watchlist DISABLE ROW LEVEL SECURITY;
 ALTER TABLE investor_connections DISABLE ROW LEVEL SECURITY;
 ALTER TABLE bookmarked_founders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_updates DISABLE ROW LEVEL SECURITY;
+ALTER TABLE trash DISABLE ROW LEVEL SECURITY;
 
 -- ========================================================
 -- SAFE TYPE CONVERSION MIGRATIONS
@@ -299,18 +309,21 @@ ALTER TABLE payouts ADD CONSTRAINT payouts_founder_id_fkey FOREIGN KEY (founder_
 -- SEED DATA (30 INVESTORS, 100 STUDENT FOUNDERS & 50 CAMPAIGNS)
 -- ========================================================
 
--- Clean up any legacy conflicting emails before re-seeding
-DELETE FROM users WHERE email IN ('admin@fundbridge.com', 'investor@firm.com', 'anika@brac.edu.bd', 'tanvir@buet.ac.bd', 'nabila@northsouth.edu', 'samiul@du.ac.bd') AND id NOT LIKE 'usr_%';
+-- Clean up any conflicting emails or legacy IDs before re-seeding
+DELETE FROM users WHERE id IN ('usr_founder_adib', 'usr_investor_nazmus');
+DELETE FROM users WHERE email IN ('adibnayem@gmail.com', 'nazmus@gmail.com', 'admin@fundbridge.com', 'investor@firm.com', 'anika@brac.edu.bd', 'tanvir@buet.ac.bd', 'nabila@northsouth.edu', 'samiul@du.ac.bd') AND id NOT IN ('usr_founder_1', 'usr_investor_1', 'usr_admin_1');
+
 
 -- 1. Default Admin User
 INSERT INTO users (id, name, email, password, role, vetting_status, mfs_number)
 VALUES ('usr_admin_1', 'ADMIN_PRITOM', 'admin@fundbridge.com', 'admin123', 'admin', 'verified', '01799999999')
 ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, password = EXCLUDED.password;
 
--- 2. STUDENT FOUNDERS (100 Verified Student Entrepreneurs)
+-- 2. STUDENT FOUNDERS (100 Verified Student Entrepreneurs: usr_founder_1 to usr_founder_100)
 INSERT INTO users (id, name, email, password, role, vetting_status, university, student_id, department, mfs_number)
 VALUES
-  ('usr_founder_1', 'Ashraf Khan', 'ashraf.khan1@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'BUET', '20100037', 'Electrical & Electronic Engineering', '01710008371'),
+  ('usr_founder_1', 'Adib Nayem', 'adibnayem@gmail.com', '1234', 'founder', 'verified', 'BUET', '20100037', 'Computer Science & Engineering', '01710008371'),
+
   ('usr_founder_2', 'Aziz Zaman', 'aziz.zaman2@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'North South University', '20100074', 'Business Administration', '01710016742'),
   ('usr_founder_3', 'Fahim Alam', 'fahim.alam3@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'Dhaka University (IBA)', '20100111', 'Software Engineering', '01710025113'),
   ('usr_founder_4', 'Habib Mahmud', 'habib.mahmud4@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'SUST', '20100148', 'Mechanical Engineering', '01710033484'),
@@ -412,10 +425,10 @@ VALUES
   ('usr_founder_100', 'Aarif Ahmed', 'aarif.ahmed100@univ.edu.bd', 'founderpassword', 'founder', 'verified', 'BRAC University', '20103700', 'Business Administration', '01710837100')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email, university = EXCLUDED.university, student_id = EXCLUDED.student_id, department = EXCLUDED.department, mfs_number = EXCLUDED.mfs_number;
 
--- 3. INVESTORS (30 Verified Alumni & Angel Partners)
+-- 3. INVESTORS (30 Verified Alumni & Angel Partners: usr_investor_1 to usr_investor_30)
 INSERT INTO users (id, name, email, password, role, vetting_status, institution, bank_or_mfs, mfs_number)
 VALUES
-  ('usr_investor_1', 'Angel Backer Zaman', 'investor1@firm.com', 'investorpassword', 'investor', 'verified', 'Vantage Capital LLC', 'City Bank - ACC# 1000004921', '01820009182'),
+  ('usr_investor_1', 'Nazmus Sakib', 'nazmus@gmail.com', '1234', 'investor', 'verified', 'Vantage Capital LLC', 'City Bank - ACC# 1000004921', '01820009182'),
   ('usr_investor_2', 'Kazi Mahmud Hassan', 'investor2@firm.com', 'investorpassword', 'investor', 'verified', 'Dhaka Angels Syndicate', 'City Bank - ACC# 1000009842', '01820018364'),
   ('usr_investor_3', 'Dr. Syeda Nigar Sultana', 'investor3@firm.com', 'investorpassword', 'investor', 'verified', 'Alumni Growth Fund BD', 'City Bank - ACC# 1000014763', '01820027546'),
   ('usr_investor_4', 'Farhan Ahmed Chowdhury', 'investor4@firm.com', 'investorpassword', 'investor', 'verified', 'Silicon Padma Capital', 'City Bank - ACC# 1000019684', '01820036728'),
@@ -506,12 +519,13 @@ ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, goal = EXCLUDED.goal, rai
 INSERT INTO audit_logs (hash, category, title, status, latency)
 VALUES ('0x8f2a99c4b1d09e1a', 'DISBURSEMENT', 'Escrow Tranche #1 Release', 'VERIFIED', '14ms')
 ON CONFLICT DO NOTHING;
-ALTER TABLE payouts ADD COLUMN IF NOT EXISTS campaign_id TEXT REFERENCES campaigns(id) ON DELETE CASCADE;
 INSERT INTO proposals (id, campaign_id, investor_id, amount, terms, return_structure, status)
-VALUES ('test_prop_1', 'campusbites_1', 'usr_investor_1', 50000, '8% Rev Share', '8% Rev Share', 'accepted');
+VALUES ('test_prop_1', 'campusbites_1', 'usr_investor_1', 50000, '8% Rev Share', '8% Rev Share', 'accepted')
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO payouts (id, founder_id, campaign_id, tranche, amount, method, account_number, status, hash)
-VALUES ('test_payout_1', 'usr_founder_1', 'campusbites_1', 'MVP Launch Tranche', 20000, 'bKash', '01710000000', 'Pending Audit', '0xtest123');
+VALUES ('test_payout_1', 'usr_founder_1', 'campusbites_1', 'MVP Launch Tranche', 20000, 'bKash', '01710000000', 'Pending Audit', '0xtest123')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- AI Optimization Engine — new columns

@@ -33,7 +33,8 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
-  Send
+  Send,
+  Heart
 } from 'lucide-react';
 import PublicProfileModal from './PublicProfileModal';
 import FounderMatchView from './ai/FounderMatchView';
@@ -42,6 +43,7 @@ import AiContentAssistant from './ai/AiContentAssistant';
 import TransactionMilestoneTracker from './TransactionMilestoneTracker';
 import { NotificationProvider } from '../contexts/NotificationContext.jsx';
 import NotificationBell from './notifications/NotificationBell.jsx';
+import logoUrl from '../assets/images/FundBridge Logo.svg';
 
 export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, triggerAlert }) {
   const user = currentUser || {
@@ -174,6 +176,26 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
   const [searchQuery, setSearchQuery] = useState('');
   const [exploreCategory, setExploreCategory] = useState('all');
 
+  // S3: Relief Campaigns State
+  const [myReliefCampaigns, setMyReliefCampaigns] = useState([]);
+  const [allReliefCampaigns, setAllReliefCampaigns] = useState([]);
+  const [exploreMarket, setExploreMarket] = useState('startup'); // 'startup' | 'relief'
+  const [showCreateReliefModal, setShowCreateReliefModal] = useState(false);
+  const [submittingRelief, setSubmittingRelief] = useState(false);
+  const [reliefFiltersOpen, setReliefFiltersOpen] = useState(false);
+  const [reliefStatusFilter, setReliefStatusFilter] = useState('all'); // 'all' | 'open' | 'pending' | 'rejected'
+  const [createReliefForm, setCreateReliefForm] = useState({
+    title: '',
+    university: user.university || '',
+    cause: 'Disaster Relief',
+    beneficiary: '',
+    goal: 100000,
+    durationDays: 30,
+    description: '',
+    useOfFundsText: 'Food and pure drinking water\nMedical supplies and first aid kits\nShelter and basic living essentials',
+    proofUrl: ''
+  });
+
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
@@ -280,10 +302,90 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
         setTransactionData(txData);
       }
 
+      // 8. Fetch Founder's Relief Campaigns
+      const myReliefRes = await fetch(`${API_BASE_URL}/api/founders/${userId}/relief-drives`);
+      if (myReliefRes.ok) {
+        const myReliefData = await myReliefRes.json();
+        setMyReliefCampaigns(Array.isArray(myReliefData) ? myReliefData : []);
+      }
+
+      // 9. Fetch All Approved Relief Campaigns
+      const allReliefRes = await fetch(`${API_BASE_URL}/api/relief-drives`);
+      if (allReliefRes.ok) {
+        const allReliefData = await allReliefRes.json();
+        setAllReliefCampaigns(Array.isArray(allReliefData) ? allReliefData : []);
+      }
+
       setLoading(false);
     } catch (err) {
       console.error('Database fetch error:', err);
       setLoading(false);
+    }
+  };
+
+  const handleCreateReliefDrive = async (e) => {
+    e.preventDefault();
+    const userId = currentUser?.id || currentUser?._id || user.id;
+    if (!userId) return;
+    if (!createReliefForm.title.trim() || !createReliefForm.cause.trim() || !createReliefForm.beneficiary.trim()) {
+      showToast('Please fill in all required fields.', 'error');
+      return;
+    }
+    const goalNum = Number(createReliefForm.goal);
+    if (!goalNum || goalNum <= 0) {
+      showToast('Please enter a valid target goal in BDT.', 'error');
+      return;
+    }
+
+    const uses = createReliefForm.useOfFundsText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const proofLinks = createReliefForm.proofUrl.trim()
+      ? [{ type: 'Document / Media', url: createReliefForm.proofUrl.trim() }]
+      : [];
+
+    try {
+      setSubmittingRelief(true);
+      const res = await fetch(`${API_BASE_URL}/api/relief-drives`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          founderId: userId,
+          title: createReliefForm.title.trim(),
+          university: createReliefForm.university.trim() || profileUser.university || 'University',
+          cause: createReliefForm.cause.trim(),
+          beneficiary: createReliefForm.beneficiary.trim(),
+          goal: goalNum,
+          durationDays: Number(createReliefForm.durationDays) || 30,
+          description: createReliefForm.description.trim(),
+          useOfFunds: uses.length > 0 ? uses : ['Essential Aid & Supplies', 'Logistics & Distribution'],
+          proofLinks
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create relief campaign');
+
+      showToast('Relief campaign submitted! It will appear publicly once verified by Admin.', 'success');
+      setShowCreateReliefModal(false);
+      setCreateReliefForm({
+        title: '',
+        university: profileUser.university || '',
+        cause: 'Disaster Relief',
+        beneficiary: '',
+        goal: 100000,
+        durationDays: 30,
+        description: '',
+        useOfFundsText: 'Food and pure drinking water\nMedical supplies and first aid kits\nShelter and basic living essentials',
+        proofUrl: ''
+      });
+      fetchDatabaseData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSubmittingRelief(false);
     }
   };
 
@@ -505,6 +607,27 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
     return matchesSearch && matchesCategory;
   });
 
+  // Filtered list of founder's relief campaigns
+  const filteredMyRelief = myReliefCampaigns.filter((d) => {
+    const matchesSearch = !searchQuery ||
+      d.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.cause?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.university?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = reliefStatusFilter === 'all' ||
+      (reliefStatusFilter === 'open' && (d.status === 'open' || d.status === 'verified')) ||
+      (reliefStatusFilter === 'pending' && d.status === 'pending') ||
+      (reliefStatusFilter === 'rejected' && d.status === 'rejected');
+    return matchesSearch && matchesStatus;
+  });
+
+  // Filtered list of all approved public relief campaigns
+  const filteredAllRelief = allReliefCampaigns.filter((d) => {
+    return !searchQuery ||
+      d.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.cause?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.university?.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   return (
     <NotificationProvider
       userId={user.id || user._id}
@@ -514,7 +637,7 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
         if (String(link || '').startsWith('tab:')) setActiveTab(String(link).slice(4));
       }}
     >
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex antialiased">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans antialiased flex flex-col">
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2 ${toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'
@@ -524,16 +647,97 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
         </div>
       )}
 
-      {/* LEFT SIDEBAR NAVIGATION */}
-      <aside className="w-64 bg-slate-50 border-r border-slate-200 flex flex-col justify-between p-5 shrink-0 select-none">
-        <div className="space-y-8">
-          {/* Logo Brand */}
-          <div className="flex items-center gap-2.5 px-2">
-            <h1 className="text-xl font-bold tracking-tight text-[#0F172A]">FundBridge</h1>
+      {/* TOP NAVIGATION BAR (HEADER) */}
+      <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+        <div className="flex items-center gap-3">
+          <img src={logoUrl} alt="FundBridge Logo" className="h-7 w-auto" />
+          <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-md uppercase tracking-wider font-mono">
+            FOUNDER PORTAL
+          </span>
+        </div>
+
+        {/* Search Input */}
+        <div className="hidden md:flex items-center flex-1 max-w-md mx-8 relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder={
+              activeTab === 'explore' ? 'Search all campaigns...' :
+                activeTab === 'investors' ? 'Search investors...' :
+                  activeTab === 'wallet' ? 'Search payouts...' :
+                    activeTab === 'milestones' ? 'Search milestones...' :
+                      activeTab === 'audit' ? 'Search hash or log...' :
+                        'Search funding logs...'
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-slate-100 border border-slate-200 focus:border-emerald-500 focus:bg-white rounded-xl text-xs text-slate-800 transition-all outline-none"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 text-slate-400 hover:text-slate-600 cursor-pointer">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Right User Bar */}
+        <div className="flex items-center gap-3.5 relative">
+          <button
+            type="button"
+            onClick={() => {
+              if (chatTarget?.id && chatTarget.id !== 'all') {
+                setShowChatDrawer(true);
+                return;
+              }
+              const fromProposal = proposals.find((p) => p.investor_id || p.investorId);
+              const fromList = investorsList[0];
+              const next = fromProposal
+                ? { name: fromProposal.investor_name || 'Investor', id: fromProposal.investor_id || fromProposal.investorId }
+                : fromList
+                  ? { name: fromList.name || fromList.institution || 'Investor', id: fromList.id || fromList._id }
+                  : null;
+              if (!next?.id) {
+                showToast('Choose an investor from Investors or AI Matches to start a conversation.', 'info');
+                return;
+              }
+              setChatTarget(next);
+              setShowChatDrawer(true);
+            }}
+            className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+            title="Open Active Chat Inbox"
+          >
+            <MessageSquare className="w-4.5 h-4.5" />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+          </button>
+
+          <div className="relative">
+            <NotificationBell />
           </div>
 
-          {/* Navigation Links */}
-          <nav className="space-y-1.5">
+          <div className="h-6 w-px bg-slate-200 my-auto"></div>
+
+          {/* Founder Profile Badge - opens the public profile */}
+          <div
+            onClick={() => setSelectedPublicProfile({ type: 'founder', id: user.id || user._id })}
+            className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+            title="View public profile"
+          >
+            <InitialsAvatar name={profileUser.name} className="w-8 h-8" />
+            <div className="hidden sm:block text-left">
+              <span className="text-xs font-bold text-slate-900 block leading-tight">{profileUser.name}</span>
+              <span className="text-[10px] text-emerald-700 font-semibold block leading-tight">{profileUser.university || 'Founder'}</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* MAIN BODY: SIDEBAR & WORKSPACE */}
+      <div className="flex-1 flex min-w-0">
+        {/* LEFT SIDEBAR NAVIGATION */}
+        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between p-5 shrink-0 select-none">
+          <div className="space-y-6">
+            {/* Navigation Links */}
+            <nav className="space-y-1.5">
             <button
               onClick={() => setActiveTab('overview')}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${activeTab === 'overview'
@@ -556,6 +760,17 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
             >
               <Compass className="w-4.5 h-4.5" />
               <span>Campaigns</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('relief')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${activeTab === 'relief'
+                  ? 'bg-[#DCFCE7] text-[#15803D] font-semibold'
+                  : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                }`}
+            >
+              <Heart className="w-4.5 h-4.5 text-emerald-700" />
+              <span>Relief Campaigns</span>
             </button>
 
             <button
@@ -647,81 +862,9 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
 
       {/* MAIN CONTENT WORKSPACE AREA */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* TOP HEADER BAR */}
-        <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 sticky top-0 z-20">
-          {/* Search Input */}
-          <div className="relative w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder={
-                activeTab === 'explore' ? 'Search all campaigns...' :
-                  activeTab === 'investors' ? 'Search investors...' :
-                    activeTab === 'wallet' ? 'Search payouts...' :
-                      activeTab === 'milestones' ? 'Search milestones...' :
-                        activeTab === 'audit' ? 'Search hash or log...' :
-                          'Search funding logs...'
-              }
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-100/80 rounded-full text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
-          </div>
-
-          {/* Right User Bar */}
-          <div className="flex items-center gap-4 relative">
-            <button
-              type="button"
-              onClick={() => {
-                if (chatTarget?.id && chatTarget.id !== 'all') {
-                  setShowChatDrawer(true);
-                  return;
-                }
-                const fromProposal = proposals.find((p) => p.investor_id || p.investorId);
-                const fromList = investorsList[0];
-                const next = fromProposal
-                  ? { name: fromProposal.investor_name || 'Investor', id: fromProposal.investor_id || fromProposal.investorId }
-                  : fromList
-                    ? { name: fromList.name || fromList.institution || 'Investor', id: fromList.id || fromList._id }
-                    : null;
-                if (!next?.id) {
-                  showToast('Choose an investor from Investors or AI Matches to start a conversation.', 'info');
-                  return;
-                }
-                setChatTarget(next);
-                setShowChatDrawer(true);
-              }}
-              className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-              title="Open Active Chat Inbox"
-            >
-              <MessageSquare className="w-4.5 h-4.5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white"></span>
-            </button>
-
-            <div className="relative">
-              <NotificationBell />
-            </div>
-
-            <div className="h-6 w-px bg-slate-200 my-auto"></div>
-
-            {/* Founder Profile Badge - opens the public profile */}
-            <div
-              onClick={() => setSelectedPublicProfile({ type: 'founder', id: user.id || user._id })}
-              className="flex items-center gap-3 cursor-pointer hover:bg-slate-100 px-2.5 py-1.5 rounded-xl transition-colors"
-              title="View public profile"
-            >
-              <InitialsAvatar name={profileUser.name} className="w-8 h-8" />
-              <div className="hidden sm:block text-left">
-                <span className="text-xs font-bold text-slate-900 block leading-tight">{profileUser.name}</span>
-                <span className="text-[10px] text-slate-500 block leading-tight">{profileUser.university || 'Founder'}</span>
-              </div>
-            </div>
-          </div>
-        </header>
-
         {/* Pending Vetting Status Banner */}
         {(profileUser.vettingStatus === 'pending' || profileUser.vetting_status === 'pending') && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-900 px-8 py-2.5 flex items-center justify-between text-xs font-medium sticky top-16 z-15">
+          <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-900 px-8 py-2.5 flex items-center justify-between text-xs font-medium sticky top-0 z-20">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span><strong>Identity Vetting Pending:</strong> Your student founder profile is awaiting Super Admin verification. Campaign launching is restricted until approved.</span>
@@ -1513,32 +1656,120 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                 </div>
               )}
 
-              {/* TAB: CAMPAIGNS TO WATCH */}
+              {/* TAB: CAMPAIGNS DIRECTORY (EXPLORE) */}
               {activeTab === 'explore' && (
                 <div className="space-y-6">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                      <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Campaigns to Watch</h1>
-                      <p className="text-xs text-slate-500 mt-0.5">Explore active startup campaigns across all university incubation centers.</p>
+                      <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Campaigns Directory</h1>
+                      <p className="text-xs text-slate-500 mt-0.5">Explore startup ventures and community relief drives across Bangladesh universities.</p>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <select
-                        value={exploreCategory}
-                        onChange={(e) => setExploreCategory(e.target.value)}
-                        className="px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-700 bg-white focus:outline-none"
-                      >
-                        <option value="all">All Categories</option>
-                        <option value="f&b">FoodTech / F&B</option>
-                        <option value="cleantech">CleanTech</option>
-                        <option value="watertech">WaterTech</option>
-                        <option value="healthtech">HealthTech</option>
-                        <option value="agtech">AgTech</option>
-                      </select>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Market Toggle: Startup vs Relief */}
+                      <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setExploreMarket('startup')}
+                          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                            exploreMarket === 'startup'
+                              ? 'bg-white text-emerald-800 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Startup Ventures ({filteredAllCampaigns.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setExploreMarket('relief')}
+                          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                            exploreMarket === 'relief'
+                              ? 'bg-white text-rose-700 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Heart className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Relief Causes ({filteredAllRelief.length})</span>
+                        </button>
+                      </div>
+
+                      {exploreMarket === 'startup' && (
+                        <select
+                          value={exploreCategory}
+                          onChange={(e) => setExploreCategory(e.target.value)}
+                          className="px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-medium text-slate-700 bg-white focus:outline-none"
+                        >
+                          <option value="all">All Categories</option>
+                          <option value="f&b">FoodTech / F&B</option>
+                          <option value="cleantech">CleanTech</option>
+                          <option value="watertech">WaterTech</option>
+                          <option value="healthtech">HealthTech</option>
+                          <option value="agtech">AgTech</option>
+                        </select>
+                      )}
                     </div>
                   </div>
 
-                  {filteredAllCampaigns.length > 0 ? (
+                  {exploreMarket === 'relief' ? (
+                    filteredAllRelief.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredAllRelief.map((drive, idx) => (
+                          <div key={drive.id || idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between hover:border-rose-300 transition-all">
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-start">
+                                <span className="px-2.5 py-1 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-md uppercase">
+                                  {drive.cause || 'Relief Cause'}
+                                </span>
+                                <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md uppercase">
+                                  VERIFIED CHARITY
+                                </span>
+                              </div>
+
+                              <div>
+                                <h3 className="font-bold text-slate-900 text-base">{drive.title}</h3>
+                                <span className="text-xs font-semibold text-emerald-700 block">{drive.university || 'University Campus'}</span>
+                                <p className="text-xs text-slate-500 mt-0.5">Beneficiary: <strong className="text-slate-700">{drive.beneficiary || 'Community members'}</strong></p>
+                              </div>
+
+                              <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                                {drive.description}
+                              </p>
+
+                              {drive.founder && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPublicProfile({ type: 'founder', id: drive.founder.id || drive.founder_id || drive.founderId })}
+                                  className="text-[11px] text-emerald-700 font-semibold hover:underline flex items-center gap-1"
+                                >
+                                  <span>Organized by {drive.founder.name || 'Student Founder'}</span>
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="space-y-3 pt-3 border-t border-slate-100">
+                              <div className="flex justify-between text-xs font-mono">
+                                <span className="text-slate-500">Raised: <strong className="text-emerald-700">৳ {Number(drive.raised || 0).toLocaleString()}</strong></span>
+                                <span className="text-slate-500">Goal: <strong>৳ {Number(drive.goal || 0).toLocaleString()}</strong></span>
+                              </div>
+
+                              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-emerald-600 h-full rounded-full"
+                                  style={{ width: drive.goal > 0 ? `${Math.min(100, Math.round(((drive.raised || 0) / drive.goal) * 100))}%` : '0%' }}
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-16 text-center bg-white border border-slate-200 rounded-2xl space-y-3">
+                        <Heart className="w-10 h-10 text-rose-300 mx-auto" />
+                        <h3 className="font-bold text-slate-800 text-sm">No live relief causes found</h3>
+                        <p className="text-xs text-slate-500 max-w-sm mx-auto">There are currently no approved humanitarian relief campaigns matching your query.</p>
+                      </div>
+                    )
+                  ) : filteredAllCampaigns.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {filteredAllCampaigns.map((c, idx) => (
                         <div key={c.id || c._id || idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between hover:border-emerald-500/50 transition-all">
@@ -1593,6 +1824,170 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                     <div className="py-16 text-center bg-white border border-slate-200 rounded-2xl space-y-2">
                       <Compass className="w-10 h-10 text-slate-300 mx-auto" />
                       <p className="text-xs font-semibold text-slate-700">No campaigns found matching your query in database.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB: RELIEF CAMPAIGNS (MATCHING media_1788556426069.png) */}
+              {activeTab === 'relief' && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">My Relief Campaigns</h1>
+                      <p className="text-xs text-slate-500 mt-0.5">Your donation causes. New ones need admin approval before they go public.</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('explore');
+                          setExploreMarket('relief');
+                        }}
+                        className="px-4 py-2.5 bg-white border border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                      >
+                        <Heart className="w-3.5 h-3.5 text-rose-600" />
+                        <span>+ Relief Campaigns to Support</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateReliefModal(true)}
+                        className="px-4 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>+ Create New Relief Campaign</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Collapsible Filter Card matching media_1788556426069.png */}
+                  <div className="border border-emerald-300 bg-white rounded-2xl p-5 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4 text-emerald-700" />
+                        <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Filters</h3>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-mono font-bold rounded-full border border-emerald-200">
+                          Showing {filteredMyRelief.length} of {myReliefCampaigns.length} Causes
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setReliefFiltersOpen(!reliefFiltersOpen)}
+                          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>{reliefFiltersOpen ? 'HIDE ▲' : 'SHOW ▼'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {reliefFiltersOpen && (
+                      <div className="pt-3 border-t border-slate-100 flex flex-wrap gap-4 items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-500 font-medium text-[11px]">Status:</span>
+                          {['all', 'open', 'pending', 'rejected'].map((st) => (
+                            <button
+                              key={st}
+                              type="button"
+                              onClick={() => setReliefStatusFilter(st)}
+                              className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-colors cursor-pointer ${
+                                reliefStatusFilter === st
+                                  ? 'bg-emerald-700 text-white'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              {st === 'open' ? 'Active / Open' : st}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="w-64">
+                          <input
+                            type="text"
+                            placeholder="Search title, cause, or university..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Relief Campaigns List or Empty State */}
+                  {filteredMyRelief.length === 0 ? (
+                    <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-12 text-center space-y-4">
+                      <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                        <Heart className="w-6 h-6" />
+                      </div>
+                      <div className="max-w-md mx-auto space-y-1">
+                        <h3 className="font-bold text-slate-900 text-base">No relief campaigns found</h3>
+                        <p className="text-xs text-slate-500">
+                          Launch a student relief or charity drive to mobilize humanitarian support from alumni and investors across Bangladesh.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateReliefModal(true)}
+                        className="px-5 py-2.5 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Create New Relief Campaign</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {filteredMyRelief.map((drive, idx) => (
+                        <div key={drive.id || idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between hover:border-emerald-400 transition-all">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-start">
+                              <span className="px-2.5 py-1 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-md uppercase">
+                                {drive.cause || 'Relief'}
+                              </span>
+                              <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-md ${
+                                drive.status === 'open' || drive.status === 'verified'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : drive.status === 'rejected'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-amber-100 text-amber-800'
+                              }`}>
+                                {drive.status === 'open' ? 'Active / Open' : drive.status || 'Pending'}
+                              </span>
+                            </div>
+
+                            <div>
+                              <h3 className="font-bold text-slate-900 text-base">{drive.title}</h3>
+                              <span className="text-xs font-semibold text-emerald-700 block">{drive.university}</span>
+                              <p className="text-xs text-slate-500 mt-1">Beneficiary: <strong className="text-slate-700">{drive.beneficiary || 'Community'}</strong></p>
+                            </div>
+
+                            <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                              {drive.description}
+                            </p>
+
+                            {drive.rejectionReason && (
+                              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-700">
+                                <strong>Rejection note:</strong> {drive.rejectionReason}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-3 pt-3 border-t border-slate-100">
+                            <div className="flex justify-between text-xs font-mono">
+                              <span className="text-slate-500">Raised: <strong className="text-emerald-700">৳ {Number(drive.raised || 0).toLocaleString()}</strong></span>
+                              <span className="text-slate-500">Goal: <strong>৳ {Number(drive.goal || 0).toLocaleString()}</strong></span>
+                            </div>
+
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div
+                                className="bg-emerald-600 h-full rounded-full"
+                                style={{ width: drive.goal > 0 ? `${Math.min(100, Math.round(((drive.raised || 0) / drive.goal) * 100))}%` : '0%' }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -2105,12 +2500,96 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                       </button>
                     </div>
                   </form>
+
+                  {/* Relief & Charity Campaigns on Founder Profile Settings */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                          <Heart className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-900 text-base">Relief & Charity Campaigns</h3>
+                          <p className="text-xs text-slate-500">Charity and humanitarian funding drives connected to your founder profile.</p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateReliefModal(true)}
+                        className="px-3.5 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>New Relief Cause</span>
+                      </button>
+                    </div>
+
+                    {myReliefCampaigns.length === 0 ? (
+                      <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl space-y-3 bg-slate-50/50">
+                        <Heart className="w-8 h-8 text-rose-300 mx-auto" />
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-semibold text-slate-700">No Relief Campaigns Yet</p>
+                          <p className="text-[11px] text-slate-500">You haven't launched any charity funding causes yet.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateReliefModal(true)}
+                          className="px-3.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-semibold rounded-xl cursor-pointer transition-colors"
+                        >
+                          + Launch Relief Campaign
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {myReliefCampaigns.map((drive, idx) => (
+                          <div key={drive.id || idx} className="p-4 border border-slate-200 rounded-xl space-y-2.5 hover:border-emerald-300 transition-colors">
+                            <div className="flex flex-wrap justify-between items-start gap-2">
+                              <div>
+                                <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded uppercase">
+                                  {drive.cause || 'Relief'}
+                                </span>
+                                <h4 className="font-bold text-slate-900 text-sm mt-1">{drive.title}</h4>
+                                <p className="text-xs text-slate-500">Beneficiary: <strong className="text-slate-700">{drive.beneficiary || 'Community'}</strong></p>
+                              </div>
+                              <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-md ${
+                                drive.status === 'open' || drive.status === 'verified'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : drive.status === 'rejected'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-amber-100 text-amber-800'
+                              }`}>
+                                {drive.status === 'open' ? 'Active / Open' : drive.status || 'Pending Review'}
+                              </span>
+                            </div>
+
+                            {drive.description && (
+                              <p className="text-xs text-slate-600 line-clamp-2">{drive.description}</p>
+                            )}
+
+                            <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                              <div className="flex justify-between text-xs font-mono">
+                                <span className="text-slate-500">Raised: <strong className="text-emerald-700">৳ {Number(drive.raised || 0).toLocaleString()}</strong></span>
+                                <span className="text-slate-500">Goal: <strong>৳ {Number(drive.goal || 0).toLocaleString()}</strong></span>
+                              </div>
+                              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-emerald-600 h-full rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, Math.round(((drive.raised || 0) / (drive.goal || 1)) * 100))}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </>
           )}
         </main>
       </div>
+    </div>
 
       {/* REQUEST PAYOUT MODAL */}
       {showPayoutModal && (
@@ -2293,6 +2772,155 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
               <Send className="w-4 h-4" />
             </button>
           </form>
+        </div>
+      )}
+
+      {/* CREATE RELIEF CAMPAIGN MODAL */}
+      {showCreateReliefModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <Heart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Create Relief / Charity Campaign</h3>
+                  <p className="text-xs text-slate-500">Launch a verified donation drive for emergency aid or humanitarian relief.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateReliefModal(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateReliefDrive} className="space-y-4 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Campaign Cause Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Flood Relief & Clean Water Initiative"
+                  value={createReliefForm.title}
+                  onChange={(e) => setCreateReliefForm({ ...createReliefForm, title: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Cause Category</label>
+                  <select
+                    value={createReliefForm.cause}
+                    onChange={(e) => setCreateReliefForm({ ...createReliefForm, cause: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none"
+                  >
+                    <option value="Disaster Relief">Disaster Relief</option>
+                    <option value="Medical Emergency">Medical Emergency</option>
+                    <option value="Community Welfare">Community Welfare</option>
+                    <option value="Education Grant">Education Grant</option>
+                    <option value="Student Hardship Fund">Student Hardship Fund</option>
+                    <option value="Flood & Storm Aid">Flood & Storm Aid</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Target Beneficiary *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 500 Displaced families in Sylhet"
+                    value={createReliefForm.beneficiary}
+                    onChange={(e) => setCreateReliefForm({ ...createReliefForm, beneficiary: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Fundraising Target (৳ BDT) *</label>
+                  <input
+                    type="number"
+                    required
+                    min="1000"
+                    placeholder="e.g. 200000"
+                    value={createReliefForm.goal}
+                    onChange={(e) => setCreateReliefForm({ ...createReliefForm, goal: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Campaign Duration (Days)</label>
+                  <input
+                    type="number"
+                    min="7"
+                    max="180"
+                    value={createReliefForm.durationDays}
+                    onChange={(e) => setCreateReliefForm({ ...createReliefForm, durationDays: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Description & Urgency Narrative *</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Explain why this relief effort is urgently needed, who is organizing it, and how people will be helped."
+                  value={createReliefForm.description}
+                  onChange={(e) => setCreateReliefForm({ ...createReliefForm, description: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Planned Use of Funds (One per line)</label>
+                <textarea
+                  rows={3}
+                  placeholder="Food and pure drinking water&#10;Emergency medicine and kits&#10;Distribution and logistics"
+                  value={createReliefForm.useOfFundsText}
+                  onChange={(e) => setCreateReliefForm({ ...createReliefForm, useOfFundsText: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">News / Verification Proof Link (Optional)</label>
+                <input
+                  type="url"
+                  placeholder="https://newspaper-article-or-hospital-doc-link.com"
+                  value={createReliefForm.proofUrl}
+                  onChange={(e) => setCreateReliefForm({ ...createReliefForm, proofUrl: e.target.value })}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none"
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5">Providing a verifiable news report or university endorsement expedites admin approval.</p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateReliefModal(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingRelief}
+                  className="px-5 py-2 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  {submittingRelief ? 'Submitting...' : 'Submit Relief Campaign for Verification'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

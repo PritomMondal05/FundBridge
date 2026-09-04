@@ -304,8 +304,17 @@ async function scoreWithGeminiOrFallback({ prompt, schema, heuristicMatches, val
 }
 
 export async function getInvestorMatches(investorId) {
-  const investor = await loadInvestorRecord(investorId);
-  if (!investor) throw new Error('Investor not found.');
+  let investor = await loadInvestorRecord(investorId);
+  if (!investor) {
+    investor = {
+      id: String(investorId || 'usr_investor_default'),
+      name: 'Investor',
+      role: 'investor',
+      institution: 'Angel Backer',
+      vetting_status: 'verified',
+      sector_interests: []
+    };
+  }
 
   const skip = investorSkipCampaignIds(investorId);
   const campaigns = (await loadVerifiedCampaigns()).filter((c) => c.id && !skip.has(c.id));
@@ -330,7 +339,14 @@ export async function getInvestorMatches(investorId) {
 
 export async function getFounderMatches(campaignId) {
   const campaign = await loadCampaignRecord(campaignId);
-  if (!campaign) throw new Error('Campaign not found.');
+  if (!campaign) {
+    return {
+      matches: [],
+      source: 'empty',
+      campaign: null,
+      needsCampaign: true
+    };
+  }
 
   const investors = await loadVerifiedInvestors();
   if (!investors.length) return { matches: [], source: 'empty', campaign };

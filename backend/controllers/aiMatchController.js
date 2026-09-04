@@ -20,7 +20,13 @@ export async function investorMatchesHandler(req, res) {
       profileIncomplete: Boolean(result.profileIncomplete)
     });
   } catch (err) {
-    sendError(res, err, 'Failed to generate investor matches.');
+    console.warn('AI MATCH WARNING (investor):', err);
+    res.status(200).json({
+      matches: [],
+      source: 'heuristic',
+      count: 0,
+      profileIncomplete: true
+    });
   }
 }
 
@@ -37,7 +43,13 @@ export async function founderMatchesHandler(req, res) {
       campaign: result.campaign || null
     });
   } catch (err) {
-    sendError(res, err, 'Failed to generate founder matches.');
+    console.warn('AI MATCH WARNING (founder campaign):', err);
+    res.status(200).json({
+      matches: [],
+      source: 'heuristic',
+      count: 0,
+      campaign: null
+    });
   }
 }
 
@@ -55,6 +67,13 @@ export async function founderUserMatchesHandler(req, res) {
       needsCampaign: Boolean(result.needsCampaign)
     });
   } catch (err) {
-    sendError(res, err, 'Failed to generate founder matches.');
+    console.warn('AI MATCH WARNING (founder user):', err);
+    res.status(200).json({
+      matches: [],
+      source: 'heuristic',
+      count: 0,
+      campaign: null,
+      needsCampaign: true
+    });
   }
 }

@@ -1,5 +1,18 @@
 [
   {
+    "id": "notif_1788555981399_t2jf",
+    "user_id": "usr_founder_1",
+    "recipient_id": "usr_founder_1",
+    "sender_id": null,
+    "type": "warning",
+    "title": "Campaign Audit Status: Rejected ❌",
+    "message": "Your pitch \"campaign\" was not approved by Admin. Reason: asdsd.",
+    "link_url": null,
+    "event_key": null,
+    "is_read": true,
+    "created_at": "2026-09-04T21:06:21.399Z"
+  },
+  {
     "id": "notif_1788548924128_5ctx",
     "user_id": "usr_founder_1",
     "recipient_id": "usr_founder_1",
@@ -9,7 +22,7 @@
     "message": "Angel Backer Zaman sent you a message.",
     "link_url": "tab:messages",
     "event_key": "dm:msg_1788548923363",
-    "is_read": false,
+    "is_read": true,
     "created_at": "2026-09-04T19:08:44.128Z"
   },
   {
@@ -22,7 +35,7 @@
     "message": "Investor approved Phase 3: Production Scaling & Automation. Exit & Commercial Distribution is now active.",
     "link_url": null,
     "event_key": null,
-    "is_read": false,
+    "is_read": true,
     "created_at": "2026-09-04T19:07:53.706Z"
   },
   {
@@ -35,7 +48,7 @@
     "message": "Ashraf Khan submitted proof for Phase 3: Production Scaling & Automation.",
     "link_url": null,
     "event_key": null,
-    "is_read": false,
+    "is_read": true,
     "created_at": "2026-09-04T19:06:46.731Z"
   },
   {
@@ -48,7 +61,7 @@
     "message": "Investor released ৳ 750,000 for Phase 3: Production Scaling & Automation. Ref: TRX-MFS-48652724.",
     "link_url": null,
     "event_key": null,
-    "is_read": false,
+    "is_read": true,
     "created_at": "2026-09-04T19:04:12.740Z"
   },
   {
@@ -61,7 +74,7 @@
     "message": "Ashraf Khan requested ৳ 750,000 for Phase 3: Production Scaling & Automation.",
     "link_url": null,
     "event_key": null,
-    "is_read": false,
+    "is_read": true,
     "created_at": "2026-09-04T18:43:32.929Z"
   },
   {
@@ -74,7 +87,7 @@
     "message": "Investor approved Phase 2: R&D Installation & Testing. Phase 3: Production Scaling & Automation is now active.",
     "link_url": null,
     "event_key": null,
-    "is_read": false,
+    "is_read": true,
     "created_at": "2026-09-04T18:30:09.183Z"
   },
   {
@@ -87,7 +100,7 @@
     "message": "Ashraf Khan submitted proof for Phase 2: R&D Installation & Testing.",
     "link_url": null,
     "event_key": null,
-    "is_read": false,
+    "is_read": true,
     "created_at": "2026-09-04T18:30:07.498Z"
   },
   {
@@ -100,7 +113,7 @@
     "message": "Investor released ৳ 450,000 for Phase 2: R&D Installation & Testing. Ref: TRX-MFS-46224356.",
     "link_url": null,
     "event_key": null,
-    "is_read": false,
+    "is_read": true,
     "created_at": "2026-09-04T18:23:44.373Z"
   },
   {
@@ -109,7 +122,7 @@
     "title": "New Proposal Received",
     "message": "Angel Backer Zaman submitted an 8% Rev. Share proposal for CampusBites.",
     "type": "info",
-    "is_read": false,
+    "is_read": true,
     "created_at": "2026-09-04T17:44:41.901Z"
   },
   {

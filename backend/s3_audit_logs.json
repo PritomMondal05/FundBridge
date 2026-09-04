@@ -561,5 +561,14 @@
     "created_at": "2026-09-04T16:12:58.977+00:00",
     "founder_id": "usr_founder_2",
     "actor_role": "founder"
+  },
+  {
+    "id": "ebdfea1e-00d4-4bfb-a58e-ef36d2439c7d",
+    "hash": "0x8f2a99c4b1d09e1a",
+    "category": "DISBURSEMENT",
+    "title": "Escrow Tranche #1 Release",
+    "status": "VERIFIED",
+    "latency": "14ms",
+    "created_at": "2026-09-04T20:56:09.102076+00:00"
   }
 ]
