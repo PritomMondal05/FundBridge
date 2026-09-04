@@ -207,6 +207,31 @@ const persistS3CampaignStore = () => {
 
 loadS3CampaignStore(); // S3
 
+// S3: disputes store persistence & normalization
+const S3_DISPUTES_STORE_PATH = path.join(__dirname, 's3_disputes.json');
+const fallbackDisputes = [];
+const loadS3DisputesStore = () => {
+  try {
+    if (!fs.existsSync(S3_DISPUTES_STORE_PATH)) return;
+    const raw = fs.readFileSync(S3_DISPUTES_STORE_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      fallbackDisputes.length = 0;
+      fallbackDisputes.push(...parsed);
+    }
+  } catch (e) {
+    console.warn('Disputes store load notice:', e.message);
+  }
+};
+const persistS3DisputesStore = () => {
+  try {
+    fs.writeFileSync(S3_DISPUTES_STORE_PATH, JSON.stringify(fallbackDisputes, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Disputes store save notice:', e.message);
+  }
+};
+loadS3DisputesStore();
+
 // S3: prefer the richer campaign when seed/Supabase duplicates the same live pitch (e.g. campusbites vs campusbites_1)
 const s3CampaignDedupeKey = (c) => {
   const title = String(c?.title || '').trim().toLowerCase();
@@ -1868,18 +1893,20 @@ app.post('/api/admin/login', async (req, res) => {
 // VETTING QUEUE & USER CONTROL APIS
 app.get('/api/vetting/applicants', async (req, res) => {
   try {
-    let pendingUsers = [];
+    const list = [];
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('users').select('*').eq('vetting_status', 'pending');
-      if (!error && data) pendingUsers = data.map(normalizeUser);
-    } else if (false) {
-      const users = await User.find({ vettingStatus: 'pending' });
-      if (users) pendingUsers = users.map(normalizeUser);
-    } else {
-      pendingUsers = fallbackUsers.filter(u => u.role !== 'admin' && (u.vettingStatus === 'pending' || u.vetting_status === 'pending')).map(normalizeUser);
+      if (!error && Array.isArray(data)) list.push(...data.map(normalizeUser));
     }
+    const byId = new Map(list.map(u => [u.id || u._id, u]));
+    fallbackUsers
+      .filter(u => u.role !== 'admin' && (u.vettingStatus === 'pending' || u.vetting_status === 'pending'))
+      .forEach(u => {
+        const id = u.id || u._id;
+        if (id && !byId.has(id)) byId.set(id, normalizeUser(u));
+      });
 
-    res.status(200).json(pendingUsers);
+    res.status(200).json(Array.from(byId.values()));
   } catch (err) {
     res.status(500).json({ error: 'Error fetching vetting applicants.' });
   }
@@ -2318,15 +2345,193 @@ app.get('/api/admin/stats', async (req, res) => {
   }
 });
 
+const normalizeDispute = (d) => {
+  if (!d) return null;
+  const id = d.id || d._id;
+  const reportedUser = d.reported_user || d.reportedUser || '';
+  const reportedUserId = d.reported_user_id || d.reportedUserId || '';
+  const reportedRole = d.reported_role || d.reportedRole || 'founder';
+  const complainant = d.complainant_name || d.complainantName || d.complainant || 'Platform User';
+  const complainantRole = d.complainant_role || d.complainantRole || 'investor';
+  const campaignTitle = d.campaign_title || d.campaignTitle || '';
+  const campaignId = d.campaign_id || d.campaignId || '';
+  const issueType = d.issue_type || d.issueType || d.category || 'Policy violation';
+  const severity = d.severity || 'Medium';
+  const status = d.status || 'Open';
+  const userFrozen = Boolean(d.user_frozen || d.userFrozen || status === 'Frozen' || status.includes('ID Frozen'));
+  return {
+    id,
+    _id: id,
+    reported_user: reportedUser,
+    reportedUser,
+    reported_user_id: reportedUserId,
+    reportedUserId,
+    reported_role: reportedRole,
+    reportedRole,
+    complainant_name: complainant,
+    complainantName: complainant,
+    complainant,
+    complainant_role: complainantRole,
+    complainantRole,
+    campaign_title: campaignTitle,
+    campaignTitle,
+    campaign_id: campaignId,
+    campaignId,
+    issue_type: issueType,
+    issueType,
+    category: issueType,
+    severity,
+    status,
+    user_frozen: userFrozen,
+    userFrozen,
+    description: d.description || d.reason || '',
+    evidence_file: d.evidence_file || d.evidenceLink || null,
+    evidenceLink: d.evidence_file || d.evidenceLink || null,
+    resolution_note: d.resolution_note || d.resolutionNote || null,
+    resolutionNote: d.resolution_note || d.resolutionNote || null,
+    created_at: d.created_at || new Date().toISOString()
+  };
+};
+
 app.get('/api/disputes', async (req, res) => {
   try {
+    const list = [];
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('disputes').select('*').order('created_at', { ascending: false });
-      if (!error && data) return res.status(200).json(data);
+      if (!error && Array.isArray(data)) {
+        list.push(...data.map(normalizeDispute));
+      }
     }
-    res.status(200).json([]);
+    const byId = new Map(list.map(d => [d.id, d]));
+    fallbackDisputes.forEach(d => {
+      const n = normalizeDispute(d);
+      if (n && n.id && !byId.has(n.id)) byId.set(n.id, n);
+    });
+    res.status(200).json(Array.from(byId.values()));
   } catch (err) {
-    res.status(200).json([]);
+    res.status(200).json(fallbackDisputes.map(normalizeDispute));
+  }
+});
+
+app.post('/api/admin/disputes/:id/dismiss', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminNotes } = req.body || {};
+    const sid = String(id || '');
+    let target = fallbackDisputes.find(d => d.id === sid);
+    if (!target) {
+      target = { id: sid, status: 'Dismissed' };
+      fallbackDisputes.push(target);
+    }
+    target.status = 'Dismissed';
+    target.resolution_note = adminNotes || 'Dismissed by platform supervisor.';
+    target.user_frozen = false;
+    target.userFrozen = false;
+    target.resolved_at = new Date().toISOString();
+    persistS3DisputesStore();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('disputes').update({
+          status: 'Dismissed',
+          resolution_note: target.resolution_note,
+          resolved_at: target.resolved_at
+        }).eq('id', sid);
+      } catch (e) {}
+    }
+
+    res.status(200).json({ message: `Complaint ${sid} dismissed. Associated ID/Escrow restored.`, dispute: normalizeDispute(target) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to dismiss complaint' });
+  }
+});
+
+app.post('/api/admin/disputes/:id/resolve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { resolutionAction, adminNotes } = req.body || {};
+    const sid = String(id || '');
+    let target = fallbackDisputes.find(d => d.id === sid);
+    if (!target) {
+      target = { id: sid, status: 'Resolved' };
+      fallbackDisputes.push(target);
+    }
+    target.status = 'Resolved';
+    target.resolution_note = adminNotes || `Resolved with action: ${resolutionAction || 'unfreeze'}`;
+    target.user_frozen = false;
+    target.userFrozen = false;
+    target.resolved_at = new Date().toISOString();
+    persistS3DisputesStore();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('disputes').update({
+          status: 'Resolved',
+          resolution_note: target.resolution_note,
+          resolved_at: target.resolved_at
+        }).eq('id', sid);
+      } catch (e) {}
+    }
+
+    res.status(200).json({ message: `Complaint ${sid} resolved.`, dispute: normalizeDispute(target) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to resolve complaint' });
+  }
+});
+
+app.post('/api/admin/disputes/:id/block-user', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    const sid = String(id || '');
+    let target = fallbackDisputes.find(d => d.id === sid);
+    if (!target) {
+      target = { id: sid, status: 'Resolved (User Blocked)' };
+      fallbackDisputes.push(target);
+    }
+    target.status = 'Resolved (User Blocked)';
+    target.resolution_note = reason || 'Confirmed violation of platform terms. Account permanently blocked.';
+    target.user_frozen = true;
+    target.userFrozen = true;
+    target.resolved_at = new Date().toISOString();
+    persistS3DisputesStore();
+
+    const rUserId = target.reported_user_id || target.reportedUserId;
+    const rUserName = target.reported_user || target.reportedUser;
+
+    if (rUserId) {
+      const u = fallbackUsers.find(x => x.id === rUserId || x._id === rUserId);
+      if (u) {
+        u.vettingStatus = 'blocked';
+        u.vetting_status = 'blocked';
+      }
+      if (isSupabaseConfigured && supabase) {
+        try { await supabase.from('users').update({ vetting_status: 'blocked' }).eq('id', rUserId); } catch (e) {}
+      }
+    } else if (rUserName) {
+      const u = fallbackUsers.find(x => x.name === rUserName);
+      if (u) {
+        u.vettingStatus = 'blocked';
+        u.vetting_status = 'blocked';
+      }
+      if (isSupabaseConfigured && supabase) {
+        try { await supabase.from('users').update({ vetting_status: 'blocked' }).eq('name', rUserName); } catch (e) {}
+      }
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('disputes').update({
+          status: 'Resolved (User Blocked)',
+          resolution_note: target.resolution_note,
+          resolved_at: target.resolved_at
+        }).eq('id', sid);
+      } catch (e) {}
+    }
+
+    res.status(200).json({ message: 'Reported user permanently BLOCKED.', dispute: normalizeDispute(target) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to block user' });
   }
 });
 
@@ -2384,21 +2589,63 @@ app.get('/api/campaigns/watchable', async (req, res) => {
   }
 });
 
+app.get('/api/campaigns/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sid = String(id || '');
+    let cmp = fallbackCampaigns.find(c => String(c.id || c._id) === sid);
+    if (!cmp && isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase.from('campaigns').select('*').eq('id', sid).single();
+        if (!error && data) cmp = data;
+      } catch (e) {}
+    }
+    if (!cmp) return res.status(404).json({ error: 'Campaign not found.' });
+    res.status(200).json(normalizeCampaign(cmp));
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching campaign.' });
+  }
+});
+
 app.get('/api/admin/campaigns/pending', async (req, res) => {
   try {
-    let allCampaigns = [];
+    const byId = new Map();
+
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.from('campaigns').select('*');
-      if (!error && data) allCampaigns = data.map(normalizeCampaign);
-    } else if (false) {
-      const campaigns = await Campaign.find();
-      if (campaigns) allCampaigns = campaigns.map(normalizeCampaign);
-    } else {
-      allCampaigns = fallbackCampaigns.map(normalizeCampaign);
+      try {
+        const { data, error } = await supabase.from('campaigns').select('*');
+        if (!error && Array.isArray(data)) {
+          data.forEach(row => {
+            const norm = normalizeCampaign(row);
+            if (norm && (norm.id || norm._id)) {
+              byId.set(norm.id || norm._id, norm);
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Supabase pending campaigns read error:', e.message);
+      }
     }
 
-    const pending = allCampaigns.filter(c => c && (c.status === 'pending' || c.status === 'revisions' || !c.verified));
-    res.status(200).json(pending);
+    fallbackCampaigns.forEach(raw => {
+      const norm = normalizeCampaign(raw);
+      if (norm && (norm.id || norm._id)) {
+        byId.set(norm.id || norm._id, norm);
+      }
+    });
+
+    const allCampaigns = Array.from(byId.values());
+    const pending = allCampaigns.filter(c => 
+      c && (
+        !c.verified || 
+        c.status === 'pending' || 
+        c.status === 'revisions' || 
+        c.status === 'revision_required' || 
+        c.status === 'rejected'
+      )
+    );
+
+    res.status(200).json(s3DedupeLiveCampaigns(pending));
   } catch (err) {
     res.status(500).json({ error: 'Error fetching pending campaigns.' });
   }
@@ -2418,11 +2665,20 @@ app.post('/api/admin/campaigns/:id/verify', async (req, res) => {
       } catch (e) {}
     }
 
-    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    let cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
     if (cmp) {
       cmp.status = 'verified';
       cmp.verified = true;
+    } else if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: fetched } = await supabase.from('campaigns').select('*').eq('id', id).single();
+        if (fetched) {
+          cmp = normalizeCampaign({ ...fetched, status: 'verified', verified: true });
+          fallbackCampaigns.unshift(cmp);
+        }
+      } catch (e) {}
     }
+    persistS3CampaignStore(); // S3: persist verification state
 
     const founderId = cmp?.founder_id || cmp?.founder?._id || 'usr_founder_1';
     await createAndDispatchNotification(
@@ -2449,12 +2705,21 @@ app.post('/api/admin/campaigns/:id/reject', async (req, res) => {
       } catch (e) {}
     }
 
-    const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+    let cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
     if (cmp) {
       cmp.status = 'rejected';
       cmp.verified = false;
       cmp.rejectionReason = reason;
+    } else if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: fetched } = await supabase.from('campaigns').select('*').eq('id', id).single();
+        if (fetched) {
+          cmp = normalizeCampaign({ ...fetched, status: 'rejected', verified: false, rejectionReason: reason });
+          fallbackCampaigns.unshift(cmp);
+        }
+      } catch (e) {}
     }
+    persistS3CampaignStore(); // S3: persist rejection state
 
     // Move to Trash Database
     const campData = cmp ? normalizeCampaign(cmp) : { id };
@@ -2497,6 +2762,7 @@ app.post('/api/admin/campaigns/reject-all', async (req, res) => {
         try { await supabase.from('campaigns').update({ status: 'rejected', verified: false }).eq('id', c.id || c._id); } catch (e) {}
       }
     }
+    persistS3CampaignStore(); // S3: persist bulk rejection
     res.status(200).json({ message: `Rejected and moved ${pending.length} campaign(s) to Trash Database.`, rejectedCount: pending.length });
   } catch (err) {
     res.status(500).json({ error: 'Error bulk rejecting campaigns.' });
@@ -2560,6 +2826,7 @@ app.post('/api/admin/campaigns/:id/reupload', async (req, res) => {
       cmp.verified = false;
       cmp.feedbackNotes = feedbackNotes;
     }
+    persistS3CampaignStore(); // S3: persist revision status
 
     const founderId = cmp?.founder_id || cmp?.founder?._id || 'usr_founder_1';
     await createAndDispatchNotification(
@@ -3467,9 +3734,19 @@ app.post('/api/payouts/request', async (req, res) => {
 
 app.get('/api/audit-logs', async (req, res) => {
   try {
+    const list = [];
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false });
-      if (!error && data && data.length > 0) return res.status(200).json(data);
+      if (!error && Array.isArray(data) && data.length > 0) list.push(...data);
+    }
+    const byId = new Map(list.map(l => [l.id, l]));
+    fallbackAuditLogs.forEach(l => {
+      if (l && l.id && !byId.has(l.id)) byId.set(l.id, l);
+    });
+    const result = Array.from(byId.values());
+    if (result.length > 0) {
+      result.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      return res.status(200).json(result);
     }
     res.status(200).json([
       { id: '1', hash: '0x8f2a99c4b1d09e1a', category: 'DISBURSEMENT', title: 'Escrow Tranche #1 Release', status: 'VERIFIED', latency: '14ms', created_at: new Date().toISOString() }
@@ -4096,6 +4373,34 @@ app.get('/api/relief-drives', async (req, res) => {
     res.status(200).json(list);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching relief campaigns.' });
+  }
+});
+
+app.get('/api/relief-drives/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sid = String(id || '');
+    const d = fallbackReliefDrives.find(drive => String(drive.id || drive._id) === sid);
+    if (!d) return res.status(404).json({ error: 'Relief campaign not found.' });
+    const base = attachReliefDonations(ensureReliefMilestones({ ...d }));
+    const fu = fallbackUsers.find((u) => String(u.id || u._id) === String(d.founder_id || d.founderId || ''));
+    res.status(200).json({
+      ...base,
+      founder: fu
+        ? {
+            id: fu.id || fu._id,
+            name: fu.name || 'Founder',
+            email: fu.email || '',
+            university: fu.university || d.university || '',
+            department: fu.department || '',
+            bio: fu.bio || ''
+          }
+        : { name: 'Founder', university: d.university || '', bio: '' },
+      coFounders: getCoFounders(d),
+      co_founders: getCoFounders(d)
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching relief drive.' });
   }
 });
 

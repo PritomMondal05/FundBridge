@@ -208,7 +208,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
         // Auto-select first pending campaign dynamically
         if (campData.length > 0) {
-          setSelectedCampaignId(campData[0].id);
+          setSelectedCampaignId(prev => {
+            if (prev && campData.some(c => (c.id === prev || c._id === prev))) return prev;
+            return campData[0].id || campData[0]._id;
+          });
         } else {
           setSelectedCampaignId(null);
         }
@@ -436,6 +439,65 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }
   };
 
+  // Direct actions for Overview Vetting Queue
+  const handleApproveVetting = async (userId, name) => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/vetting/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, status: 'verified' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to approve applicant');
+
+      addToast(`Applicant "${name || 'User'}" verified successfully.`, 'success');
+      const newLog = {
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        actor: 'ADMIN_PRITOM',
+        initials: 'AP',
+        color: 'bg-emerald-950 text-emerald-200 border-emerald-500/30',
+        action: 'APPROVED USER',
+        target: `${name || userId}`,
+        rationale: 'Overview quick verification approved.',
+        hash: 'fb_' + Math.random().toString(36).substring(2, 6) + '...'
+      };
+      setActivityLogs(prev => [newLog, ...prev]);
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Failed to approve user.', 'error');
+    }
+  };
+
+  const handleRejectVetting = async (userId, name) => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/vetting/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, status: 'rejected' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reject applicant');
+
+      addToast(`Applicant "${name || 'User'}" rejected.`, 'info');
+      const newLog = {
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        actor: 'ADMIN_PRITOM',
+        initials: 'AP',
+        color: 'bg-red-950 text-red-200 border-red-500/30',
+        action: 'REJECTED USER',
+        target: `${name || userId}`,
+        rationale: 'Overview quick rejection.',
+        hash: 'fb_' + Math.random().toString(36).substring(2, 6) + '...'
+      };
+      setActivityLogs(prev => [newLog, ...prev]);
+      fetchDatabaseData();
+    } catch (e) {
+      addToast(e.message || 'Failed to reject user.', 'error');
+    }
+  };
+
   const handleRejectApplicant = async () => {
     const applicant = vettingQueue.find(u => u._id === selectedApplicantId);
     if (!applicant) return;
@@ -579,9 +641,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }
   };
 
-  const handlePublishCampaign = async (campaignObjId, title) => {
-    const compliance = getCompliance(selectedCampaignId);
-    if (!compliance.smartContractAudit || !compliance.founderIdentity || !compliance.regulatoryCompliance) {
+  const handlePublishCampaign = async (campaignObjId, title, forceBypassChecks = false) => {
+    const targetId = campaignObjId || selectedCampaignId;
+    const compliance = getCompliance(targetId);
+    if (!forceBypassChecks && (!compliance.smartContractAudit || !compliance.founderIdentity || !compliance.regulatoryCompliance)) {
       addToast('Cannot publish: Smart Contract, KYB, and Regulatory Compliance must be audited and verified.', 'error');
       return;
     }
@@ -617,8 +680,9 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
   const handleRejectCampaignSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedCampaign) return;
-    const campaignObjId = selectedCampaign._id || selectedCampaign.id;
+    const targetCamp = selectedAuditCampaign || selectedCampaign;
+    if (!targetCamp) return;
+    const campaignObjId = targetCamp._id || targetCamp.id;
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/campaigns/${campaignObjId}/reject`, {
         method: 'POST',
@@ -628,7 +692,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to reject campaign');
 
-      addToast(`Campaign "${selectedCampaign.title}" rejected and updated in audit ledger.`, 'error');
+      addToast(`Campaign "${targetCamp.title}" rejected and updated in audit ledger.`, 'error');
 
       const newLog = {
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
@@ -636,7 +700,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
         initials: 'AP',
         color: 'bg-red-950 text-red-200 border-red-500/30',
         action: 'REJECTED CAMPAIGN',
-        target: selectedCampaign.title,
+        target: targetCamp.title,
         rationale: campaignRejectionReason || 'Did not meet compliance criteria.',
         hash: 'fb_' + Math.random().toString(36).substring(2, 6) + '...'
       };
@@ -652,8 +716,9 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
 
   const handleReuploadRequestSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedCampaign) return;
-    const campaignObjId = selectedCampaign._id || selectedCampaign.id;
+    const targetCamp = selectedAuditCampaign || selectedCampaign;
+    if (!targetCamp) return;
+    const campaignObjId = targetCamp._id || targetCamp.id;
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/campaigns/${campaignObjId}/reupload`, {
         method: 'POST',
@@ -1409,10 +1474,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     auditSubTab === 'published'
       ? verifiedCampaigns
       : auditSubTab === 'revisions'
-      ? campaignsList.filter(c => c.status === 'revision_required')
+      ? campaignsList.filter(c => c.status === 'revision_required' || c.status === 'revisions')
       : auditSubTab === 'rejected'
       ? campaignsList.filter(c => c.status === 'rejected')
-      : campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required');
+      : campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required' && c.status !== 'revisions');
 
   const selectedAuditCampaign =
     displayedAuditCampaigns.find(c => c._id === selectedCampaignId || c.id === selectedCampaignId) || displayedAuditCampaigns[0];
@@ -1796,11 +1861,9 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => {
-                                setSelectedCampaignId(cmpItem.id || cmpItem._id);
-                                toggleCompliance(cmpItem.id || cmpItem._id, 'smartContractAudit');
-                                toggleCompliance(cmpItem.id || cmpItem._id, 'founderIdentity');
-                                toggleCompliance(cmpItem.id || cmpItem._id, 'regulatoryCompliance');
-                                handlePublishCampaign(cmpItem.id || cmpItem._id, cmpItem.title);
+                                const cId = cmpItem.id || cmpItem._id;
+                                setSelectedCampaignId(cId);
+                                handlePublishCampaign(cId, cmpItem.title, true);
                               }}
                               className="px-3 py-1.5 bg-[#00E676] hover:bg-[#00E676]/90 text-black text-xs font-bold rounded-lg transition-colors cursor-pointer"
                             >
@@ -2372,14 +2435,14 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                 </div>
 
                 <div className="flex items-center gap-3 flex-wrap font-mono text-xs">
-                  {auditSubTab === 'pending' && campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required').length > 0 && (
+                  {auditSubTab === 'pending' && campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required' && c.status !== 'revisions').length > 0 && (
                     <button
                       onClick={handleRejectAllCampaigns}
                       className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold rounded transition-colors cursor-pointer flex items-center gap-1.5"
                       title="Reject all pending campaigns and move them to Trash Database"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Reject All ({campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required').length})</span>
+                      <span>Reject All ({campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required' && c.status !== 'revisions').length})</span>
                     </button>
                   )}
                   <div className="flex bg-[#0B0F0C] border border-[#1F2922] p-1 rounded">
@@ -2389,7 +2452,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         auditSubTab === 'pending' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
                       }`}
                     >
-                      Pending Audit ({campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required').length})
+                      Pending Audit ({campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required' && c.status !== 'revisions').length})
                     </button>
                     <button
                       onClick={() => setAuditSubTab('published')}
@@ -2405,7 +2468,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                         auditSubTab === 'revisions' ? 'bg-[#111613] text-amber-400 border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
                       }`}
                     >
-                      Revisions Queue ({campaignsList.filter(c => c.status === 'revision_required').length})
+                      Revisions Queue ({campaignsList.filter(c => c.status === 'revision_required' || c.status === 'revisions').length})
                     </button>
                     <button
                       onClick={() => setAuditSubTab('rejected')}
@@ -3431,26 +3494,26 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             {/* Case ID & Issue */}
                             <td className="p-4">
                               <span className="text-[#00E676] font-bold block">{complaint.id}</span>
-                              <span className="text-[#E2E8F0] font-medium block">{complaint.issueType}</span>
-                              <span className="text-[10px] text-[#8E9B93] block truncate max-w-[200px]">{complaint.campaignTitle}</span>
+                              <span className="text-[#E2E8F0] font-medium block">{complaint.issueType || complaint.issue_type || complaint.category}</span>
+                              <span className="text-[10px] text-[#8E9B93] block truncate max-w-[200px]">{complaint.campaignTitle || complaint.campaign_title || 'General Account Report'}</span>
                             </td>
 
                             {/* Complainant */}
                             <td className="p-4">
-                              <span className="text-[#E2E8F0] font-medium block">{complaint.complainant}</span>
+                              <span className="text-[#E2E8F0] font-medium block">{complaint.complainant || complaint.complainant_name || complaint.complainantName || 'Anonymous'}</span>
                               <span className="px-1.5 py-0.5 rounded text-[9px] border border-sky-500/30 bg-sky-500/10 text-sky-400 font-sans uppercase">
-                                {complaint.complainantRole || 'Investor'}
+                                {complaint.complainantRole || complaint.complainant_role || 'Investor'}
                               </span>
                             </td>
 
                             {/* Reported Entity */}
                             <td className="p-4">
-                              <span className="text-[#E2E8F0] font-medium block">{complaint.reportedUser}</span>
+                              <span className="text-[#E2E8F0] font-medium block">{complaint.reportedUser || complaint.reported_user || 'Target User'}</span>
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <span className="px-1.5 py-0.5 rounded text-[9px] border border-amber-500/30 bg-amber-500/10 text-amber-400 font-sans uppercase">
-                                  {complaint.reportedRole || 'Student Founder'}
+                                  {complaint.reportedRole || complaint.reported_role || 'Student Founder'}
                                 </span>
-                                {(complaint.userFrozen || complaint.status === 'Frozen') && (
+                                {(complaint.userFrozen || complaint.user_frozen || complaint.status === 'Frozen' || String(complaint.status || '').includes('Frozen')) && (
                                   <span className="px-1.5 py-0.5 rounded text-[9px] border border-rose-500/40 bg-rose-500/20 text-rose-300 font-sans uppercase font-bold flex items-center gap-0.5">
                                     <Lock className="w-2.5 h-2.5" /> ID FROZEN
                                   </span>
@@ -3465,7 +3528,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                 complaint.severity === 'High' ? 'text-amber-400 bg-amber-500/10 border border-amber-500/30' :
                                 'text-sky-400 bg-sky-500/10 border border-sky-500/30'
                               }`}>
-                                {complaint.severity}
+                                {complaint.severity || 'Medium'}
                               </span>
                             </td>
 
@@ -3473,12 +3536,12 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             <td className="p-4">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                                 complaint.status === 'Dismissed' ? 'text-[#8E9B93] bg-[#0B0F0C] border border-[#1F2922]' :
-                                (complaint.status === 'Frozen' || complaint.userFrozen) ? 'text-rose-400 bg-rose-500/10 border border-rose-500/30' :
+                                (complaint.status === 'Frozen' || complaint.userFrozen || complaint.user_frozen) ? 'text-rose-400 bg-rose-500/10 border border-rose-500/30' :
                                 complaint.status === 'Funds Frozen' ? 'text-sky-400 bg-sky-500/10 border border-sky-500/30' :
                                 complaint.status === 'Resolved' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30' :
                                 'text-amber-400 bg-amber-500/10 border border-amber-500/30'
                               }`}>
-                                {complaint.userFrozen || complaint.status === 'Frozen' ? '🔒 ID FROZEN' : complaint.status}
+                                {complaint.userFrozen || complaint.user_frozen || complaint.status === 'Frozen' ? '🔒 ID FROZEN' : complaint.status}
                               </span>
                             </td>
 

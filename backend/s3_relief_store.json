@@ -1,5 +1,55 @@
 [
   {
+    "id": "relief_1788562182131",
+    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "title": "Sylhet Flood",
+    "university": "BRAC University",
+    "cause": "Disaster Relief",
+    "beneficiary": "100",
+    "goal": 100000,
+    "durationDays": 30,
+    "duration_days": 30,
+    "raised": 0,
+    "description": "Urgent",
+    "useOfFunds": [
+      "Food and pure drinking water",
+      "Medical supplies and first aid kits",
+      "Shelter and basic living essentials"
+    ],
+    "proofLinks": [],
+    "milestones": [
+      {
+        "title": "Food and pure drinking water",
+        "target": "Phase 1",
+        "status": "pending",
+        "proofs": []
+      },
+      {
+        "title": "Medical supplies and first aid kits",
+        "target": "Phase 2",
+        "status": "locked",
+        "proofs": []
+      },
+      {
+        "title": "Shelter and basic living essentials",
+        "target": "Phase 3",
+        "status": "locked",
+        "proofs": []
+      }
+    ],
+    "status": "open",
+    "created_at": "2026-09-04T22:49:42.131Z",
+    "submitted_at": "2026-09-04T22:49:42.131Z",
+    "coFounders": [],
+    "co_founders": [],
+    "successor_name": "",
+    "successorName": "",
+    "successor_email": "",
+    "successorEmail": "",
+    "reviewed_at": "2026-09-04T23:12:12.780Z",
+    "rejectionReason": null
+  },
+  {
     "id": "relief_1788250931533",
     "founder_id": "usr_founder_1",
     "title": "Nepal Needs Help",

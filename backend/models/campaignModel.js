@@ -15,26 +15,27 @@ import {
 
 export const campaignModel = {
   async getAll() {
-    let campaigns = [];
+    const byId = new Map();
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase.from('campaigns').select('*');
         if (!error && Array.isArray(data)) {
-          campaigns = data.map(normalizeCampaign);
+          data.forEach(row => {
+            const norm = normalizeCampaign(row);
+            if (norm && (norm.id || norm._id)) {
+              byId.set(norm.id || norm._id, norm);
+            }
+          });
         }
       } catch (e) {}
     }
-    if (campaigns.length === 0) {
-      campaigns = fallbackCampaigns.map(normalizeCampaign);
-    } else {
-      // Merge fallback campaigns that may not exist in supabase
-      const idSet = new Set(campaigns.map(c => c.id));
-      fallbackCampaigns.forEach(fc => {
-        const norm = normalizeCampaign(fc);
-        if (norm && !idSet.has(norm.id)) campaigns.push(norm);
-      });
-    }
-    return s3DedupeLiveCampaigns(campaigns);
+    fallbackCampaigns.forEach(fc => {
+      const norm = normalizeCampaign(fc);
+      if (norm && (norm.id || norm._id)) {
+        byId.set(norm.id || norm._id, norm);
+      }
+    });
+    return s3DedupeLiveCampaigns(Array.from(byId.values()));
   },
 
   async getWatchable() {

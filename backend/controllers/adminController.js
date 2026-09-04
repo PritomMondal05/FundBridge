@@ -205,7 +205,7 @@ export const adminController = {
   async getPendingCampaigns(req, res) {
     try {
       const all = await campaignModel.getAll();
-      const pending = all.filter(c => c.status === 'pending' || c.verified === false);
+      const pending = all.filter(c => c && (!c.verified || c.status === 'pending' || c.status === 'revisions' || c.status === 'revision_required' || c.status === 'rejected'));
       res.status(200).json(pending);
     } catch (err) {
       res.status(500).json({ error: 'Error fetching pending campaigns.' });
