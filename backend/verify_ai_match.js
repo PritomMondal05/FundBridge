@@ -7,10 +7,11 @@ async function verify() {
     console.log('INVESTOR_MATCHES_COUNT', investor.matches.length);
     console.log('INVESTOR_MATCHES_SAMPLE', JSON.stringify(investor.matches.slice(0, 2)));
 
-    const founder = await getFounderMatches('agrisense');
+    const founder = await getFounderMatches('agrisensebd_2');
     console.log('FOUNDER_MATCHES_SOURCE', founder.source);
     console.log('FOUNDER_MATCHES_COUNT', founder.matches.length);
     console.log('FOUNDER_MATCHES_SAMPLE', JSON.stringify(founder.matches.slice(0, 2)));
+    process.exit(0);
   } catch (err) {
     console.error('AI_MATCH_VERIFY_FAILED');
     console.error(err);

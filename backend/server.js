@@ -26,6 +26,8 @@ dotenv.config();
 
 
 import aiMatchRoutes from './routes/aiMatchRoutes.js';
+import { persistUserMatchingPrefs, loadInvestorRecord } from './lib/matchCatalog.js';
+import { getInvestorMatches } from './services/aiMatchmakingService.js';
 
 
 // Supabase Integration
@@ -1424,7 +1426,13 @@ const normalizeUser = (u) => {
     institution: u.institution || '',
     affiliationStatus: u.affiliation_status || u.affiliationStatus || '',
     passingYear: u.passing_year || u.passingYear || '',
-    bio: u.bio || ''
+    bio: u.bio || '',
+    investmentBudgetMin: u.investment_budget_min ?? u.investmentBudgetMin ?? null,
+    investmentBudgetMax: u.investment_budget_max ?? u.investmentBudgetMax ?? null,
+    investment_budget_min: u.investment_budget_min ?? u.investmentBudgetMin ?? null,
+    investment_budget_max: u.investment_budget_max ?? u.investmentBudgetMax ?? null,
+    sectorInterests: Array.isArray(u.sector_interests) ? u.sector_interests : (u.sectorInterests || []),
+    sector_interests: Array.isArray(u.sector_interests) ? u.sector_interests : (u.sectorInterests || [])
   };
 };
 
@@ -1502,7 +1510,9 @@ const normalizeCampaign = (c) => {
     successorName: c.successorName || c.successor_name || firstCf?.name || '',
     successor_name: c.successor_name || c.successorName || firstCf?.name || '',
     successorEmail: c.successorEmail || c.successor_email || firstCf?.email || '',
-    successor_email: c.successor_email || c.successorEmail || firstCf?.email || ''
+    successor_email: c.successor_email || c.successorEmail || firstCf?.email || '',
+    revenue_structure: c.revenue_structure || c.revenueStructure || '',
+    operational_model: c.operational_model || c.operationalModel || ''
   };
 };
 
@@ -1824,7 +1834,10 @@ app.post('/api/users/login', async (req, res) => {
         university: user.university,
         nid: user.nid,
         institution: user.institution,
-        designation: user.passingYear
+        designation: user.passingYear,
+        investmentBudgetMin: user.investmentBudgetMin,
+        investmentBudgetMax: user.investmentBudgetMax,
+        sectorInterests: user.sectorInterests
       }
     });
   } catch (err) {
@@ -2093,16 +2106,129 @@ app.get('/api/investors/:investorId/profile', async (req, res) => {
       } catch (e) {}
     }
     if (!extra) return res.status(404).json({ error: 'Investor not found.' });
-    const n = normalizeUser(extra);
+    const catalogInvestor = await loadInvestorRecord(investorId);
+    const n = normalizeUser({ ...extra, ...(catalogInvestor || {}) });
+
+    const investorProposals = fallbackProposals.filter((p) =>
+      String(p.investor_id || p.investorId || '') === String(investorId)
+    );
+    const portfolio = investorProposals
+      .filter((p) => String(p.status || '').toLowerCase() === 'accepted')
+      .map((p) => {
+        const campaignId = p.campaign_id || p.campaignId;
+        const campaign = fallbackCampaigns.find((c) => String(c.id || c._id) === String(campaignId));
+        return {
+          campaignId,
+          title: campaign?.title || 'FundBridge startup investment',
+          category: campaign?.category || 'Startup Venture',
+          amount: Number(p.counter_amount || p.amount || 0),
+          returnStructure: p.return_structure || p.returnStructure || p.terms || 'Investment terms recorded',
+          status: p.status
+        };
+      });
+    const totalDeployed = portfolio.reduce((sum, item) => sum + item.amount, 0);
+    const investorActivity = fallbackAuditLogs
+      .filter((row) => auditBelongsToInvestor(row, investorId))
+      .filter((row) => ['PROPOSAL', 'PORTFOLIO', 'INVESTMENT'].includes(String(row.category || '').toUpperCase()))
+      .slice(0, 8)
+      .map((row) => ({ category: row.category, title: row.title, status: row.status, created_at: row.created_at }));
+
     res.status(200).json({
-      ...n,
-      bank_or_mfs: extra.bank_or_mfs || extra.bankOrMfs || '',
-      phone: extra.mfs_number || extra.mfsNumber || n.mfsNumber || '',
-      affiliationStatus: extra.affiliation_status || extra.affiliationStatus || n.affiliationStatus || '',
-      passingYear: extra.passing_year || extra.passingYear || n.passingYear || ''
+      profile: {
+        id: n.id,
+        name: n.name,
+        role: n.role,
+        institution: n.institution,
+        affiliationStatus: n.affiliationStatus,
+        passingYear: n.passingYear,
+        bio: n.bio,
+        sectorInterests: n.sectorInterests,
+        investmentBudgetMin: n.investmentBudgetMin,
+        investmentBudgetMax: n.investmentBudgetMax,
+        vettingStatus: n.vettingStatus
+      },
+      trackRecord: {
+        investmentsMade: portfolio.length,
+        totalDeployed,
+        proposalsSubmitted: investorProposals.length,
+        verifiedPartner: n.vettingStatus === 'verified'
+      },
+      portfolio,
+      activity: investorActivity
     });
   } catch (err) {
     res.status(404).json({ error: 'Investor not found.' });
+  }
+});
+
+// Public founder profile for investor review: identity, full business history,
+// computed track record, and sanitized campaign activity only.
+app.get('/api/founders/:founderId/profile', async (req, res) => {
+  try {
+    const { founderId } = req.params;
+    const raw = fallbackUsers.find(
+      (u) => u.role === 'founder' && String(u.id || u._id) === String(founderId)
+    );
+    if (!raw) return res.status(404).json({ error: 'Founder not found.' });
+
+    const profile = normalizeUser(raw);
+    const businesses = fallbackCampaigns
+      .filter((campaign) => String(campaign.founder_id || campaign.founderId || campaign.founder?._id || campaign.founder?.id) === String(founderId))
+      .map((campaign) => {
+        const normalized = normalizeCampaign(campaign);
+        return {
+          id: normalized.id,
+          title: normalized.title,
+          category: normalized.category,
+          stage: normalized.stage,
+          university: normalized.university,
+          location: normalized.location,
+          tagline: normalized.tagline,
+          description: normalized.description,
+          goal: normalized.goal,
+          raised: normalized.raised,
+          equityOffer: normalized.equityOffer || normalized.equity_offer,
+          status: normalized.status,
+          verified: normalized.verified,
+          milestones: Array.isArray(normalized.milestones) ? normalized.milestones.map((milestone) => ({
+            title: milestone.title || milestone.name,
+            target: milestone.target || milestone.targetDate,
+            status: milestone.status
+          })) : []
+        };
+      });
+    const completedMilestones = businesses.reduce(
+      (sum, business) => sum + business.milestones.filter((milestone) => String(milestone.status).toLowerCase() === 'done').length,
+      0
+    );
+    const founderActivity = fallbackAuditLogs
+      .filter((row) => auditBelongsToFounder(row, founderId))
+      .filter((row) => ['CAMPAIGN', 'PROGRESS', 'MILESTONE'].includes(String(row.category || '').toUpperCase()))
+      .slice(0, 8)
+      .map((row) => ({ category: row.category, title: row.title, status: row.status, created_at: row.created_at }));
+
+    res.status(200).json({
+      profile: {
+        id: profile.id,
+        name: profile.name,
+        role: profile.role,
+        university: profile.university,
+        department: profile.department,
+        studentId: profile.studentId,
+        bio: profile.bio,
+        vettingStatus: profile.vettingStatus
+      },
+      trackRecord: {
+        businessesStarted: businesses.length,
+        verifiedBusinesses: businesses.filter((business) => business.verified || business.status === 'verified').length,
+        totalRaised: businesses.reduce((sum, business) => sum + Number(business.raised || 0), 0),
+        completedMilestones
+      },
+      businesses,
+      activity: founderActivity
+    });
+  } catch (err) {
+    res.status(404).json({ error: 'Founder not found.' });
   }
 });
 
@@ -3393,7 +3519,7 @@ io.on('connection', (socket) => {
 // ============================================================================
 // FR-21: AI OPTIMIZATION ENGINE API
 // ============================================================================
-app.post('/api/ai/generate', (req, res) => {
+app.post('/api/ai/generate', async (req, res) => {
   try {
     const { action, title, category, stage, university, targetAudience, description } = req.body;
 
@@ -3411,17 +3537,20 @@ app.post('/api/ai/generate', (req, res) => {
     }
 
     if (action === 'business_summary') {
-      const summary = `BUSINESS SUMMARY FOR ${title || 'VENTURE'}:\n1. Core Value Proposition: Streamlined ${category || 'Tech'} operations tailored for high-growth Bangladeshi markets.\n2. Milestone Execution: Clear 3-tranche roadmap focused on MVP deployment, customer acquisition, and recurring revenue.\n3. Investor Return Alignment: High alignment with alumni networks and revenue share / milestone debt models.`;
+      const summary = `BUSINESS SUMMARY FOR ${title || 'VENTURE'}:\n1. Core Value Proposition: Streamlined ${category || 'Tech'} operations tailored for high-growth Bangladeshi markets.\n2. Milestone Execution: Clear 3-tranche roadmap focused on MVP deployment, customer acquisition, and recurring revenue.\n3. Investor Return Alignment: High alignment with alumni networks and revenue share / milestone debt models.\n4. Focus prompt: ${description || targetAudience || 'General university startup growth.'}`;
       return res.status(200).json({ summary });
     }
 
     if (action === 'investor_match') {
-      const recommendations = fallbackCampaigns.slice(0, 3).map(c => ({
-        id: c.id,
-        title: c.title,
-        category: c.category,
-        matchScore: Math.floor(88 + Math.random() * 11) + '% Match',
-        reason: `Strong alignment with your preference for ${c.category} ventures originating from ${c.university}.`
+      const investorId = req.body.investorId || req.body.userId;
+      if (!investorId) return res.status(400).json({ error: 'investorId is required for matching.' });
+      const result = await getInvestorMatches(investorId);
+      const recommendations = result.matches.map((match) => ({
+        id: match.campaignId,
+        title: match.title,
+        category: match.category,
+        matchScore: `${match.matchScore}% Match`,
+        reason: match.justification
       }));
       return res.status(200).json({ recommendations });
     }
@@ -3553,7 +3682,7 @@ app.get('/api/users/profile', async (req, res) => {
 
     const fu = findFallbackUser(userId);
     if (!found && fu) found = normalizeUser(fu);
-    if (found && fu?.bio) found.bio = fu.bio;
+    if (found && fu?.bio && !found.bio) found.bio = fu.bio;
 
     if (!found) return res.status(404).json({ error: 'User not found.' });
     res.status(200).json({ user: found });
@@ -3564,7 +3693,7 @@ app.get('/api/users/profile', async (req, res) => {
 
 app.put('/api/users/profile', async (req, res) => {
   try {
-    const { userId, name, university, department, mfsNumber, bio, institution, passingYear, email, studentId } = req.body;
+    const { userId, name, university, department, mfsNumber, bio, institution, passingYear, email, studentId, investmentBudgetMin, investmentBudgetMax, sectorInterests } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID is required.' });
 
     const dbUpdates = {};
@@ -3576,6 +3705,14 @@ app.put('/api/users/profile', async (req, res) => {
     if (passingYear !== undefined) dbUpdates.passing_year = passingYear;
     if (email !== undefined) dbUpdates.email = String(email).toLowerCase();
     if (studentId !== undefined) dbUpdates.student_id = studentId;
+    if (bio !== undefined) dbUpdates.bio = bio;
+    if (investmentBudgetMin !== undefined) dbUpdates.investment_budget_min = Number(investmentBudgetMin) || null;
+    if (investmentBudgetMax !== undefined) dbUpdates.investment_budget_max = Number(investmentBudgetMax) || null;
+    if (sectorInterests !== undefined) {
+      dbUpdates.sector_interests = Array.isArray(sectorInterests)
+        ? sectorInterests
+        : String(sectorInterests).split(',').map((s) => s.trim()).filter(Boolean);
+    }
 
     if (isSupabaseConfigured && supabase) {
       try {
@@ -3594,7 +3731,23 @@ app.put('/api/users/profile', async (req, res) => {
       if (passingYear !== undefined) fu.passing_year = passingYear;
       if (email !== undefined) fu.email = String(email).toLowerCase();
       if (studentId !== undefined) fu.student_id = fu.studentId = studentId;
+      if (investmentBudgetMin !== undefined) fu.investment_budget_min = fu.investmentBudgetMin = Number(investmentBudgetMin) || null;
+      if (investmentBudgetMax !== undefined) fu.investment_budget_max = fu.investmentBudgetMax = Number(investmentBudgetMax) || null;
+      if (sectorInterests !== undefined) {
+        const sectors = Array.isArray(sectorInterests)
+          ? sectorInterests
+          : String(sectorInterests).split(',').map((s) => s.trim()).filter(Boolean);
+        fu.sector_interests = fu.sectorInterests = sectors;
+      }
     }
+
+    persistUserMatchingPrefs(userId, {
+      investment_budget_min: investmentBudgetMin !== undefined ? Number(investmentBudgetMin) || null : undefined,
+      investment_budget_max: investmentBudgetMax !== undefined ? Number(investmentBudgetMax) || null : undefined,
+      sector_interests: sectorInterests !== undefined
+        ? (Array.isArray(sectorInterests) ? sectorInterests : String(sectorInterests).split(',').map((s) => s.trim()).filter(Boolean))
+        : undefined
+    });
 
     let result = fu ? normalizeUser(fu) : null;
     if (!result && isSupabaseConfigured && supabase) {
