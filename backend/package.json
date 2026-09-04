@@ -10,6 +10,7 @@
     "seed": "node generate_seed_data.js"
   },
   "dependencies": {
+    "@google/genai": "^2.21.0",
     "@supabase/supabase-js": "^2.110.8",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

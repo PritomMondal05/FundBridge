@@ -3,6 +3,32 @@
     "balance": 249700,
     "ledger": [
       {
+        "id": "wal_tranche_TRX-MFS-48652724",
+        "type": "TRANCHE_RELEASE_RECORDED",
+        "direction": "note",
+        "amount": 750000,
+        "investor_id": "usr_investor_1",
+        "campaign_id": "campusbites_1",
+        "partnership_id": "part_alphav_01",
+        "milestone_id": "phase_3",
+        "reference_id": "TRX-MFS-48652724",
+        "note": "Escrow tranche allocated for Phase 3: Production Scaling & Automation. Principal was funded at proposal acceptance; this records the milestone release.",
+        "created_at": "2026-09-04T19:04:12.729Z"
+      },
+      {
+        "id": "wal_tranche_TRX-MFS-46224356",
+        "type": "TRANCHE_RELEASE_RECORDED",
+        "direction": "note",
+        "amount": 450000,
+        "investor_id": "usr_investor_1",
+        "campaign_id": "campusbites_1",
+        "partnership_id": "part_alphav_01",
+        "milestone_id": "phase_2",
+        "reference_id": "TRX-MFS-46224356",
+        "note": "Escrow tranche allocated for Phase 2: R&D Installation & Testing. Principal was funded at proposal acceptance; this records the milestone release.",
+        "created_at": "2026-09-04T18:23:44.370Z"
+      },
+      {
         "id": "wal_1788370283135_137",
         "type": "SECURITY_DEPOSIT_OUT",
         "direction": "out",

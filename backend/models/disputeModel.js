@@ -34,7 +34,23 @@ export const disputeModel = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('disputes').insert([disputeData]);
+        const row = {
+          id: disputeData.id,
+          complainant_name: disputeData.complainant_name,
+          complainant_role: disputeData.complainant_role || 'user',
+          reported_user: disputeData.reported_user,
+          reported_user_id: disputeData.reported_user_id || null,
+          reported_role: disputeData.reported_role || 'user',
+          campaign_title: disputeData.campaign_title || null,
+          campaign_id: disputeData.campaign_id || null,
+          issue_type: disputeData.issue_type || disputeData.category || 'Policy violation',
+          description: disputeData.description || disputeData.reason || '',
+          evidence_file: disputeData.evidence_link || null,
+          severity: disputeData.severity || 'High',
+          status: disputeData.status || 'Open',
+          created_at: disputeData.created_at
+        };
+        await supabase.from('disputes').insert([row]);
       } catch (e) {
         console.warn('Supabase dispute insert warning:', e.message);
       }

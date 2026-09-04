@@ -194,12 +194,57 @@ CREATE TABLE IF NOT EXISTS watchlist (
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   user_id TEXT NOT NULL,
+  sender_id TEXT,
   title TEXT NOT NULL,
   message TEXT NOT NULL,
   type TEXT DEFAULT 'info',
+  link_url TEXT,
+  event_key TEXT,
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id TEXT;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link_url TEXT;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS event_key TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS notifications_event_key_uidx
+  ON notifications (user_id, event_key)
+  WHERE event_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS notifications_recipient_created_idx
+  ON notifications (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS notifications_recipient_unread_idx
+  ON notifications (user_id, is_read, created_at DESC);
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_publication_tables
+       WHERE pubname = 'supabase_realtime' AND tablename = 'notifications'
+     ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+  END IF;
+END $$;
+
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS notifications_select_own ON notifications;
+DROP POLICY IF EXISTS notifications_update_own ON notifications;
+DROP POLICY IF EXISTS notifications_delete_own ON notifications;
+DROP POLICY IF EXISTS notifications_no_client_insert ON notifications;
+
+-- FundBridge users are TEXT ids (usr_*), not auth.users. Browser clients must not
+-- use the anon key to read this table. The Express backend (service key) writes rows.
+-- Anon/authenticated JWT users have no matching auth.uid(), so these policies deny client access.
+CREATE POLICY notifications_select_own ON notifications
+  FOR SELECT USING (false);
+CREATE POLICY notifications_update_own ON notifications
+  FOR UPDATE USING (false);
+CREATE POLICY notifications_delete_own ON notifications
+  FOR DELETE USING (false);
+CREATE POLICY notifications_no_client_insert ON notifications
+  FOR INSERT WITH CHECK (false);
 
 CREATE TABLE IF NOT EXISTS investor_connections (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -229,7 +274,6 @@ ALTER TABLE disputes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE messages DISABLE ROW LEVEL SECURITY;
 ALTER TABLE watchlist DISABLE ROW LEVEL SECURITY;
-ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
 ALTER TABLE investor_connections DISABLE ROW LEVEL SECURITY;
 ALTER TABLE bookmarked_founders DISABLE ROW LEVEL SECURITY;
 
@@ -462,3 +506,61 @@ ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, goal = EXCLUDED.goal, rai
 INSERT INTO audit_logs (hash, category, title, status, latency)
 VALUES ('0x8f2a99c4b1d09e1a', 'DISBURSEMENT', 'Escrow Tranche #1 Release', 'VERIFIED', '14ms')
 ON CONFLICT DO NOTHING;
+ALTER TABLE payouts ADD COLUMN IF NOT EXISTS campaign_id TEXT REFERENCES campaigns(id) ON DELETE CASCADE;
+INSERT INTO proposals (id, campaign_id, investor_id, amount, terms, return_structure, status)
+VALUES ('test_prop_1', 'campusbites_1', 'usr_investor_1', 50000, '8% Rev Share', '8% Rev Share', 'accepted');
+
+INSERT INTO payouts (id, founder_id, campaign_id, tranche, amount, method, account_number, status, hash)
+VALUES ('test_payout_1', 'usr_founder_1', 'campusbites_1', 'MVP Launch Tranche', 20000, 'bKash', '01710000000', 'Pending Audit', '0xtest123');
+
+-- ============================================================
+-- AI Optimization Engine — new columns
+-- Run this in the Supabase SQL Editor (Dashboard → SQL Editor)
+-- ============================================================
+
+-- Investor-side signal, added to the existing `users` table.
+-- Design note: I deliberately did NOT add a raw "net_worth" column.
+-- A self-reported budget range gives the LLM the same matching signal
+-- without your app claiming to hold verified financial data it has
+-- no compliance infrastructure to actually protect or verify.
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS investment_budget_min numeric,
+  ADD COLUMN IF NOT EXISTS investment_budget_max numeric,
+  ADD COLUMN IF NOT EXISTS sector_interests text[];  -- e.g. {'FinTech','AgriTech'}
+
+-- Founder/startup-side signal, added to the existing `campaigns` table.
+-- Design note: I did NOT add a separate "business_type" column — the
+-- existing `category` column (already populated: 'FinTech', 'AgriTech', etc.)
+-- already means the same thing. Two columns holding near-duplicate data
+-- is a real schema smell; reusing `category` avoids it.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
+
+CREATE TABLE IF NOT EXISTS investment_trends (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT,
+  summary TEXT,
+  significance TEXT,
+  investor_insight TEXT,
+  source TEXT,
+  source_url TEXT,
+  published_at TIMESTAMPTZ,
+  fetched_at TIMESTAMPTZ DEFAULT NOW(),
+  relevant_sectors TEXT[]
+);
+
+CREATE TABLE IF NOT EXISTS partnerships (
+  id TEXT PRIMARY KEY,
+  proposal_id TEXT,
+  campaign_id TEXT,
+  founder_id TEXT,
+  investor_id TEXT,
+  total_committed NUMERIC,
+  frozen BOOLEAN DEFAULT FALSE,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_partnerships_founder ON partnerships (founder_id);
+CREATE INDEX IF NOT EXISTS idx_partnerships_investor ON partnerships (investor_id);
+CREATE INDEX IF NOT EXISTS idx_partnerships_proposal ON partnerships (proposal_id);

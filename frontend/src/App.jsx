@@ -186,12 +186,61 @@ export default function App() {
   // UI Toast message
   const [alertMessage, setAlertMessage] = useState(null);
   const chatBottomRef = useRef(null);
+  const [aiDemo, setAiDemo] = useState({
+    investor: { matches: [], source: 'loading', count: 0 },
+    founder: { matches: [], source: 'loading', count: 0 },
+    loading: true,
+    error: ''
+  });
 
   useEffect(() => {
     if (chatBottomRef.current) {
       chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, sandboxTab]);
+
+  useEffect(() => {
+    const investorId = 'usr_investor_1';
+    const campaignId = 'campusbites_1';
+
+    Promise.all([
+      fetch(`${API_BASE_URL}/api/ai/investor-matches/${investorId}`),
+      fetch(`${API_BASE_URL}/api/ai/founder-matches/${campaignId}`)
+    ])
+      .then(async ([investorRes, founderRes]) => {
+        if (!investorRes.ok || !founderRes.ok) {
+          throw new Error('AI recommendation endpoints unavailable.');
+        }
+
+        const [investorData, founderData] = await Promise.all([
+          investorRes.json(),
+          founderRes.json()
+        ]);
+
+        setAiDemo({
+          investor: {
+            matches: Array.isArray(investorData.matches) ? investorData.matches.slice(0, 3) : [],
+            source: investorData.source || 'fallback',
+            count: investorData.count || 0
+          },
+          founder: {
+            matches: Array.isArray(founderData.matches) ? founderData.matches.slice(0, 3) : [],
+            source: founderData.source || 'fallback',
+            count: founderData.count || 0
+          },
+          loading: false,
+          error: ''
+        });
+      })
+      .catch((err) => {
+        console.error('AI demo load failed:', err);
+        setAiDemo((prev) => ({
+          ...prev,
+          loading: false,
+          error: err.message || 'AI data could not be loaded.'
+        }));
+      });
+  }, [API_BASE_URL]);
 
   const statsRefs = useRef([]);
   useEffect(() => {
@@ -825,6 +874,89 @@ export default function App() {
 
           </div>
 
+        </div>
+      </section>
+
+      <section className="py-20 bg-white relative z-10 border-b border-border-default">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4 mb-8">
+            <div>
+              <span className="text-sky-primary text-xs font-medium tracking-widest uppercase">AI MATCHING</span>
+              <h2 className="text-3xl sm:text-4xl font-medium text-obsidian-base font-display mt-2">Quick live recommendations</h2>
+            </div>
+            <div className="inline-flex items-center gap-2 bg-sky-primary/10 text-sky-primary border border-sky-primary/20 px-3 py-1.5 rounded-full text-xs font-medium">
+              <Database className="w-4 h-4" />
+              <span>{aiDemo.loading ? 'Loading live data...' : aiDemo.error ? 'Unavailable' : aiDemo.investor.source === 'gemini' ? 'Gemini AI' : 'Fallback model'}</span>
+            </div>
+          </div>
+
+          {aiDemo.error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 text-red-700 p-5 text-sm">
+              {aiDemo.error}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="rounded-2xl border border-border-default bg-surface-cool p-6 shadow-soft">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-text-muted">Investor view</p>
+                    <h3 className="text-xl font-medium text-obsidian-base font-display">Best startup fits</h3>
+                  </div>
+                  <span className="bg-emerald-100 text-emerald-700 rounded-full px-2.5 py-1 text-xs font-medium">
+                    {aiDemo.investor.count} matches
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {aiDemo.loading ? (
+                    <p className="text-sm text-text-charcoal/70">Scanning verified campaigns...</p>
+                  ) : aiDemo.investor.matches.length === 0 ? (
+                    <p className="text-sm text-text-charcoal/70">No investor matches available right now.</p>
+                  ) : (
+                    aiDemo.investor.matches.map((match) => (
+                      <div key={match.campaignId} className="rounded-xl border border-border-default bg-white p-4">
+                        <div className="flex items-center justify-between gap-4 mb-2">
+                          <span className="text-sm font-medium text-obsidian-base">{match.title || match.campaignId}</span>
+                          <span className="text-sm font-bold text-emerald-600">{match.matchScore}%</span>
+                        </div>
+                        <p className="text-xs leading-relaxed text-text-charcoal/80">{match.justification}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border-default bg-surface-cool p-6 shadow-soft">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-text-muted">Founder view</p>
+                    <h3 className="text-xl font-medium text-obsidian-base font-display">Most relevant backers</h3>
+                  </div>
+                  <span className="bg-sky-100 text-sky-700 rounded-full px-2.5 py-1 text-xs font-medium">
+                    {aiDemo.founder.count} matches
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {aiDemo.loading ? (
+                    <p className="text-sm text-text-charcoal/70">Finding suitable investors...</p>
+                  ) : aiDemo.founder.matches.length === 0 ? (
+                    <p className="text-sm text-text-charcoal/70">No founder matches available right now.</p>
+                  ) : (
+                    aiDemo.founder.matches.map((match) => (
+                      <div key={match.investorId} className="rounded-xl border border-border-default bg-white p-4">
+                        <div className="flex items-center justify-between gap-4 mb-2">
+                          <span className="text-sm font-medium text-obsidian-base">{match.name || match.investorId}</span>
+                          <span className="text-sm font-bold text-sky-600">{match.matchScore}%</span>
+                        </div>
+                        <p className="text-xs leading-relaxed text-text-charcoal/80">{match.justification}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

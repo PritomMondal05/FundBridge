@@ -52,5 +52,14 @@
     "campaign_id": "",
     "text": "Hello Adib",
     "created_at": "2026-09-04T14:59:07.91+00:00"
+  },
+  {
+    "id": "msg_1788548923363",
+    "sender_id": "usr_investor_1",
+    "receiver_id": "usr_founder_1",
+    "sender_name": "Angel Backer Zaman",
+    "campaign_id": "",
+    "text": "gjhgj",
+    "created_at": "2026-09-04T19:08:43.363+00:00"
   }
 ]

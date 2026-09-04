@@ -3,6 +3,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { supabase, isSupabaseConfigured } from '../config/supabase.js';
 import { fallbackProposals, fallbackCampaigns, fallbackUsers } from '../utils/storeUtils.js';
+import {
+  assertTransition,
+  canAccessTransaction,
+  deriveHealth,
+  deriveNextAction,
+  displayStatus,
+  isOverdue,
+  participantRole
+} from '../lib/milestoneState.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -216,26 +225,74 @@ const seedDefaultPartnerships = () => {
 
 seedDefaultPartnerships();
 
-const calculateSummary = (p) => {
-  const milestones = Array.isArray(p.milestones) ? p.milestones : [];
+function appendActivity(part, event) {
+  if (!Array.isArray(part.activity)) part.activity = [];
+  part.activity.unshift({
+    id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    created_at: new Date().toISOString(),
+    ...event
+  });
+  part.updated_at = new Date().toISOString();
+}
+
+function enrichMilestone(m, now = new Date()) {
+  const status = String(m.status || 'locked').toLowerCase();
+  return {
+    ...m,
+    status,
+    progress: Math.min(100, Math.max(0, Number(m.progress || 0))),
+    overdue: isOverdue(m, now),
+    display_status: displayStatus(m, now),
+    proof_history: Array.isArray(m.proof_history) ? m.proof_history : (m.completion_report ? [m.completion_report] : [])
+  };
+}
+
+const calculateSummary = (p, viewerRole = null) => {
+  const milestones = (Array.isArray(p.milestones) ? p.milestones : []).map((m) => enrichMilestone(m));
   const totalCommitted = Number(p.total_committed || 0);
   const amountReleased = milestones
-    .filter((m) => m.status === 'completed' || m.status === 'funded')
-    .reduce((sum, m) => sum + (Number(m.release_details?.approved_amount || m.amount) || 0), 0);
+    .filter((m) => ['completed', 'funded', 'proof_submitted', 'revision_requested'].includes(m.status))
+    .reduce((sum, m) => sum + (Number(m.release_details?.approved_amount || 0) || 0), 0);
   const remainingInvestment = Math.max(0, totalCommitted - amountReleased);
-
   const completedMilestones = milestones.filter((m) => m.status === 'completed').length;
-  const currentMilestone = milestones.find((m) => m.status === 'pending_review' || m.status === 'funded' || m.status === 'unlocked') || milestones[0];
-
-  return {
+  const currentMilestone = milestones.find((m) => !['completed', 'locked', 'cancelled'].includes(m.status)) || null;
+  const allDone = milestones.length > 0 && completedMilestones === milestones.length && !p.frozen;
+  const base = {
     ...p,
+    milestones,
     amount_released: amountReleased,
     remaining_investment: remainingInvestment,
+    escrow_amount: totalCommitted,
     completed_milestones: completedMilestones,
     total_milestones: milestones.length,
-    current_milestone: currentMilestone
+    overall_progress: milestones.length ? Math.round((completedMilestones / milestones.length) * 100) : 0,
+    current_milestone: currentMilestone,
+    transaction_status: allDone ? 'completed' : (p.frozen ? 'frozen' : (currentMilestone ? 'active' : 'pending')),
+    health: 'On Track',
+    activity: Array.isArray(p.activity) ? p.activity : []
   };
+  base.health = deriveHealth(base);
+  if (viewerRole) base.next_action = deriveNextAction(viewerRole, base);
+  else {
+    base.next_action_founder = deriveNextAction('founder', base);
+    base.next_action_investor = deriveNextAction('investor', base);
+  }
+  return base;
 };
+
+const inFlightFinancial = new Set();
+
+function withFinancialLock(key, fn) {
+  if (inFlightFinancial.has(key)) {
+    return { ok: false, error: 'This financial action is already being processed.' };
+  }
+  inFlightFinancial.add(key);
+  try {
+    return fn();
+  } finally {
+    inFlightFinancial.delete(key);
+  }
+}
 
 export const partnershipModel = {
   getAll() {
@@ -245,14 +302,14 @@ export const partnershipModel = {
   getByFounder(founderId) {
     const fid = String(founderId || '');
     return fallbackPartnerships
-      .filter((p) => String(p.founder_id) === fid || fid === 'usr_founder_1')
+      .filter((p) => String(p.founder_id) === fid)
       .map(calculateSummary);
   },
 
   getByInvestor(investorId) {
     const iid = String(investorId || '');
     return fallbackPartnerships
-      .filter((p) => String(p.investor_id) === iid || iid === 'usr_investor_1')
+      .filter((p) => String(p.investor_id) === iid)
       .map(calculateSummary);
   },
 
@@ -263,43 +320,68 @@ export const partnershipModel = {
   },
 
   createFromAcceptedProposal(proposal, campaign) {
-    const existing = fallbackPartnerships.find((p) => p.proposal_id === proposal.id);
+    const existing = fallbackPartnerships.find((p) => p.proposal_id === (proposal.id || proposal._id));
     if (existing) return calculateSummary(existing);
 
-    const totalAmount = Number(proposal.amount || 10000);
-    const trancheCount = 4;
-    const trancheAmount = Math.round(totalAmount / trancheCount);
+    const totalAmount = Number(proposal.amount || proposal.counter_amount || 0);
+    const terms = proposal.return_structure || proposal.terms || proposal.counter_terms || '';
+    const campaignMs = Array.isArray(campaign?.milestones) && campaign.milestones.length
+      ? campaign.milestones
+      : [
+        { title: 'Milestone 1 — Execution start', target: 'Month 1', status: 'pending' },
+        { title: 'Milestone 2 — Traction', target: 'Month 3', status: 'pending' },
+        { title: 'Milestone 3 — Scale', target: 'Month 6', status: 'pending' }
+      ];
+    const trancheBase = Math.floor(totalAmount / campaignMs.length);
+    const founder = fallbackUsers.find((u) => String(u.id) === String(proposal.founder_id || campaign?.founder_id));
+    const investor = fallbackUsers.find((u) => String(u.id) === String(proposal.investor_id || proposal.investorId));
 
     const newPartnership = {
       id: 'part_' + Date.now(),
-      proposal_id: proposal.id,
+      proposal_id: proposal.id || proposal._id,
       campaign_id: campaign?.id || proposal.campaign_id,
       campaign_title: campaign?.title || proposal.campaign_title || 'Startup Partnership',
-      roadmap_subtitle: `${campaign?.stage || 'Series A'} Roadmap • ৳ ${totalAmount.toLocaleString()} Aggregate`,
+      roadmap_subtitle: `${campaign?.stage || 'Live campaign'} • ৳ ${totalAmount.toLocaleString()} committed`,
+      investment_type: terms,
+      terms,
       contract_url: '#',
-      founder_id: proposal.founder_id || campaign?.founder_id || 'usr_founder_1',
-      founder_name: proposal.founder_name || campaign?.founder?.name || 'Student Founder',
-      founder_email: campaign?.founder?.email || '',
-      founder_university: campaign?.university || 'University',
-      investor_id: proposal.investor_id || 'usr_investor_1',
-      investor_name: proposal.investor_name || 'Angel Backer',
-      investor_institution: 'Angel Syndicate',
+      founder_id: proposal.founder_id || campaign?.founder_id || campaign?.founderId || '',
+      founder_name: founder?.name || proposal.founder_name || campaign?.founder?.name || 'Student Founder',
+      founder_email: founder?.email || campaign?.founder?.email || '',
+      founder_university: campaign?.university || founder?.university || '',
+      investor_id: proposal.investor_id || proposal.investorId || '',
+      investor_name: investor?.name || proposal.investor_name || 'Investor',
+      investor_institution: investor?.institution || '',
       total_committed: totalAmount,
+      frozen: false,
       created_at: new Date().toISOString(),
-      milestones: [
-        {
-          id: 'phase_1',
-          phase_number: 1,
-          title: 'PHASE 1',
-          name: 'Phase 1: Prototype & Initial Production',
-          amount: trancheAmount,
-          purpose: 'Purchase raw materials and start initial production',
-          expected_outcome: 'Produce the first 100 functional units',
-          timeline: '1 Month',
-          status: 'unlocked',
+      updated_at: new Date().toISOString(),
+      activity: [{
+        id: `evt_accept_${Date.now()}`,
+        actor_role: 'founder',
+        actor_id: proposal.founder_id || campaign?.founder_id,
+        event: 'proposal_accepted',
+        label: 'Investment proposal accepted — escrow funded',
+        amount: totalAmount,
+        created_at: new Date().toISOString()
+      }],
+      milestones: campaignMs.map((m, idx) => {
+        const amount = idx === campaignMs.length - 1 ? totalAmount - trancheBase * (campaignMs.length - 1) : trancheBase;
+        return {
+          id: `phase_${idx + 1}`,
+          phase_number: idx + 1,
+          title: `PHASE ${idx + 1}`,
+          name: m.title || m.name || `Milestone ${idx + 1}`,
+          amount,
+          purpose: m.description || m.title || 'Milestone execution',
+          expected_outcome: m.target || m.objective || '',
+          timeline: m.target || '',
+          due_date: m.due_date || m.dueDate || null,
+          progress: 0,
+          status: idx === 0 ? 'unlocked' : 'locked',
           lifecycle: {
             requested: false,
-            investor_review: 'locked',
+            investor_review: idx === 0 ? 'pending' : 'locked',
             payment: 'locked',
             completion: 'locked'
           },
@@ -310,57 +392,10 @@ export const partnershipModel = {
             third_party_inspector_attestation: false
           },
           release_details: null,
-          completion_report: null
-        },
-        {
-          id: 'phase_2',
-          phase_number: 2,
-          title: 'PHASE 2',
-          name: 'Phase 2: R&D Installation & Testing',
-          amount: trancheAmount,
-          purpose: 'Equipment installation and lab testing',
-          expected_outcome: 'Operational certified batch facility',
-          timeline: '2 Months',
-          status: 'locked',
-          lifecycle: { requested: false, investor_review: 'locked', payment: 'locked', completion: 'locked' },
-          request_details: null,
-          mandatory_checks: { vendor_invoice_reconciliation: false, geotagged_photo_verification: false, third_party_inspector_attestation: false },
-          release_details: null,
-          completion_report: null
-        },
-        {
-          id: 'phase_3',
-          phase_number: 3,
-          title: 'PHASE 3',
-          name: 'Phase 3: Production Scaling & Operations',
-          amount: trancheAmount,
-          purpose: 'Scale up manufacturing and inventory buffers',
-          expected_outcome: '500 units monthly run-rate',
-          timeline: '3 Months',
-          status: 'locked',
-          lifecycle: { requested: false, investor_review: 'locked', payment: 'locked', completion: 'locked' },
-          request_details: null,
-          mandatory_checks: { vendor_invoice_reconciliation: false, geotagged_photo_verification: false, third_party_inspector_attestation: false },
-          release_details: null,
-          completion_report: null
-        },
-        {
-          id: 'phase_4',
-          phase_number: 4,
-          title: 'EXIT',
-          name: 'Exit & Retail Distribution',
-          amount: totalAmount - (trancheAmount * 3),
-          purpose: 'Commercial rollout and subscriber traction',
-          expected_outcome: 'Break-even revenue milestone',
-          timeline: '6 Months',
-          status: 'locked',
-          lifecycle: { requested: false, investor_review: 'locked', payment: 'locked', completion: 'locked' },
-          request_details: null,
-          mandatory_checks: { vendor_invoice_reconciliation: false, geotagged_photo_verification: false, third_party_inspector_attestation: false },
-          release_details: null,
-          completion_report: null
-        }
-      ]
+          completion_report: null,
+          proof_history: []
+        };
+      })
     };
 
     fallbackPartnerships.unshift(newPartnership);
@@ -371,84 +406,130 @@ export const partnershipModel = {
   requestMilestoneFunding(partnershipId, milestoneId, requestData) {
     const part = fallbackPartnerships.find((p) => p.id === partnershipId);
     if (!part) return { ok: false, error: 'Partnership not found.' };
+    if (part.frozen) return { ok: false, error: 'TRANSACTION FROZEN. Financial actions are temporarily unavailable.', status: 423 };
 
     const ms = part.milestones.find((m) => m.id === milestoneId);
     if (!ms) return { ok: false, error: 'Milestone not found in partnership roadmap.' };
+    if (ms.status === 'pending_review') return { ok: false, error: 'A funding request is already pending for this milestone.' };
 
-    if (ms.status !== 'unlocked' && ms.status !== 'pending_review') {
-      return { ok: false, error: `Milestone is currently ${ms.status} and cannot be requested.` };
+    try { assertTransition(ms.status, 'pending_review'); } catch (e) {
+      return { ok: false, error: e.message };
+    }
+
+    const released = calculateSummary(part).amount_released;
+    const reqAmt = Number(requestData.requested_amount || requestData.amount || ms.amount);
+    if (!reqAmt || reqAmt <= 0) return { ok: false, error: 'Requested amount must be greater than zero.' };
+    if (reqAmt > Number(ms.amount || 0) * 1.0001) return { ok: false, error: 'Request cannot exceed the milestone allocation.' };
+    if (reqAmt > Math.max(0, Number(part.total_committed || 0) - released)) {
+      return { ok: false, error: 'Request cannot exceed remaining transaction funds.' };
     }
 
     ms.status = 'pending_review';
-    ms.lifecycle.requested = true;
-    ms.lifecycle.investor_review = 'pending';
-
-    const reqAmt = Number(requestData.requested_amount || requestData.amount || ms.amount);
-    ms.amount = reqAmt;
+    ms.lifecycle = { ...(ms.lifecycle || {}), requested: true, investor_review: 'pending' };
     ms.purpose = requestData.purpose || ms.purpose;
     ms.expected_outcome = requestData.expected_outcome || ms.expected_outcome;
     ms.timeline = requestData.timeline || ms.timeline;
-
     ms.request_details = {
       requested_amount: reqAmt,
       purpose: requestData.purpose || ms.purpose,
-      explanation: requestData.explanation || 'Funds allocated for designated milestone deliverables.',
-      fund_usage: requestData.fund_usage || 'Hardware procurement, labor, and materials.',
+      explanation: requestData.explanation || requestData.reason || '',
+      fund_usage: requestData.fund_usage || '',
       expected_outcome: requestData.expected_outcome || ms.expected_outcome,
       timeline: requestData.timeline || ms.timeline,
-      supporting_documents: Array.isArray(requestData.supporting_documents) ? requestData.supporting_documents : [
-        {
-          name: requestData.doc_name || `Invoice_${ms.title}.pdf`,
-          url: requestData.doc_url || '/uploads/sample_invoice.pdf',
-          vendor_name: requestData.vendor_name || 'Verified Vendor Supplies Ltd.',
-          invoice_number: `#INV-${Date.now().toString().slice(-4)}`,
-          total_payable: reqAmt,
-          items: [
-            { item: `${ms.purpose || 'Milestone Supplies'}`, amount: reqAmt }
-          ]
-        }
-      ],
+      supporting_documents: Array.isArray(requestData.supporting_documents) ? requestData.supporting_documents : [],
       requested_at: new Date().toISOString()
     };
+    appendActivity(part, {
+      actor_role: 'founder',
+      actor_id: requestData.actorId,
+      event: 'funding_requested',
+      label: `Founder requested ৳ ${reqAmt.toLocaleString()} for ${ms.name || ms.title}`,
+      amount: reqAmt,
+      milestone_id: ms.id
+    });
+    persistS3Partnerships();
+    return { ok: true, partnership: calculateSummary(part), milestone: ms };
+  },
 
-    if (requestData.mandatory_checks) {
-      ms.mandatory_checks = { ...ms.mandatory_checks, ...requestData.mandatory_checks };
-    }
-
+  rejectMilestoneFunding(partnershipId, milestoneId, { reason, actorId } = {}) {
+    const part = fallbackPartnerships.find((p) => p.id === partnershipId);
+    if (!part) return { ok: false, error: 'Partnership not found.' };
+    if (part.frozen) return { ok: false, error: 'TRANSACTION FROZEN. Financial actions are temporarily unavailable.', status: 423 };
+    const ms = part.milestones.find((m) => m.id === milestoneId);
+    if (!ms) return { ok: false, error: 'Milestone not found.' };
+    try { assertTransition(ms.status, 'unlocked'); } catch (e) { return { ok: false, error: e.message }; }
+    ms.status = 'unlocked';
+    ms.lifecycle = { ...(ms.lifecycle || {}), investor_review: 'rejected', requested: false };
+    ms.request_details = { ...(ms.request_details || {}), rejected_at: new Date().toISOString(), rejection_reason: reason || 'Rejected by investor' };
+    appendActivity(part, { actor_role: 'investor', actor_id: actorId, event: 'funding_rejected', label: `Investor rejected funding request: ${reason || 'No reason'}`, milestone_id: ms.id });
     persistS3Partnerships();
     return { ok: true, partnership: calculateSummary(part), milestone: ms };
   },
 
   releaseMilestoneFunding(partnershipId, milestoneId, releaseData) {
+    return withFinancialLock(`release:${partnershipId}:${milestoneId}`, () => {
+      const part = fallbackPartnerships.find((p) => p.id === partnershipId);
+      if (!part) return { ok: false, error: 'Partnership not found.' };
+      if (part.frozen) return { ok: false, error: 'TRANSACTION FROZEN. Financial actions are temporarily unavailable.', status: 423 };
+
+      const ms = part.milestones.find((m) => m.id === milestoneId);
+      if (!ms) return { ok: false, error: 'Milestone not found in partnership roadmap.' };
+
+      if (ms.release_details?.reference_id && ['funded', 'proof_submitted', 'completed'].includes(ms.status)) {
+        return { ok: true, alreadyProcessed: true, partnership: calculateSummary(part), milestone: ms };
+      }
+
+      try { assertTransition(ms.status, 'funded'); } catch (e) {
+        return { ok: false, error: e.message };
+      }
+
+      const approvedAmount = Number(releaseData.approved_amount || ms.request_details?.requested_amount || ms.amount);
+      const summary = calculateSummary(part);
+      if (approvedAmount > summary.remaining_investment + 0.01) {
+        return { ok: false, error: 'Insufficient remaining escrow allocation for this release.' };
+      }
+
+      ms.status = 'funded';
+      ms.lifecycle = { ...(ms.lifecycle || {}), investor_review: 'approved', payment: 'funded', completion: 'in_progress' };
+      const refId = releaseData.reference_id || `TRX-MFS-${Date.now().toString().slice(-8)}`;
+      ms.release_details = {
+        approved_amount: approvedAmount,
+        funded_date: new Date().toISOString(),
+        reference_id: refId,
+        payment_method: releaseData.payment_method || 'Secured MFS / Bank Escrow Transfer'
+      };
+      appendActivity(part, {
+        actor_role: 'investor',
+        actor_id: releaseData.actorId,
+        event: 'funds_released',
+        label: `Investor released ৳ ${approvedAmount.toLocaleString()} for ${ms.name || ms.title}`,
+        amount: approvedAmount,
+        milestone_id: ms.id,
+        reference_id: refId
+      });
+      persistS3Partnerships();
+      return { ok: true, partnership: calculateSummary(part), milestone: ms };
+    });
+  },
+
+  updateMilestoneProgress(partnershipId, milestoneId, { progress, note, actorId } = {}) {
     const part = fallbackPartnerships.find((p) => p.id === partnershipId);
     if (!part) return { ok: false, error: 'Partnership not found.' };
-
+    if (part.frozen) return { ok: false, error: 'TRANSACTION FROZEN.', status: 423 };
     const ms = part.milestones.find((m) => m.id === milestoneId);
-    if (!ms) return { ok: false, error: 'Milestone not found in partnership roadmap.' };
-
-    if (ms.status !== 'pending_review' && ms.status !== 'unlocked') {
-      return { ok: false, error: 'Milestone is not in pending review state.' };
+    if (!ms) return { ok: false, error: 'Milestone not found.' };
+    if (!['unlocked', 'funded', 'revision_requested'].includes(ms.status)) {
+      return { ok: false, error: 'Progress can only be updated on an active milestone.' };
     }
-
-    ms.status = 'funded';
-    ms.lifecycle.investor_review = 'approved';
-    ms.lifecycle.payment = 'funded';
-    ms.lifecycle.completion = 'in_progress';
-
-    const refId = releaseData.reference_id || `TRX-MFS-${Math.floor(100000 + Math.random() * 900000)}`;
-    const approvedAmount = Number(releaseData.approved_amount || ms.request_details?.requested_amount || ms.amount);
-
-    ms.release_details = {
-      approved_amount: approvedAmount,
-      funded_date: new Date().toISOString().split('T')[0],
-      reference_id: refId,
-      payment_method: releaseData.payment_method || 'Secured MFS / Bank Escrow Transfer'
-    };
-
-    if (releaseData.mandatory_checks) {
-      ms.mandatory_checks = { ...ms.mandatory_checks, ...releaseData.mandatory_checks };
+    const next = Math.min(100, Math.max(0, Number(progress)));
+    if (Number.isNaN(next)) return { ok: false, error: 'Progress must be 0–100.' };
+    ms.progress = next;
+    ms.progress_note = String(note || '').slice(0, 2000);
+    ms.progress_updated_at = new Date().toISOString();
+    if (next === 100) {
+      ms.progress_note = (ms.progress_note || '') + ' (100% execution is not completion until investor verification.)';
     }
-
+    appendActivity(part, { actor_role: 'founder', actor_id: actorId, event: 'progress_updated', label: `Founder updated progress to ${next}%`, milestone_id: ms.id });
     persistS3Partnerships();
     return { ok: true, partnership: calculateSummary(part), milestone: ms };
   },
@@ -456,71 +537,144 @@ export const partnershipModel = {
   submitMilestoneCompletion(partnershipId, milestoneId, reportData) {
     const part = fallbackPartnerships.find((p) => p.id === partnershipId);
     if (!part) return { ok: false, error: 'Partnership not found.' };
+    if (part.frozen) return { ok: false, error: 'TRANSACTION FROZEN.', status: 423 };
 
     const ms = part.milestones.find((m) => m.id === milestoneId);
     if (!ms) return { ok: false, error: 'Milestone not found.' };
 
-    if (ms.status !== 'funded') {
-      return { ok: false, error: 'Only funded milestones in progress can submit completion reports.' };
-    }
+    const from = ms.status === 'revision_requested' ? 'revision_requested' : ms.status;
+    try { assertTransition(from, 'proof_submitted'); } catch (e) { return { ok: false, error: e.message }; }
 
-    ms.completion_report = {
-      completed_objectives: reportData.completed_objectives || 'All phase requirements completed.',
-      amount_spent: Number(reportData.amount_spent || ms.release_details?.approved_amount || ms.amount),
+    const version = (Array.isArray(ms.proof_history) ? ms.proof_history.length : 0) + 1;
+    const report = {
+      version,
+      completed_objectives: reportData.completed_objectives || reportData.note || '',
+      amount_spent: Number(reportData.amount_spent || ms.release_details?.approved_amount || 0),
       remaining_amount: Number(reportData.remaining_amount || 0),
-      progress_description: reportData.progress_description || 'Deliverables verified and operational.',
-      business_results: reportData.business_results || 'Met planned performance metric milestones.',
+      progress_description: reportData.progress_description || '',
       media_urls: Array.isArray(reportData.media_urls) ? reportData.media_urls : [],
       submitted_at: new Date().toISOString(),
       verified_by_investor: false
     };
-
+    ms.completion_report = report;
+    ms.proof_history = [...(ms.proof_history || []), report];
+    ms.status = 'proof_submitted';
+    ms.lifecycle = { ...(ms.lifecycle || {}), completion: 'pending_verification' };
+    appendActivity(part, {
+      actor_role: 'founder',
+      actor_id: reportData.actorId,
+      event: 'proof_submitted',
+      label: `Founder submitted proof v${version} for ${ms.name || ms.title}`,
+      milestone_id: ms.id
+    });
     persistS3Partnerships();
     return { ok: true, partnership: calculateSummary(part), milestone: ms };
   },
 
-  verifyMilestoneCompletion(partnershipId, milestoneId) {
+  requestMilestoneRevision(partnershipId, milestoneId, { reason, actorId } = {}) {
     const part = fallbackPartnerships.find((p) => p.id === partnershipId);
     if (!part) return { ok: false, error: 'Partnership not found.' };
+    if (part.frozen) return { ok: false, error: 'TRANSACTION FROZEN.', status: 423 };
+    const ms = part.milestones.find((m) => m.id === milestoneId);
+    if (!ms) return { ok: false, error: 'Milestone not found.' };
+    const why = String(reason || '').trim();
+    if (!why) return { ok: false, error: 'A revision reason is required.' };
+    try { assertTransition(ms.status, 'revision_requested'); } catch (e) { return { ok: false, error: e.message }; }
+    ms.status = 'revision_requested';
+    ms.revision_reason = why;
+    ms.revision_requested_at = new Date().toISOString();
+    appendActivity(part, { actor_role: 'investor', actor_id: actorId, event: 'revision_requested', label: `Investor requested revision: ${why}`, milestone_id: ms.id });
+    persistS3Partnerships();
+    return { ok: true, partnership: calculateSummary(part), milestone: ms };
+  },
+
+  verifyMilestoneCompletion(partnershipId, milestoneId, { actorId, investor_notes } = {}) {
+    const part = fallbackPartnerships.find((p) => p.id === partnershipId);
+    if (!part) return { ok: false, error: 'Partnership not found.' };
+    if (part.frozen) return { ok: false, error: 'TRANSACTION FROZEN.', status: 423 };
 
     const msIdx = part.milestones.findIndex((m) => m.id === milestoneId);
     if (msIdx === -1) return { ok: false, error: 'Milestone not found.' };
 
     const ms = part.milestones[msIdx];
-    ms.status = 'completed';
-    ms.lifecycle.completion = 'completed';
-    if (!ms.completion_report) {
-      ms.completion_report = { completed_objectives: 'Verified by investor', submitted_at: new Date().toISOString() };
+    if (ms.status === 'completed') {
+      return { ok: true, alreadyProcessed: true, partnership: calculateSummary(part), milestone: ms, next_milestone: part.milestones[msIdx + 1] || null };
     }
+    try { assertTransition(ms.status, 'completed'); } catch (e) { return { ok: false, error: e.message }; }
+    if (!ms.completion_report) return { ok: false, error: 'Proof must be submitted before approval.' };
+
+    ms.status = 'completed';
+    ms.progress = 100;
+    ms.lifecycle = { ...(ms.lifecycle || {}), completion: 'completed' };
     ms.completion_report.verified_by_investor = true;
     ms.completion_report.verified_at = new Date().toISOString();
+    ms.completion_report.investor_notes = investor_notes || '';
+    ms.completed_at = new Date().toISOString();
 
-    // UNLOCK NEXT MILESTONE!
+    let nextMs = null;
     if (msIdx + 1 < part.milestones.length) {
-      const nextMs = part.milestones[msIdx + 1];
+      nextMs = part.milestones[msIdx + 1];
       if (nextMs.status === 'locked') {
+        try { assertTransition(nextMs.status, 'unlocked'); } catch (e) {}
         nextMs.status = 'unlocked';
-        nextMs.lifecycle.requested = false;
-        nextMs.lifecycle.investor_review = 'pending';
+        nextMs.lifecycle = { ...(nextMs.lifecycle || {}), requested: false, investor_review: 'pending' };
+        appendActivity(part, { actor_role: 'system', event: 'milestone_activated', label: `${nextMs.name || nextMs.title} activated`, milestone_id: nextMs.id });
       }
     }
 
+    appendActivity(part, { actor_role: 'investor', actor_id: actorId, event: 'milestone_approved', label: `Investor approved ${ms.name || ms.title}`, milestone_id: ms.id });
+    const summary = calculateSummary(part);
+    if (summary.transaction_status === 'completed') {
+      part.completed_at = new Date().toISOString();
+      appendActivity(part, { actor_role: 'system', event: 'transaction_completed', label: 'All required milestones completed' });
+    }
+    persistS3Partnerships();
+    return { ok: true, partnership: calculateSummary(part), milestone: ms, next_milestone: nextMs };
+  },
+
+  flagMilestoneDispute(partnershipId, milestoneId, payload = {}) {
+    const reason = typeof payload === 'string' ? payload : (payload.reason || '');
+    const part = fallbackPartnerships.find((p) => p.id === partnershipId);
+    if (!part) return { ok: false, error: 'Partnership not found.' };
+    const ms = part.milestones.find((m) => m.id === milestoneId);
+    if (!ms) return { ok: false, error: 'Milestone not found.' };
+    if (['completed', 'cancelled'].includes(ms.status)) return { ok: false, error: 'This milestone cannot be disputed.' };
+
+    ms.status = 'disputed';
+    ms.dispute_reason = reason || 'Audit discrepancies reported.';
+    ms.disputed_at = new Date().toISOString();
+    part.frozen = true;
+    part.dispute_id = payload.dispute_id || part.dispute_id;
+    appendActivity(part, {
+      actor_role: payload.initiator_role || 'investor',
+      actor_id: payload.initiator_id || payload.actorId,
+      event: 'dispute_opened',
+      label: `Dispute opened: ${ms.dispute_reason}`,
+      milestone_id: ms.id
+    });
     persistS3Partnerships();
     return { ok: true, partnership: calculateSummary(part), milestone: ms };
   },
 
-  flagMilestoneDispute(partnershipId, milestoneId, reason) {
+  clearFreeze(partnershipId, note = '') {
     const part = fallbackPartnerships.find((p) => p.id === partnershipId);
     if (!part) return { ok: false, error: 'Partnership not found.' };
-
-    const ms = part.milestones.find((m) => m.id === milestoneId);
-    if (!ms) return { ok: false, error: 'Milestone not found.' };
-
-    ms.status = 'disputed';
-    ms.dispute_reason = reason || 'Audit discrepancies reported by investor.';
-    ms.disputed_at = new Date().toISOString();
-
+    part.frozen = false;
+    part.milestones = (part.milestones || []).map((m) => {
+      if (m.status === 'disputed') {
+        const restored = m.release_details ? 'funded' : (m.request_details ? 'pending_review' : 'unlocked');
+        return { ...m, status: restored };
+      }
+      return m;
+    });
+    appendActivity(part, { actor_role: 'admin', event: 'dispute_resolved', label: note || 'Admin resolved dispute — workflow resumed' });
     persistS3Partnerships();
-    return { ok: true, partnership: calculateSummary(part), milestone: ms };
+    return { ok: true, partnership: calculateSummary(part) };
+  },
+
+  assertParticipant(partnership, userId, role) {
+    if (!canAccessTransaction(userId, partnership)) return false;
+    if (role && participantRole(partnership, userId) !== role) return false;
+    return true;
   }
 };
