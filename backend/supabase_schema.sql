@@ -489,6 +489,18 @@ ALTER TABLE users
 -- existing `category` column (already populated: 'FinTech', 'AgriTech', etc.)
 -- already means the same thing. Two columns holding near-duplicate data
 -- is a real schema smell; reusing `category` avoids it.
-ALTER TABLE campaigns
-  ADD COLUMN IF NOT EXISTS revenue_structure text,   -- e.g. 'Subscription', 'Commission', 'One-time Sale'
-  ADD COLUMN IF NOT EXISTS operational_model text;   -- e.g. 'B2C', 'B2B', 'Marketplace', 'D2C'
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
+
+CREATE TABLE IF NOT EXISTS investment_trends (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT,
+  summary TEXT,
+  significance TEXT,
+  investor_insight TEXT,
+  source TEXT,
+  source_url TEXT,
+  published_at TIMESTAMPTZ,
+  fetched_at TIMESTAMPTZ DEFAULT NOW(),
+  relevant_sectors TEXT[]
+);

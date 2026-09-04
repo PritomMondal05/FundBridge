@@ -1,3 +1,4 @@
+import { getInvestorMatches } from '../services/aiMatchmakingService.js';
 import {
   generateCampaignDescription,
   generateFounderBio,
@@ -108,6 +109,21 @@ export async function legacyGenerateHandler(req, res) {
   try {
     const action = req.body?.action;
     const founderId = founderIdFrom(req);
+    if (action === 'investor_match') {
+      const investorId = req.body?.investorId || req.body?.userId;
+      if (!investorId) return res.status(400).json({ error: 'investorId is required for matching.' });
+      if (!applyLimit(req, res, `legacy-match:${investorId}`, { limit: 30, windowMs: 15 * 60 * 1000 })) return;
+      await requireInvestor(investorId);
+      const result = await getInvestorMatches(investorId);
+      const recommendations = (result.matches || []).map((match) => ({
+        id: match.campaignId,
+        title: match.title,
+        category: match.category,
+        matchScore: `${match.matchScore}% Match`,
+        reason: match.justification
+      }));
+      return res.status(200).json({ recommendations, source: result.source });
+    }
     if (action === 'pitch_bio' || action === 'slogan' || action === 'business_summary') {
       if (!founderId) return res.status(400).json({ error: 'founderId is required.' });
       if (!applyLimit(req, res, `legacy:${founderId}`)) return;

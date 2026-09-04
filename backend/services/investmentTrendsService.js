@@ -154,7 +154,7 @@ async function fetchNewsApiArticles() {
 function normalizeTrend(raw, index) {
   const sourceUrl = sanitizeHttpUrl(raw.sourceUrl);
   return {
-    id: `trend_${index + 1}_${Buffer.from(String(raw.title || index)).toString('base64url').slice(0, 12)}`,
+    id: `trend_${index + 1}_${String(raw.title || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24)}`,
     title: sanitizeText(raw.title, 160),
     category: sanitizeText(raw.category, 60) || 'Global markets',
     summary: sanitizeText(raw.summary, 420),
@@ -270,7 +270,7 @@ async function buildTrendBundle() {
       trends = await summarizeArticles(articles);
       source = 'gemini+news';
     } catch (err) {
-      console.warn('Trend summarization failed:', err.message);
+      if (err?.status !== 429) console.warn('Trend summarization failed:', err.message);
     }
   }
 

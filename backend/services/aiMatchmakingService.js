@@ -48,44 +48,6 @@ const founderMatchSchema = {
   required: ['matches']
 };
 
-async function callGeminiForJSON(promptText, schema) {
-  const client = getAiClient();
-  if (!client) return null;
-
-  const tryModels = [...new Set([MODEL_NAME, FALLBACK_MODEL_NAME])];
-  for (const modelName of tryModels) {
-    try {
-      const response = await client.models.generateContent({
-        model: modelName,
-        contents: promptText,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: schema
-        }
-      });
-      const rawText = response.text || '';
-      const cleaned = rawText.replace(/^```json\s*|```\s*$/g, '').trim();
-      try {
-        return JSON.parse(cleaned);
-      } catch (err) {
-        console.error('Gemini JSON parse failure:', err.message);
-        return { matches: [] };
-      }
-    } catch (err) {
-      const msg = err?.message || String(err);
-      const isMissingModel = msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('not available');
-      const isQuota = msg.includes('429') || msg.toLowerCase().includes('resource_exhausted') || msg.toLowerCase().includes('quota');
-      if (isQuota) {
-        console.warn('Gemini quota exceeded; using heuristic ranking.');
-        return null;
-      }
-      if (!isMissingModel) throw err;
-      console.warn(`Gemini model ${modelName} unavailable; retrying with fallback model.`);
-    }
-  }
-  return { matches: [] };
-}
-
 function normalizeText(value) {
   return String(value || '').trim().toLowerCase();
 }

@@ -27,7 +27,6 @@ dotenv.config();
 
 import aiMatchRoutes from './routes/aiMatchRoutes.js';
 import { persistUserMatchingPrefs, loadInvestorRecord } from './lib/matchCatalog.js';
-import { getInvestorMatches } from './services/aiMatchmakingService.js';
 
 
 // Supabase Integration
@@ -3516,53 +3515,8 @@ io.on('connection', (socket) => {
   });
 });
 
-// ============================================================================
-// FR-21: AI OPTIMIZATION ENGINE API
-// ============================================================================
-app.post('/api/ai/generate', async (req, res) => {
-  try {
-    const { action, title, category, stage, university, targetAudience, description } = req.body;
-
-    if (action === 'pitch_bio' || action === 'slogan') {
-      const taglines = [
-        `Revolutionizing ${category || 'EdTech'} through smart university ecosystem integration.`,
-        `Empowering student innovators at ${university || 'top Bangladeshi universities'} with seamless scalable tech.`,
-        `Next-gen ${category || 'FinTech'} platform built by student entrepreneurs for rapid market traction.`,
-        `Disrupting traditional workflows with automated milestone verification and community backing.`
-      ];
-      const slogan = taglines[Math.floor(Math.random() * taglines.length)];
-      const bio = `${title || 'Our Venture'} is an innovative ${category || 'technology'} startup developed by founders at ${university || 'BRAC University'}. Currently in ${stage || 'MVP Stage'}, our platform addresses key operational challenges for university communities in Bangladesh by introducing digital automation, scalable infrastructure, and milestone-verified growth execution.`;
-      
-      return res.status(200).json({ slogan, bio });
-    }
-
-    if (action === 'business_summary') {
-      const summary = `BUSINESS SUMMARY FOR ${title || 'VENTURE'}:\n1. Core Value Proposition: Streamlined ${category || 'Tech'} operations tailored for high-growth Bangladeshi markets.\n2. Milestone Execution: Clear 3-tranche roadmap focused on MVP deployment, customer acquisition, and recurring revenue.\n3. Investor Return Alignment: High alignment with alumni networks and revenue share / milestone debt models.\n4. Focus prompt: ${description || targetAudience || 'General university startup growth.'}`;
-      return res.status(200).json({ summary });
-    }
-
-    if (action === 'investor_match') {
-      const investorId = req.body.investorId || req.body.userId;
-      if (!investorId) return res.status(400).json({ error: 'investorId is required for matching.' });
-      const result = await getInvestorMatches(investorId);
-      const recommendations = result.matches.map((match) => ({
-        id: match.campaignId,
-        title: match.title,
-        category: match.category,
-        matchScore: `${match.matchScore}% Match`,
-        reason: match.justification
-      }));
-      return res.status(200).json({ recommendations });
-    }
-
-    res.status(200).json({
-      slogan: `Transforming ${category || 'Education'} through verified student innovation.`,
-      bio: `A high-impact startup leveraging technology to build sustainable value in Bangladesh.`
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'AI generation failed.' });
-  }
-});
+// FR-21 AI Optimization Engine is mounted at /api/ai (aiMatchRoutes).
+// Legacy POST /api/ai/generate remains on that router and uses Gemini — not the old mock copy.
 
 // ============================================================================
 // FR-7: DIRECT REAL-TIME CHAT APIS

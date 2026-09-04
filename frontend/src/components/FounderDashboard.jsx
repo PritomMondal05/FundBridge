@@ -35,6 +35,10 @@ import {
   TrendingUp,
   TrendingDown
 } from 'lucide-react';
+import PublicProfileModal from './PublicProfileModal';
+import FounderMatchView from './ai/FounderMatchView';
+import AIMatchCarousel from './AIMatchCarousel';
+import AiContentAssistant from './ai/AiContentAssistant';
 
 export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, triggerAlert }) {
   const user = currentUser || {
@@ -59,6 +63,7 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
     department: user.department || '',
     studentId: user.studentId || '',
     mfsNumber: user.mfsNumber || '',
+    bio: user.bio || '',
     vettingStatus: user.vettingStatus || 'verified'
   });
 
@@ -104,11 +109,14 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
 
   // Selected Investor Proposal
   const [selectedProposal, setSelectedProposal] = useState(null);
+  const [selectedPublicProfile, setSelectedPublicProfile] = useState(null);
 
   // Campaign Form State
   const [campaignForm, setCampaignForm] = useState({
     title: '',
     university: user.university || '',
+    category: 'FoodTech / SaaS',
+    stage: 'Prototype / MVP',
     tagline: '',
     coverPhoto: '',
     pitchVideoUrl: '',
@@ -117,11 +125,6 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
     equityOffer: '8% Revenue Share',
     description: ''
   });
-
-  // AI Suite State
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [refinedPitch, setRefinedPitch] = useState('');
-  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
   // Wallet / Payout Modal State
   const [showPayoutModal, setShowPayoutModal] = useState(false);
@@ -158,6 +161,23 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
     try {
       setLoading(true);
 
+      const profileRes = await fetch(`${API_BASE_URL}/api/users/profile?userId=${encodeURIComponent(userId)}`);
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        const nextUser = profileData.user || {};
+        setProfileUser((current) => ({
+          ...current,
+          name: nextUser.name || current.name,
+          email: nextUser.email || current.email,
+          university: nextUser.university || current.university,
+          department: nextUser.department || current.department,
+          studentId: nextUser.studentId || current.studentId,
+          mfsNumber: nextUser.mfsNumber || current.mfsNumber,
+          bio: nextUser.bio || current.bio,
+          vettingStatus: nextUser.vettingStatus || current.vettingStatus
+        }));
+      }
+
       // 1. Fetch Founder's Campaigns from DB
       const campRes = await fetch(`${API_BASE_URL}/api/campaigns/founder/${userId}`);
       let userCampaigns = [];
@@ -169,6 +189,8 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
           setCampaignForm({
             title: c.title || '',
             university: c.university || profileUser.university || '',
+            category: c.category || 'FoodTech / SaaS',
+            stage: c.stage || 'Prototype / MVP',
             tagline: c.tagline || '',
             coverPhoto: c.cover_photo || c.coverPhoto || '',
             pitchVideoUrl: c.pitch_video_url || c.pitchVideoUrl || '',
@@ -385,25 +407,17 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
   };
 
   // Save Profile Info
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    showToast('Profile information updated successfully!', 'success');
-  };
-
-  // AI Copy Generator
-  const handleGenerateAiCopy = () => {
-    if (!aiPrompt) {
-      showToast('Please enter a milestone prompt for AI copy generation.', 'info');
-      return;
-    }
-    setIsGeneratingAi(true);
-    setTimeout(() => {
-      setRefinedPitch(
-        `"${campaignForm.title || 'Startup'} leverages innovative tech developed at ${campaignForm.university} to transform its sector. Target objectives: ${aiPrompt}"`
-      );
-      setIsGeneratingAi(false);
-      showToast('AI copy generated via Gemini 1.5 Pro!', 'success');
-    }, 1200);
+    try {
+      const founderId = currentUser?.id || currentUser?._id || user.id;
+      const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: founderId, ...profileUser })
+      });
+      if (!response.ok) throw new Error((await response.json()).error || 'Unable to save profile.');
+      showToast('Profile information updated successfully!', 'success');
+    } catch (err) { showToast(err.message || 'Unable to save profile.', 'error'); }
   };
 
   // Submit Payout Request
@@ -548,6 +562,11 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
             >
               <Users className="w-4.5 h-4.5" />
               <span>Investors</span>
+            </button>
+
+            <button onClick={() => setActiveTab('matches')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${activeTab === 'matches' ? 'bg-[#DCFCE7] text-[#15803D] font-semibold' : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'}`}>
+              <Sparkles className="w-4.5 h-4.5" />
+              <span>AI Matches</span>
             </button>
 
             <button
@@ -701,11 +720,11 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
 
             <div className="h-6 w-px bg-slate-200 my-auto"></div>
 
-            {/* Founder Profile Badge - Clicking opens Settings */}
+            {/* Founder Profile Badge - opens the public profile */}
             <div
-              onClick={() => setActiveTab('settings')}
+              onClick={() => setSelectedPublicProfile({ type: 'founder', id: user.id || user._id })}
               className="flex items-center gap-3 cursor-pointer hover:bg-slate-100 px-2.5 py-1.5 rounded-xl transition-colors"
-              title="Click to edit profile settings"
+              title="View public profile"
             >
               <InitialsAvatar name={profileUser.name} className="w-8 h-8" />
               <div className="hidden sm:block text-left">
@@ -739,6 +758,13 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
               {/* TAB 1: OVERVIEW SCREEN */}
               {activeTab === 'overview' && (
                 <div className="space-y-8">
+                  <AIMatchCarousel
+                    role="founder"
+                    userId={user.id || user._id}
+                    campaignId={activeCampaign?.id || activeCampaign?._id}
+                    API_BASE_URL={API_BASE_URL}
+                    onOpenMatch={(match) => setSelectedPublicProfile({ type: 'investor', id: match.investorId })}
+                  />
                   <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">My Workspace</h1>
                   </div>
@@ -825,6 +851,8 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                             setCampaignForm({
                               title: activeCampaign.title || '',
                               university: activeCampaign.university || profileUser.university || '',
+                              category: activeCampaign.category || 'FoodTech / SaaS',
+                              stage: activeCampaign.stage || 'Prototype / MVP',
                               tagline: activeCampaign.tagline || '',
                               coverPhoto: activeCampaign.cover_photo || activeCampaign.coverPhoto || '',
                               pitchVideoUrl: activeCampaign.pitch_video_url || activeCampaign.pitchVideoUrl || '',
@@ -953,6 +981,8 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                                   setCampaignForm({
                                     title: c.title || '',
                                     university: c.university || profileUser.university || '',
+                                    category: c.category || 'FoodTech / SaaS',
+                                    stage: c.stage || 'Prototype / MVP',
                                     tagline: c.tagline || '',
                                     coverPhoto: c.cover_photo || c.coverPhoto || '',
                                     pitchVideoUrl: c.pitch_video_url || c.pitchVideoUrl || '',
@@ -1037,10 +1067,15 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                       {investorsList.length > 0 ? (
                         <div className="grid grid-cols-3 gap-4 pt-4 text-center">
                           {investorsList.slice(0, 3).map((inv, idx) => (
-                            <div key={idx} className="space-y-2">
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setSelectedPublicProfile({ type: 'investor', id: inv.id || inv._id })}
+                              className="space-y-2 text-center cursor-pointer"
+                            >
                               <InitialsAvatar name={inv.name || inv.institution} className="w-12 h-12 mx-auto" />
                               <span className="text-xs font-semibold text-slate-800 block truncate">{inv.name || inv.institution}</span>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       ) : (
@@ -1254,46 +1289,25 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                             ></textarea>
                           </div>
 
-                          {/* AI Optimization Suite Assistant */}
-                          <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                                <Sparkles className="w-4 h-4 text-indigo-600" /> AI Pitch Assistant (Gemini 1.5 Pro)
-                              </span>
-                            </div>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={aiPrompt}
-                                onChange={(e) => setAiPrompt(e.target.value)}
-                                placeholder="Enter milestone goal (e.g. launch mobile canteen app for 5000 students)..."
-                                className="flex-1 px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs"
-                              />
-                              <button
-                                type="button"
-                                onClick={handleGenerateAiCopy}
-                                disabled={isGeneratingAi}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl cursor-pointer"
-                              >
-                                {isGeneratingAi ? 'Generating...' : 'Enhance Pitch'}
-                              </button>
-                            </div>
-                            {refinedPitch && (
-                              <div className="p-3 bg-white border border-indigo-200 rounded-lg text-xs italic text-indigo-900 space-y-2">
-                                <p>"{refinedPitch}"</p>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setCampaignForm({ ...campaignForm, description: refinedPitch.replace(/"/g, '') });
-                                    showToast('Applied AI refined pitch to description!', 'success');
-                                  }}
-                                  className="px-3 py-1 bg-emerald-600 text-white text-[11px] font-semibold rounded-lg"
-                                >
-                                  Use AI Pitch Description
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <AiContentAssistant
+                            kind="campaign"
+                            userId={user.id || user._id}
+                            campaignId={editingCampaignId || activeCampaign?.id || activeCampaign?._id}
+                            value={campaignForm.description}
+                            context={{
+                              title: campaignForm.title,
+                              university: campaignForm.university,
+                              category: campaignForm.category,
+                              stage: campaignForm.stage,
+                              tagline: campaignForm.tagline,
+                              goal: campaignForm.goal,
+                              equityOffer: campaignForm.equityOffer,
+                              description: campaignForm.description
+                            }}
+                            API_BASE_URL={API_BASE_URL}
+                            showToast={showToast}
+                            onApply={(content) => setCampaignForm({ ...campaignForm, description: content })}
+                          />
                         </div>
 
                         <div className="flex justify-between pt-4">
@@ -1553,7 +1567,13 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                             </div>
 
                             <div>
-                              <h3 className="font-bold text-slate-900 text-base">{c.title}</h3>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPublicProfile({ type: 'founder', id: c.founder_id || c.founderId || c.founder?.id || c.founder?._id })}
+                                className="font-bold text-left text-slate-900 text-base hover:text-emerald-700"
+                              >
+                                {c.title}
+                              </button>
                               <span className="text-xs font-semibold text-emerald-700 block">{c.university}</span>
                             </div>
 
@@ -1646,7 +1666,16 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                                 <div className="flex items-center gap-3">
                                   <InitialsAvatar name={p.investor_name || 'Investor'} />
                                   <div>
-                                    <h4 className="font-bold text-slate-900 text-sm">{p.investor_name || 'Verified Investor'}</h4>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedPublicProfile({ type: 'investor', id: p.investor_id || p.investorId });
+                                      }}
+                                      className="font-bold text-slate-900 text-sm hover:text-emerald-700"
+                                    >
+                                      {p.investor_name || 'Verified Investor'}
+                                    </button>
                                     <span className="text-xs font-semibold text-sky-600 block">{p.return_structure || 'Revenue Share'}</span>
                                   </div>
                                 </div>
@@ -1753,6 +1782,10 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
               )}
 
               {/* TAB 4: WALLET */}
+              {activeTab === 'matches' && (
+                <FounderMatchView campaignId={activeCampaign?.id || activeCampaign?._id} founderId={currentUser?.id || currentUser?._id || user.id} apiBase={API_BASE_URL} onOpenInvestor={(match) => setSelectedPublicProfile({ type: 'investor', id: match.investorId })} />
+              )}
+
               {activeTab === 'wallet' && (
                 <div className="space-y-6">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -2073,6 +2106,32 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
                       </div>
                     </div>
 
+                    <div className="space-y-3">
+                      <label className="font-semibold text-slate-700 block">Public founder bio</label>
+                      <textarea
+                        rows={5}
+                        value={profileUser.bio || ''}
+                        onChange={(e) => setProfileUser({ ...profileUser, bio: e.target.value })}
+                        placeholder="A concise, investor-facing biography. Avoid unverified claims."
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
+                      />
+                      <AiContentAssistant
+                        kind="bio"
+                        userId={user.id || user._id}
+                        value={profileUser.bio}
+                        context={{
+                          name: profileUser.name,
+                          university: profileUser.university,
+                          department: profileUser.department,
+                          startup: campaignForm.title || activeCampaign?.title,
+                          industry: campaignForm.category || activeCampaign?.category
+                        }}
+                        API_BASE_URL={API_BASE_URL}
+                        showToast={showToast}
+                        onApply={(content) => setProfileUser({ ...profileUser, bio: content })}
+                      />
+                    </div>
+
                     <div className="pt-2 flex justify-between items-center border-t border-slate-100">
                       <button
                         type="button"
@@ -2226,6 +2285,15 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
             </form>
           </div>
         </div>
+      )}
+
+      {selectedPublicProfile && (
+        <PublicProfileModal
+          profileType={selectedPublicProfile.type}
+          profileId={selectedPublicProfile.id}
+          API_BASE_URL={API_BASE_URL}
+          onClose={() => setSelectedPublicProfile(null)}
+        />
       )}
     </div>
   );

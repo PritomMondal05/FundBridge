@@ -83,6 +83,12 @@ export async function callGeminiForJSON(promptText, schema, options = {}) {
     } catch (err) {
       const msg = err?.message || String(err);
       const isMissingModel = msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('not available');
+      const isQuota = msg.includes('429') || msg.toLowerCase().includes('resource_exhausted') || msg.toLowerCase().includes('quota');
+      if (isQuota) {
+        const quotaErr = new Error('The AI provider is temporarily rate-limited. Please try again in a few minutes.');
+        quotaErr.status = 429;
+        throw quotaErr;
+      }
       if (!isMissingModel) throw err;
       console.warn(`Gemini model ${modelName} unavailable; retrying with fallback model.`);
     }
@@ -108,6 +114,12 @@ export async function callGeminiWithSearchJSON(promptText) {
     } catch (err) {
       const msg = err?.message || String(err);
       const isMissingModel = msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('not available');
+      const isQuota = msg.includes('429') || msg.toLowerCase().includes('resource_exhausted') || msg.toLowerCase().includes('quota');
+      if (isQuota) {
+        const quotaErr = new Error('The AI provider is temporarily rate-limited. Please try again in a few minutes.');
+        quotaErr.status = 429;
+        throw quotaErr;
+      }
       if (!isMissingModel) {
         console.warn('Gemini search grounding failed:', msg);
         return null;

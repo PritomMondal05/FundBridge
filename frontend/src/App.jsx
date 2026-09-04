@@ -916,7 +916,7 @@ export default function App() {
                     aiDemo.investor.matches.map((match) => (
                       <div key={match.campaignId} className="rounded-xl border border-border-default bg-white p-4">
                         <div className="flex items-center justify-between gap-4 mb-2">
-                          <span className="text-sm font-medium text-obsidian-base">{match.campaignId}</span>
+                          <span className="text-sm font-medium text-obsidian-base">{match.title || match.campaignId}</span>
                           <span className="text-sm font-bold text-emerald-600">{match.matchScore}%</span>
                         </div>
                         <p className="text-xs leading-relaxed text-text-charcoal/80">{match.justification}</p>
@@ -946,7 +946,7 @@ export default function App() {
                     aiDemo.founder.matches.map((match) => (
                       <div key={match.investorId} className="rounded-xl border border-border-default bg-white p-4">
                         <div className="flex items-center justify-between gap-4 mb-2">
-                          <span className="text-sm font-medium text-obsidian-base">{match.investorId}</span>
+                          <span className="text-sm font-medium text-obsidian-base">{match.name || match.investorId}</span>
                           <span className="text-sm font-bold text-sky-600">{match.matchScore}%</span>
                         </div>
                         <p className="text-xs leading-relaxed text-text-charcoal/80">{match.justification}</p>

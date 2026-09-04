@@ -45,6 +45,10 @@ import {
 } from 'lucide-react';
 
 import logoUrl from '../assets/images/FundBridge Logo.svg';
+import PublicProfileModal from './PublicProfileModal';
+import InvestorMatchView from './ai/InvestorMatchView';
+import AIMatchCarousel from './AIMatchCarousel';
+import WhatsBurning from './ai/WhatsBurning';
 
 export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL, triggerAlert }) {
   const user = currentUser || {
@@ -75,7 +79,10 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
     mfsNumber: user.mfsNumber || '01711223344',
     bio: 'Active venture partner backing university tech startups across Bangladesh.',
     ticketSize: '৳ 5,00,000',
-    vettingStatus: user.vettingStatus || 'verified'
+    vettingStatus: user.vettingStatus || 'verified',
+    investmentBudgetMin: user.investmentBudgetMin || user.investment_budget_min || '',
+    investmentBudgetMax: user.investmentBudgetMax || user.investment_budget_max || '',
+    sectorInterests: Array.isArray(user.sectorInterests || user.sector_interests) ? (user.sectorInterests || user.sector_interests).join(', ') : ''
   });
 
   // Real Database State
@@ -124,6 +131,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
 
   // Selected Campaign Detail Modal (Full Business Profile & Detailed Founder Info)
   const [selectedCampaignDetail, setSelectedCampaignDetail] = useState(null);
+  const [selectedPublicProfile, setSelectedPublicProfile] = useState(null);
 
   // Proposal Submission Form Modal
   const [selectedProposalCampaign, setSelectedProposalCampaign] = useState(null);
@@ -724,9 +732,27 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
   };
 
   // Save Profile
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    showToast('Investor profile updated successfully!', 'success');
+    try {
+      const investorId = currentUser?.id || currentUser?._id || user.id;
+      const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: investorId,
+          name: profileUser.name,
+          email: profileUser.email,
+          institution: profileUser.institution,
+          mfsNumber: profileUser.mfsNumber,
+          bio: profileUser.bio,
+          investmentBudgetMin: profileUser.investmentBudgetMin,
+          investmentBudgetMax: profileUser.investmentBudgetMax,
+          sectorInterests: profileUser.sectorInterests
+        })
+      });
+      if (!response.ok) throw new Error((await response.json()).error || 'Unable to save profile.');
+      showToast('Investor profile and matching preferences updated.', 'success');
+    } catch (err) { showToast(err.message || 'Unable to save profile.', 'error'); }
   };
 
   // Initials Avatar Helper
@@ -1062,6 +1088,17 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                 </button>
 
                 <button
+                  onClick={() => {
+                    setSelectedPublicProfile({ type: 'investor', id: user.id || user._id });
+                    setIsProfileDropdownOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  <User className="w-4 h-4 text-slate-500" />
+                  <span>View Public Profile</span>
+                </button>
+
+                <button
                   onClick={handlePromptLogout}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
                 >
@@ -1103,6 +1140,11 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
             >
               <Rocket className="w-4.5 h-4.5" />
               <span>Explore Campaigns</span>
+            </button>
+
+            <button onClick={() => setActiveTab('matches')} className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${activeTab === 'matches' ? 'bg-emerald-50 text-emerald-800 font-semibold shadow-xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}>
+              <Sparkles className="w-4.5 h-4.5" />
+              <span>AI Matches</span>
             </button>
 
             {/* 3. My Investments */}
@@ -1191,6 +1233,16 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
               {/* TAB 1: OVERVIEW PANEL */}
               {activeTab === 'overview' && (
                 <div className="space-y-8 animate-fadeIn">
+                  <WhatsBurning userId={user.id || user._id} API_BASE_URL={API_BASE_URL} />
+                  <AIMatchCarousel
+                    role="investor"
+                    userId={user.id || user._id}
+                    API_BASE_URL={API_BASE_URL}
+                    onOpenMatch={(match) => {
+                      const campaign = campaigns.find((item) => String(item.id || item._id) === String(match.campaignId));
+                      if (campaign) setSelectedCampaignDetail(campaign);
+                    }}
+                  />
                   <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Investor Overview</h1>
                     <p className="text-xs text-slate-500 mt-1">High-level live dashboard displaying your interested watchlist, submitted proposals, and bookmarked student founders.</p>
@@ -1515,7 +1567,13 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                                   <div className="flex items-center gap-3">
                                     <InitialsAvatar name={founder.name} className="w-11 h-11 text-xs bg-indigo-700" />
                                     <div>
-                                      <h3 className="font-bold text-slate-900 text-sm">{founder.name}</h3>
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedPublicProfile({ type: 'founder', id: founderId })}
+                                        className="font-bold text-left text-slate-900 text-sm hover:text-emerald-700"
+                                      >
+                                        {founder.name}
+                                      </button>
                                       <span className="text-xs font-semibold text-emerald-700 block">{founder.university}</span>
                                       <span className="text-[10px] text-slate-500 block">{founder.department || 'CSE'}</span>
                                     </div>
@@ -1596,6 +1654,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
               {/* TAB 2: EXPLORE CAMPAIGNS */}
               {activeTab === 'campaigns' && (
                 <div className="space-y-6 animate-fadeIn">
+                  <WhatsBurning userId={user.id || user._id} API_BASE_URL={API_BASE_URL} />
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                       <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Explore Campaigns Marketplace</h1>
@@ -1878,6 +1937,10 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
               )}
 
               {/* TAB 3: MY INVESTMENTS */}
+              {activeTab === 'matches' && (
+                <InvestorMatchView investorId={currentUser?.id || currentUser?._id || user.id} apiBase={API_BASE_URL} onOpenCampaign={(match) => { const campaign = campaigns.find((item) => String(item.id || item._id) === String(match.campaignId)); if (campaign) { setSelectedCampaignDetail(campaign); setActiveTab('campaigns'); } }} />
+              )}
+
               {activeTab === 'portfolio' && (
                 <div className="space-y-6 animate-fadeIn">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -2233,7 +2296,13 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                             <div className="flex items-start gap-3.5">
                               <InitialsAvatar name={inv.name || inv.institution} className="w-12 h-12 text-sm" />
                               <div className="space-y-0.5">
-                                <h3 className="font-bold text-slate-900 text-sm">{inv.name}</h3>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPublicProfile({ type: 'investor', id: invId })}
+                                  className="font-bold text-left text-slate-900 text-sm hover:text-emerald-700"
+                                >
+                                  {inv.name}
+                                </button>
                                 <span className="text-xs font-semibold text-emerald-700 block">{inv.institution || 'Corporate Alumni Backer'}</span>
                                 <span className="text-[10px] text-slate-400 font-mono uppercase block">{inv.university || 'BUET / BRACU Syndicate'}</span>
                               </div>
@@ -2416,6 +2485,22 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                           onChange={(e) => setProfileUser({ ...profileUser, bio: e.target.value })}
                           className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                         ></textarea>
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Minimum Ticket (৳)</label>
+                        <input type="number" min="0" value={profileUser.investmentBudgetMin} onChange={(e) => setProfileUser({ ...profileUser, investmentBudgetMin: e.target.value })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs" />
+                      </div>
+
+                      <div>
+                        <label className="font-semibold text-slate-700 block mb-1">Maximum Ticket (৳)</label>
+                        <input type="number" min="0" value={profileUser.investmentBudgetMax} onChange={(e) => setProfileUser({ ...profileUser, investmentBudgetMax: e.target.value })} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs" />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="font-semibold text-slate-700 block mb-1">Preferred sectors</label>
+                        <input type="text" value={profileUser.sectorInterests} onChange={(e) => setProfileUser({ ...profileUser, sectorInterests: e.target.value })} placeholder="e.g. FinTech, AgriTech / IoT" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs" />
+                        <p className="mt-1 text-[10px] text-slate-400">Separate sectors with commas. These choices power your startup recommendations.</p>
                       </div>
                     </div>
 
@@ -2964,6 +3049,15 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                   <div>
                     <span className="text-[10px] font-mono text-slate-500 block uppercase">FOUNDER NAME</span>
                     <strong className="text-slate-900 text-sm">{selectedCampaignDetail.founder?.name || 'Anika Rahman'}</strong>
+                                    <button
+                                      onClick={() => setSelectedPublicProfile({
+                                        type: 'founder',
+                                        id: selectedCampaignDetail.founder?.id || selectedCampaignDetail.founder?._id
+                                      })}
+                                      className="mt-1 block text-[10px] font-semibold text-emerald-700 hover:underline"
+                                    >
+                                      Open full founder profile
+                                    </button>
                   </div>
                   <div>
                     <span className="text-[10px] font-mono text-slate-500 block uppercase">UNIVERSITY & DEPARTMENT</span>
@@ -3676,6 +3770,7 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
                           {c ? c.title : `Startup #${idx+1}`}
                         </th>
                       );
+
                     })}
                   </tr>
                 </thead>
@@ -3800,6 +3895,15 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
             </button>
           </form>
         </div>
+      )}
+
+      {selectedPublicProfile && (
+        <PublicProfileModal
+          profileType={selectedPublicProfile.type}
+          profileId={selectedPublicProfile.id}
+          API_BASE_URL={API_BASE_URL}
+          onClose={() => setSelectedPublicProfile(null)}
+        />
       )}
     </div>
   );

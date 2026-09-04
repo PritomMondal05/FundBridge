@@ -172,6 +172,7 @@ ${JSON.stringify(facts)}
   try {
     parsed = await callGeminiForJSON(prompt, contentSchema);
   } catch (err) {
+    if (err?.status === 429) throw err;
     const wrapped = new Error('AI generation failed. Your original text was not changed.');
     wrapped.status = 502;
     wrapped.cause = err;
