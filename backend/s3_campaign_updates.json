@@ -6,8 +6,9 @@
     "title": "Notify Check Publish",
     "content": "Testing notification on publish.",
     "milestone_tag": "Level 1 MVP Launch",
-    "status": "pending",
-    "created_at": "2026-09-02T16:28:16.774Z"
+    "status": "approved",
+    "created_at": "2026-09-02T16:28:16.774Z",
+    "reviewed_at": "2026-09-04T13:48:58.508Z"
   },
   {
     "id": "upd_1788365354473",

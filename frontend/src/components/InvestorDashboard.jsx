@@ -1188,6 +1188,21 @@ export default function InvestorDashboard({ currentUser, onLogout, API_BASE_URL,
             </div>
           ) : (
             <>
+              {/* Account Frozen Warning Banner */}
+              {(profileUser.vettingStatus === 'frozen' || profileUser.vetting_status === 'frozen') && (
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 flex items-center justify-between shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <Lock className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>
+                      <strong>Account ID Frozen:</strong> An active complaint has been reported regarding this account. Your profile and platform investment activities are restricted pending administrative decision.
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-rose-200 text-rose-900 font-mono text-[10px] font-bold uppercase">
+                    FROZEN (PENDING DECISION)
+                  </span>
+                </div>
+              )}
+
               {/* TAB 1: OVERVIEW PANEL */}
               {activeTab === 'overview' && (
                 <div className="space-y-8 animate-fadeIn">

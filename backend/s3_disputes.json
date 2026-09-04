@@ -1,0 +1,18 @@
+[
+  {
+    "id": "CMP-867",
+    "complainant_name": "Test Investor",
+    "complainant_role": "investor",
+    "reported_user": "Aziz Zaman",
+    "reported_user_id": "usr_founder_2",
+    "reported_role": "founder",
+    "campaign_title": "SkillCraft Hub",
+    "campaign_id": "skillcraft",
+    "issue_type": "Escrow Misuse Warning",
+    "description": "Testing freeze functionality",
+    "evidence_file": null,
+    "severity": "Critical",
+    "status": "Under Investigation (ID Frozen)",
+    "created_at": "2026-09-04T14:02:28.601Z"
+  }
+]

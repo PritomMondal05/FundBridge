@@ -23,7 +23,9 @@ import {
   Activity,
   CheckSquare,
   Square,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 
 import adminLogoUrl from '../assets/images/FundBridge Logo-Admin.svg';
@@ -118,6 +120,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
   const [selectedControlCampaignId, setSelectedControlCampaignId] = useState('');
   const [investigatingComplaint, setInvestigatingComplaint] = useState(null);
 
+  // Trash database state
+  const [trashList, setTrashList] = useState([]);
+  const [trashFilter, setTrashFilter] = useState('all'); // 'all' | 'member' | 'campaign' | 'applicant'
+
   // Safety panel controls (Disputes)
   const [globalFreezeActive, setGlobalFreezeActive] = useState(false);
   const [tokensRevoked, setTokensRevoked] = useState(false);
@@ -186,11 +192,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       if (vetRes.ok) {
         const vetData = await vetRes.json();
         setVettingQueue(vetData);
-        const anika = vetData.find(u => u.name === 'Anika Rahman');
-        if (anika) {
-          setSelectedApplicantId(anika._id);
-        } else if (vetData.length > 0) {
+        if (vetData.length > 0) {
           setSelectedApplicantId(vetData[0]._id);
+        } else {
+          setSelectedApplicantId(null);
         }
       }
 
@@ -290,6 +295,17 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
         }
       }
 
+      // 9. Fetch trash database items
+      try {
+        const trashRes = await fetch(`${API_BASE_URL}/api/admin/trash`);
+        if (trashRes.ok) {
+          const trashData = await trashRes.json();
+          setTrashList(trashData || []);
+        }
+      } catch (err) {
+        console.error('Error fetching trash database:', err);
+      }
+
       setDbLoading(false);
     } catch (err) {
       console.error('Error fetching database registers:', err);
@@ -297,44 +313,30 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }
   };
 
+  // Activity Log state (No dummy data - initialized from real DB audit logs)
+  const [activitySearch, setActivitySearch] = useState('');
+  const [activityFilter, setActivityFilter] = useState('ALL');
+  const [activityLogs, setActivityLogs] = useState([]);
+
   useEffect(() => {
     if (isAdminAuthenticated) {
       fetchDatabaseData();
     }
   }, [isAdminAuthenticated]);
 
-  // Live scrolling terminal logs (Disputes Diagnostics)
+  // Terminal security logs (grounded in real audit records and system state)
   const [securityLogs, setSecurityLogs] = useState([
-    'SYSTEM_READY: Diagnostics initialized.',
-    'SECURE_SYNC: Listening on Mainnet node buffers.',
-    'AUTH_DAEMON: Active session signature validated for supervisor ADMIN_PRITOM.',
-    'FIREWALL: Zero Packet Loss on cluster-2.dhaka.fundbridge.net.',
-    'SHIELD_ENG: GeoIP sync completed. North America - Cluster A flagged.'
+    'DATABASE_READY: Secure connection to database verified.',
+    'IMMUTABLE_LOG: System diagnostics active.',
+    'ESCROW_MONITOR: Escrow lock guards standing by.'
   ]);
 
   useEffect(() => {
-    if (activeTab === 'disputes') {
-      const interval = setInterval(() => {
-        const events = [
-          'DB_SYNC: MongoDB replica set synchronization successful (lag 14ms).',
-          'GATEWAY: bKash webhook signature check: 200 OK.',
-          'THREAT_INTEL: IP 192.168.42.11 rate-limited.',
-          'AUDIT: Immutable block validation complete.',
-          'ESCROW: Transaction buffer holding state: STABLE.',
-          'AUTH: Token signature verification check passed.'
-        ];
-        const randomEvent = events[Math.floor(Math.random() * events.length)];
-        const time = new Date().toLocaleTimeString();
-        setSecurityLogs(prev => [...prev.slice(-12), `[${time}] ${randomEvent}`]);
-      }, 3500);
-      return () => clearInterval(interval);
+    if (activityLogs.length > 0) {
+      const live = activityLogs.slice(0, 10).map(l => `[${l.timestamp}] [${l.actor}] ${l.action}: ${l.target} - ${l.rationale}`);
+      setSecurityLogs(live);
     }
-  }, [activeTab]);
-
-  // Activity Log state (No dummy data - initialized from real DB audit logs)
-  const [activitySearch, setActivitySearch] = useState('');
-  const [activityFilter, setActivityFilter] = useState('ALL');
-  const [activityLogs, setActivityLogs] = useState([]);
+  }, [activityLogs]);
 
   // Authentication Submission Handler (Screen 1 to Screen 2 transition)
   const handleAdminLoginSubmit = async (e) => {
@@ -386,9 +388,10 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       mfsMatch: false
     });
 
-    const anika = vettingQueue.find(u => u.name === 'Anika Rahman');
-    if (anika) {
-      setSelectedApplicantId(anika._id);
+    if (vettingQueue.length > 0) {
+      setSelectedApplicantId(vettingQueue[0]._id);
+    } else {
+      setSelectedApplicantId(null);
     }
   };
 
@@ -1154,10 +1157,132 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
     }
   };
 
-  // Action 5: Dismiss Complaint
-  const handleDismissComplaint = (id) => {
-    setDisputesList(prev => prev.map(d => d.id === id ? { ...d, status: 'Dismissed' } : d));
-    addToast(`Complaint ${id} dismissed. Case closed.`, 'info');
+  // Action 5: Dismiss Complaint (Unfreezes reported user ID & escrow)
+  const handleDismissComplaint = async (id) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/disputes/${id}/dismiss`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminNotes: 'Dismissed by platform supervisor.' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to dismiss complaint');
+      addToast(data.message || `Complaint ${id} dismissed. Associated ID/Escrow restored.`, 'success');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  // Action 6: Resolve Complaint
+  const handleResolveComplaint = async (id, actionChoice = 'unfreeze') => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/disputes/${id}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolutionAction: actionChoice, adminNotes: 'Resolved by platform supervisor.' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to resolve complaint');
+      addToast(data.message || `Complaint ${id} resolved.`, 'success');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  // Action 7: Confirm Violation & Block User
+  const handleConfirmBlockDisputeUser = async (id) => {
+    if (!window.confirm('Are you sure you want to confirm this violation and permanently BLOCK the reported user account?')) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/disputes/${id}/block-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Confirmed violation of platform terms.' })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to block user');
+      addToast(data.message || `Reported user permanently BLOCKED.`, 'error');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  // Bulk Actions: Reject All Applicants & Campaigns to Trash
+  const handleRejectAllApplicants = async () => {
+    if (!window.confirm(`Are you sure you want to REJECT ALL (${vettingQueue.length}) pending applicant(s)? They will be moved to the Trash Database.`)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/vetting/reject-all`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reject all applicants');
+      addToast(`Rejected and moved ${data.rejectedCount || vettingQueue.length} applicant(s) to Trash Database.`, 'info');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  const handleRejectAllCampaigns = async () => {
+    if (!window.confirm(`Are you sure you want to REJECT ALL (${campaignsList.length}) pending campaign(s)? They will be moved to the Trash Database.`)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/campaigns/reject-all`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reject all campaigns');
+      addToast(`Rejected and moved ${data.rejectedCount || campaignsList.length} campaign(s) to Trash Database.`, 'info');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  // Trash Database Handlers
+  const handleRestoreTrashItem = async (trashId, title) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/trash/restore/${trashId}`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to restore item');
+      addToast(`Restored "${title || 'Item'}" from Trash Database back to active status.`, 'success');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  const handlePurgeTrashItem = async (trashId, title) => {
+    if (!window.confirm(`Permanently destroy "${title || 'this item'}"? It will be completely removed from the Trash Database.`)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/trash/${trashId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to purge item');
+      addToast(`Purged "${title || 'Item'}" permanently.`, 'info');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    if (!window.confirm('Are you sure you want to completely EMPTY the Trash Database? All trashed records will be permanently wiped.')) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/trash/empty`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to empty trash');
+      addToast('Trash Database emptied successfully.', 'info');
+      fetchDatabaseData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
   };
 
   // Render Login page if not authenticated
@@ -1375,7 +1500,8 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
             {activeTab === 'overview' ? 'dashboard_overview' :
               activeTab === 'verification' ? 'identity_vetting' :
                 activeTab === 'audits' ? 'campaign_vault' :
-                  activeTab === 'disputes' ? 'security_control' : 'immutable_ledger'}
+                  activeTab === 'disputes' ? 'security_control' :
+                    activeTab === 'trash' ? 'trash_archive' : 'immutable_ledger'}
           </span>
         </div>
 
@@ -1496,6 +1622,24 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   }`}
               >
                 <span>Activity Log</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('trash')}
+                className={`w-full text-left px-4 py-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${activeTab === 'trash'
+                  ? 'bg-[#111613] text-[#00E676] border-l-4 border-[#00E676]'
+                  : 'text-[#8E9B93] hover:bg-[#111613]/50 hover:text-[#E2E8F0]'
+                  }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-3.5 h-3.5 text-[#8E9B93]" />
+                  <span>Trash Database</span>
+                </div>
+                {trashList.length > 0 && (
+                  <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-mono">
+                    {trashList.length}
+                  </span>
+                )}
               </button>
             </nav>
           </div>
@@ -1752,7 +1896,17 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  {verificationSubTab === 'pending' && vettingQueue.length > 0 && (
+                    <button
+                      onClick={handleRejectAllApplicants}
+                      className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                      title="Reject all pending applicants and move them to Trash Database"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Reject All ({vettingQueue.length})</span>
+                    </button>
+                  )}
                   <div className="flex bg-[#0B0F0C] border border-[#1F2922] p-1 rounded-xl">
                     <button
                       onClick={() => setVerificationSubTab('pending')}
@@ -2033,7 +2187,15 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                           <tr key={founder._id} className="hover:bg-[#111613]/60 transition-colors">
                             <td className="p-4 font-sans font-medium flex items-center gap-2">
                               <span>{founder.name}</span>
-                              {founder.vettingStatus === 'hold' ? (
+                              {founder.vettingStatus === 'frozen' ? (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] border border-rose-500/40 bg-rose-500/20 text-rose-300 font-sans uppercase font-bold tracking-wide flex items-center gap-1">
+                                  <Lock className="w-2.5 h-2.5" /> FROZEN
+                                </span>
+                              ) : founder.vettingStatus === 'blocked' ? (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] border border-red-500/40 bg-red-500/20 text-red-400 font-sans uppercase font-bold tracking-wide">
+                                  BLOCKED
+                                </span>
+                              ) : founder.vettingStatus === 'hold' ? (
                                 <span className="px-1.5 py-0.5 rounded text-[8px] border border-amber-500/30 bg-amber-500/10 text-amber-400 font-sans uppercase font-bold tracking-wide">
                                   HOLD
                                 </span>
@@ -2114,7 +2276,15 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                           <tr key={investor._id} className="hover:bg-[#111613]/60 transition-colors">
                             <td className="p-4 font-sans font-medium flex items-center gap-2">
                               <span>{investor.name}</span>
-                              {investor.vettingStatus === 'hold' ? (
+                              {investor.vettingStatus === 'frozen' ? (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] border border-rose-500/40 bg-rose-500/20 text-rose-300 font-sans uppercase font-bold tracking-wide flex items-center gap-1">
+                                  <Lock className="w-2.5 h-2.5" /> FROZEN
+                                </span>
+                              ) : investor.vettingStatus === 'blocked' ? (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] border border-red-500/40 bg-red-500/20 text-red-400 font-sans uppercase font-bold tracking-wide">
+                                  BLOCKED
+                                </span>
+                              ) : investor.vettingStatus === 'hold' ? (
                                 <span className="px-1.5 py-0.5 rounded text-[8px] border border-amber-500/30 bg-amber-500/10 text-amber-400 font-sans uppercase font-bold tracking-wide">
                                   HOLD
                                 </span>
@@ -2187,7 +2357,17 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
+                <div className="flex items-center gap-3 flex-wrap font-mono text-xs">
+                  {auditSubTab === 'pending' && campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required').length > 0 && (
+                    <button
+                      onClick={handleRejectAllCampaigns}
+                      className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold rounded transition-colors cursor-pointer flex items-center gap-1.5"
+                      title="Reject all pending campaigns and move them to Trash Database"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Reject All ({campaignsList.filter(c => !c.verified && c.status !== 'rejected' && c.status !== 'revision_required').length})</span>
+                    </button>
+                  )}
                   <div className="flex bg-[#0B0F0C] border border-[#1F2922] p-1 rounded">
                     <button
                       onClick={() => setAuditSubTab('pending')}
@@ -2272,7 +2452,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             </span>
                           </div>
                           <p className="text-xs text-[#8E9B93] font-mono mt-1">
-                            Founder: <span className="text-[#E2E8F0] font-medium">{selectedAuditCampaign.founder?.name || 'Anika Rahman'}</span> ({selectedAuditCampaign.university || selectedAuditCampaign.founder?.university || 'BRAC University'})
+                            Founder: <span className="text-[#E2E8F0] font-medium">{selectedAuditCampaign.founder?.name || 'Student Founder'}</span> ({selectedAuditCampaign.university || selectedAuditCampaign.founder?.university || 'University Project'})
                           </p>
                         </div>
 
@@ -2342,29 +2522,31 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                       {/* Document Vault Cards */}
                       <div className="space-y-3 font-mono text-xs pt-2">
                         <span className="text-[10px] text-[#8E9B93] uppercase block tracking-wider font-semibold">UPLOADED PROPOSAL DOCUMENTS & AUDIT CERTIFICATIONS</span>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {(selectedAuditCampaign.documents || [
-                            { title: 'Pitch Deck PDF', filename: `${selectedAuditCampaign.title}_PitchDeck.pdf`, size: '2.5 MB' },
-                            { title: 'Financial Model', filename: `${selectedAuditCampaign.title}_Financials.xlsx`, size: '1.2 MB' },
-                            { title: 'University Approval', filename: `${selectedAuditCampaign.university || 'Univ'}_Approval.pdf`, size: '890 KB' }
-                          ]).map((doc, idx) => (
-                            <div key={idx} className="border border-[#1F2922] bg-[#0B0F0C] p-3 rounded flex flex-col justify-between space-y-2 hover:border-[#00E676]/30 transition-colors">
-                              <div>
-                                <span className="text-[#E2E8F0] font-medium block text-[11px]">{doc.title}</span>
-                                <span className="text-[10px] text-[#8E9B93] block truncate">{doc.filename}</span>
+                        {selectedAuditCampaign.documents && selectedAuditCampaign.documents.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {selectedAuditCampaign.documents.map((doc, idx) => (
+                              <div key={idx} className="border border-[#1F2922] bg-[#0B0F0C] p-3 rounded flex flex-col justify-between space-y-2 hover:border-[#00E676]/30 transition-colors">
+                                <div>
+                                  <span className="text-[#E2E8F0] font-medium block text-[11px]">{doc.title}</span>
+                                  <span className="text-[10px] text-[#8E9B93] block truncate">{doc.filename}</span>
+                                </div>
+                                <div className="flex items-center justify-between pt-1 border-t border-[#1F2922] text-[10px]">
+                                  <span className="text-[#8E9B93]">{doc.size || '1.5 MB'}</span>
+                                  <button
+                                    onClick={() => setDocPreviewModal(doc)}
+                                    className="text-[#00E676] hover:underline cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Eye className="w-3 h-3" /> View
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center justify-between pt-1 border-t border-[#1F2922] text-[10px]">
-                                <span className="text-[#8E9B93]">{doc.size || '1.5 MB'}</span>
-                                <button
-                                  onClick={() => setDocPreviewModal(doc)}
-                                  className="text-[#00E676] hover:underline cursor-pointer flex items-center gap-1"
-                                >
-                                  <Eye className="w-3 h-3" /> Inspect
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-[#0B0F0C] border border-[#1F2922] rounded text-center text-[#8E9B93] text-xs">
+                            No attached proposal documents uploaded for this campaign.
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -3182,9 +3364,16 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             {/* Reported Entity */}
                             <td className="p-4">
                               <span className="text-[#E2E8F0] font-medium block">{complaint.reportedUser}</span>
-                              <span className="px-1.5 py-0.5 rounded text-[9px] border border-amber-500/30 bg-amber-500/10 text-amber-400 font-sans uppercase">
-                                {complaint.reportedRole || 'Student Founder'}
-                              </span>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] border border-amber-500/30 bg-amber-500/10 text-amber-400 font-sans uppercase">
+                                  {complaint.reportedRole || 'Student Founder'}
+                                </span>
+                                {(complaint.userFrozen || complaint.status === 'Frozen') && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] border border-rose-500/40 bg-rose-500/20 text-rose-300 font-sans uppercase font-bold flex items-center gap-0.5">
+                                    <Lock className="w-2.5 h-2.5" /> ID FROZEN
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Severity */}
@@ -3202,14 +3391,16 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                             <td className="p-4">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                                 complaint.status === 'Dismissed' ? 'text-[#8E9B93] bg-[#0B0F0C] border border-[#1F2922]' :
+                                (complaint.status === 'Frozen' || complaint.userFrozen) ? 'text-rose-400 bg-rose-500/10 border border-rose-500/30' :
                                 complaint.status === 'Funds Frozen' ? 'text-sky-400 bg-sky-500/10 border border-sky-500/30' :
-                                'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
+                                complaint.status === 'Resolved' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30' :
+                                'text-amber-400 bg-amber-500/10 border border-amber-500/30'
                               }`}>
-                                {complaint.status}
+                                {complaint.userFrozen || complaint.status === 'Frozen' ? '🔒 ID FROZEN' : complaint.status}
                               </span>
                             </td>
 
-                            {/* 4 Direct Action Buttons Right Next to Complaint */}
+                            {/* Direct Action Buttons Right Next to Complaint */}
                             <td className="p-4 text-center">
                               <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                 {/* 1. Investigate */}
@@ -3220,28 +3411,22 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                                   <Eye className="w-3 h-3" /> Investigate
                                 </button>
 
-                                {/* 2. Freeze Funds */}
-                                <button
-                                  onClick={() => handleFreezeCampaignFundsAction(complaint.campaignId || complaint.campaignTitle, complaint.campaignTitle)}
-                                  className="px-2.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/25 border border-sky-500/30 text-sky-400 rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
-                                >
-                                  <Lock className="w-3 h-3" /> Freeze Funds
-                                </button>
-
-                                {/* 3. Block User */}
-                                <button
-                                  onClick={() => handleBlockUserAction(complaint.reportedUserId || complaint.reportedUser, complaint.reportedUser, complaint.reportedRole)}
-                                  className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-400 rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
-                                >
-                                  <Lock className="w-3 h-3" /> Block User
-                                </button>
-
-                                {/* 4. Dismiss */}
+                                {/* 2. Dismiss & Unfreeze ID */}
                                 <button
                                   onClick={() => handleDismissComplaint(complaint.id)}
-                                  className="px-2.5 py-1.5 bg-[#0B0F0C] hover:bg-[#111613] border border-[#1F2922] text-[#8E9B93] hover:text-[#E2E8F0] rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                                  className="px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                                  title="Dismiss complaint and restore user ID"
                                 >
-                                  <X className="w-3 h-3" /> Dismiss
+                                  <Unlock className="w-3 h-3" /> Dismiss & Unfreeze
+                                </button>
+
+                                {/* 3. Confirm Violation & Block */}
+                                <button
+                                  onClick={() => handleConfirmBlockDisputeUser(complaint.id)}
+                                  className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-400 rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                                  title="Confirm violation and permanently block user"
+                                >
+                                  <Lock className="w-3 h-3" /> Confirm & Block
                                 </button>
                               </div>
                             </td>
@@ -3424,6 +3609,196 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
                     </table>
                   ) : (
                     <div className="p-8 text-center text-[#8E9B93]">No administrative actions logged yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SCREEN [X]: TRASH DATABASE VIEW */}
+          {activeTab === 'trash' && (
+            <div className="space-y-8 animate-fadeIn text-left">
+              <div className="border border-[#1F2922] bg-[#111613] rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Trash2 className="w-5 h-5 text-red-400" />
+                    <h2 className="text-xl font-bold text-[#E2E8F0]">Trash Database</h2>
+                  </div>
+                  <p className="text-xs text-[#8E9B93]">
+                    Archived members, rejected campaigns, and vetting applicants. Restoring recovers data to active database state.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {trashList.length > 0 && (
+                    <button
+                      onClick={handleEmptyTrash}
+                      className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Empty All Trash</span>
+                    </button>
+                  )}
+                  <div className="flex bg-[#0B0F0C] border border-[#1F2922] p-1 rounded-xl">
+                    <button
+                      onClick={() => setTrashFilter('all')}
+                      className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                        trashFilter === 'all' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      All ({trashList.length})
+                    </button>
+                    <button
+                      onClick={() => setTrashFilter('member')}
+                      className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                        trashFilter === 'member' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      Members ({trashList.filter(t => t.entityType === 'member').length})
+                    </button>
+                    <button
+                      onClick={() => setTrashFilter('campaign')}
+                      className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                        trashFilter === 'campaign' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      Campaigns ({trashList.filter(t => t.entityType === 'campaign').length})
+                    </button>
+                    <button
+                      onClick={() => setTrashFilter('applicant')}
+                      className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                        trashFilter === 'applicant' ? 'bg-[#111613] text-[#00E676] border border-[#1F2922]' : 'text-[#8E9B93] hover:text-[#E2E8F0]'
+                      }`}
+                    >
+                      Applicants ({trashList.filter(t => t.entityType === 'applicant').length})
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3 Overview Stat Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="border border-[#1F2922] bg-[#111613] p-5 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono text-[#8E9B93] uppercase block font-semibold">TRASHED MEMBERS</span>
+                    <span className="text-2xl font-bold text-[#E2E8F0] mt-1 block">
+                      {trashList.filter(t => t.entityType === 'member').length}
+                    </span>
+                    <span className="text-[10px] text-[#8E9B93] mt-0.5 block">Soft-deleted founders & investors</span>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                    <Users className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="border border-[#1F2922] bg-[#111613] p-5 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono text-[#8E9B93] uppercase block font-semibold">TRASHED CAMPAIGNS</span>
+                    <span className="text-2xl font-bold text-[#E2E8F0] mt-1 block">
+                      {trashList.filter(t => t.entityType === 'campaign').length}
+                    </span>
+                    <span className="text-[10px] text-[#8E9B93] mt-0.5 block">Rejected / removed pitch drafts</span>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="border border-[#1F2922] bg-[#111613] p-5 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono text-[#8E9B93] uppercase block font-semibold">TRASHED APPLICANTS</span>
+                    <span className="text-2xl font-bold text-[#E2E8F0] mt-1 block">
+                      {trashList.filter(t => t.entityType === 'applicant').length}
+                    </span>
+                    <span className="text-[10px] text-[#8E9B93] mt-0.5 block">Bulk-rejected vetting queue items</span>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Trash Items Table */}
+              <div className="border border-[#1F2922] bg-[#111613] rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto font-mono text-xs">
+                  {trashList.filter(t => trashFilter === 'all' || t.entityType === trashFilter).length > 0 ? (
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#050806] border-b border-[#1F2922] text-[#8E9B93] font-medium">
+                          <th className="p-4 uppercase">Entity Type</th>
+                          <th className="p-4 uppercase">Title / Name</th>
+                          <th className="p-4 uppercase">Identifier</th>
+                          <th className="p-4 uppercase">Archived Reason</th>
+                          <th className="p-4 uppercase">Deleted At</th>
+                          <th className="p-4 uppercase text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1F2922] text-[#E2E8F0]">
+                        {trashList
+                          .filter(t => trashFilter === 'all' || t.entityType === trashFilter)
+                          .map((item) => (
+                            <tr key={item._id || item.id} className="hover:bg-[#111613]/80 transition-colors">
+                              <td className="p-4">
+                                <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                                  item.entityType === 'member'
+                                    ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                    : item.entityType === 'campaign'
+                                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                      : 'bg-red-500/15 text-red-300 border border-red-500/30'
+                                }`}>
+                                  {item.entityType}
+                                </span>
+                              </td>
+                              <td className="p-4 font-sans font-medium text-[#E2E8F0]">
+                                <div>
+                                  <span className="font-bold text-sm block">{item.title}</span>
+                                  {item.data?.email && (
+                                    <span className="text-[11px] text-[#8E9B93] font-mono block">{item.data.email}</span>
+                                  )}
+                                  {item.data?.university && (
+                                    <span className="text-[11px] text-[#8E9B93] font-mono block">{item.data.university}</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-4 text-[#8E9B93] font-mono text-[11px]">
+                                {item.entityId}
+                              </td>
+                              <td className="p-4 text-[#8E9B93] max-w-xs truncate">
+                                {item.reason || 'Manual deletion / rejection'}
+                              </td>
+                              <td className="p-4 text-[#8E9B93] whitespace-nowrap">
+                                {item.deletedAt ? new Date(item.deletedAt).toLocaleString() : 'Recently'}
+                              </td>
+                              <td className="p-4 text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleRestoreTrashItem(item._id || item.id, item.title)}
+                                    className="px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                                    title="Restore back to active database"
+                                  >
+                                    <RotateCcw className="w-3 h-3" /> Restore
+                                  </button>
+                                  <button
+                                    onClick={() => handlePurgeTrashItem(item._id || item.id, item.title)}
+                                    className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/30 text-red-400 rounded text-[10px] font-mono cursor-pointer flex items-center gap-1"
+                                    title="Permanently erase from trash"
+                                  >
+                                    <Trash2 className="w-3 h-3" /> Purge
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="p-12 text-center text-[#8E9B93] space-y-2">
+                      <Trash2 className="w-8 h-8 mx-auto opacity-30 text-[#8E9B93]" />
+                      <p className="font-sans font-medium text-xs">The trash database is clean.</p>
+                      <p className="text-[11px] text-[#8E9B93]/60">
+                        Items rejected or deleted from verification, campaigns, or members will be stored here.
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>

@@ -3499,6 +3499,21 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
           </div>
         </header>
 
+        {/* Frozen Account ID Banner (Active Complaint Filed) */}
+        {(profileUser.vettingStatus === 'frozen' || profileUser.vetting_status === 'frozen') && (
+          <div className="bg-rose-50 border-b border-rose-200 text-rose-900 px-8 py-3 flex items-center justify-between text-xs font-medium sticky top-16 z-15 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <Lock className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>
+                <strong>Account ID Frozen:</strong> An active complaint has been reported regarding this account. Your account ID, tranche withdrawals, and campaign escrow operations are temporarily frozen pending administrative decision.
+              </span>
+            </div>
+            <span className="bg-rose-200 text-rose-900 text-[10px] font-bold px-2.5 py-1 rounded font-mono uppercase tracking-wide">
+              FROZEN (PENDING DECISION)
+            </span>
+          </div>
+        )}
+
         {/* Pending Vetting Status Banner */}
         {(profileUser.vettingStatus === 'pending' || profileUser.vetting_status === 'pending') && (
           <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-900 px-8 py-2.5 flex items-center justify-between text-xs font-medium sticky top-16 z-15">

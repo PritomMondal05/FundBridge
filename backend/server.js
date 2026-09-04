@@ -20,6 +20,7 @@ import AuditLog from './models/AuditLog.js';
 import Message from './models/Message.js';
 import CampaignUpdate from './models/CampaignUpdate.js';
 import Notification from './models/Notification.js';
+import Trash from './models/Trash.js';
 import bcrypt from 'bcryptjs';
 
 dotenv.config();
@@ -932,6 +933,199 @@ const hydrateWalletDepositsFromSupabase = async () => {
 loadS3WalletDepositStore(); // S3
 hydrateWalletDepositsFromSupabase(); // S3
 
+// ========================================================
+// TRASH DATABASE PERSISTENT STORE & REPOSITORY
+// ========================================================
+const fallbackTrash = [];
+const S3_TRASH_STORE_PATH = path.join(__dirname, 's3_trash_store.json');
+const loadS3TrashStore = () => {
+  try {
+    if (!fs.existsSync(S3_TRASH_STORE_PATH)) return;
+    const raw = fs.readFileSync(S3_TRASH_STORE_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      fallbackTrash.length = 0;
+      fallbackTrash.push(...parsed);
+    }
+  } catch (e) {
+    console.warn('Trash store load notice:', e.message);
+  }
+};
+const persistS3TrashStore = () => {
+  try {
+    fs.writeFileSync(S3_TRASH_STORE_PATH, JSON.stringify(fallbackTrash, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Trash store save notice:', e.message);
+  }
+};
+loadS3TrashStore();
+
+const addToTrash = async ({ entityType, entityId, title, data, reason = 'Archived by administrator', deletedBy = 'ADMIN_PRITOM' }) => {
+  const trashEntry = {
+    id: 'trash_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+    entityType: entityType || 'member',
+    entityId: String(entityId || ''),
+    title: String(title || 'Untitled Record'),
+    data: data || {},
+    reason: String(reason || 'Archived by administrator'),
+    deletedBy: String(deletedBy || 'ADMIN_PRITOM'),
+    deletedAt: new Date().toISOString()
+  };
+  fallbackTrash.unshift(trashEntry);
+  persistS3TrashStore();
+
+  if (mongoose.connection.readyState === 1) {
+    try { await Trash.create(trashEntry); } catch (e) {}
+  }
+  if (isSupabaseConfigured && supabase) {
+    try { await supabase.from('trash').insert([trashEntry]); } catch (e) {}
+  }
+  return trashEntry;
+};
+
+const restoreFromTrash = async (trashId) => {
+  const idx = fallbackTrash.findIndex(t => t.id === trashId);
+  if (idx === -1) return null;
+  const item = fallbackTrash.splice(idx, 1)[0];
+  persistS3TrashStore();
+
+  if (mongoose.connection.readyState === 1) {
+    try { await Trash.deleteOne({ id: trashId }); } catch (e) {}
+  }
+  if (isSupabaseConfigured && supabase) {
+    try { await supabase.from('trash').delete().eq('id', trashId); } catch (e) {}
+  }
+
+  // Restore entity
+  if (item.entityType === 'member' || item.entityType === 'applicant') {
+    const orig = item.data;
+    const origId = item.entityId;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('users').update({ vetting_status: 'verified' }).eq('id', origId);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try { await User.findByIdAndUpdate(origId, { vettingStatus: 'verified' }); } catch (e) {}
+    }
+    const fu = fallbackUsers.find(u => u.id === origId || u._id === origId);
+    if (fu) {
+      fu.vettingStatus = 'verified';
+      fu.vetting_status = 'verified';
+    } else if (orig) {
+      fallbackUsers.push({ ...orig, vettingStatus: 'verified', vetting_status: 'verified' });
+    }
+  } else if (item.entityType === 'campaign') {
+    const orig = item.data;
+    const origId = item.entityId;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('campaigns').update({ status: 'verified', verified: true }).eq('id', origId);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try { await Campaign.findOneAndUpdate({ id: origId }, { status: 'verified', verified: true }); } catch (e) {}
+    }
+    const fc = fallbackCampaigns.find(c => c.id === origId || c._id === origId);
+    if (fc) {
+      fc.status = 'verified';
+      fc.verified = true;
+    } else if (orig) {
+      fallbackCampaigns.push({ ...orig, status: 'verified', verified: true });
+    }
+  }
+  return item;
+};
+
+const purgeFromTrash = async (trashId) => {
+  const idx = fallbackTrash.findIndex(t => t.id === trashId);
+  if (idx === -1) return false;
+  fallbackTrash.splice(idx, 1);
+  persistS3TrashStore();
+  if (mongoose.connection.readyState === 1) {
+    try { await Trash.deleteOne({ id: trashId }); } catch (e) {}
+  }
+  if (isSupabaseConfigured && supabase) {
+    try { await supabase.from('trash').delete().eq('id', trashId); } catch (e) {}
+  }
+  return true;
+};
+
+const emptyAllTrash = async () => {
+  fallbackTrash.length = 0;
+  persistS3TrashStore();
+  if (mongoose.connection.readyState === 1) {
+    try { await Trash.deleteMany({}); } catch (e) {}
+  }
+  if (isSupabaseConfigured && supabase) {
+    try { await supabase.from('trash').delete().neq('id', 'all_clear'); } catch (e) {}
+  }
+  return true;
+};
+
+// ========================================================
+// DISPUTES PERSISTENT STORE & FREEZE SYNC
+// ========================================================
+const fallbackDisputes = [];
+const S3_DISPUTES_STORE_PATH = path.join(__dirname, 's3_disputes.json');
+const loadS3DisputesStore = () => {
+  try {
+    if (!fs.existsSync(S3_DISPUTES_STORE_PATH)) return;
+    const parsed = JSON.parse(fs.readFileSync(S3_DISPUTES_STORE_PATH, 'utf8'));
+    if (Array.isArray(parsed)) {
+      fallbackDisputes.length = 0;
+      fallbackDisputes.push(...parsed);
+    }
+  } catch (e) {
+    console.warn('Disputes store load notice:', e.message);
+  }
+};
+const persistS3DisputesStore = () => {
+  try {
+    fs.writeFileSync(S3_DISPUTES_STORE_PATH, JSON.stringify(fallbackDisputes, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Disputes store save notice:', e.message);
+  }
+};
+loadS3DisputesStore();
+
+const syncOpenComplaintsUserFreeze = async () => {
+  try {
+    let disputes = [...fallbackDisputes];
+    if (isSupabaseConfigured && supabase) {
+      const { data } = await supabase.from('disputes').select('*');
+      if (Array.isArray(data)) {
+        const byId = new Map(disputes.map(d => [d.id, d]));
+        data.forEach(d => { if (d && d.id) byId.set(d.id, d); });
+        disputes = Array.from(byId.values());
+      }
+    }
+    const openDisputes = disputes.filter(d => d.status !== 'Dismissed' && d.status !== 'Resolved' && !String(d.status || '').toLowerCase().includes('dismiss'));
+    for (const disp of openDisputes) {
+      const rUser = disp.reported_user || disp.reportedUser;
+      const rUserId = disp.reported_user_id || disp.reportedUserId;
+      if (rUserId || rUser) {
+        if (isSupabaseConfigured && supabase) {
+          if (rUserId) {
+            await supabase.from('users').update({ vetting_status: 'frozen' }).eq('id', rUserId);
+          } else if (rUser) {
+            await supabase.from('users').update({ vetting_status: 'frozen' }).eq('name', rUser);
+          }
+        }
+        const fu = fallbackUsers.find(u => (rUserId && (u.id === rUserId || u._id === rUserId)) || (rUser && u.name === rUser));
+        if (fu) {
+          fu.vettingStatus = 'frozen';
+          fu.vetting_status = 'frozen';
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Sync open complaints freeze notice:', e.message);
+  }
+};
+setTimeout(syncOpenComplaintsUserFreeze, 3000);
+
+
 const ensureFounderWallet = (founderId) => {
   const id = String(founderId || '');
   if (!id) return { balance: 0, ledger: [] };
@@ -1805,8 +1999,24 @@ app.post('/api/users/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
+    // Sync latest status from Supabase if connected
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: supaUser } = await supabase.from('users').select('vetting_status').eq('email', email.toLowerCase()).maybeSingle();
+        if (supaUser && supaUser.vetting_status) {
+          user.vettingStatus = supaUser.vetting_status;
+        }
+      } catch (e) {}
+    }
+
+    if (user.vettingStatus === 'blocked') {
+      return res.status(403).json({ error: 'Your account has been blocked by administrators for platform policy violation.' });
+    }
+
     res.status(200).json({
-      message: 'Authentication successful.',
+      message: user.vettingStatus === 'frozen'
+        ? 'Account authenticated. Notice: Your profile ID is temporarily frozen pending resolution of an active complaint.'
+        : 'Authentication successful.',
       token: user.role === 'admin' ? 'jwt-admin-token-db-active' : 'jwt-user-token-db-active',
       user: {
         id: user.id || user._id,
@@ -1873,7 +2083,10 @@ app.get('/api/vetting/applicants', async (req, res) => {
   try {
     let pendingUsers = [];
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.from('users').select('*').eq('vetting_status', 'pending');
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('vetting_status', 'pending');
       if (!error && data) pendingUsers = data.map(normalizeUser);
     } else if (mongoose.connection.readyState === 1) {
       const users = await User.find({ vettingStatus: 'pending' });
@@ -1882,15 +2095,6 @@ app.get('/api/vetting/applicants', async (req, res) => {
       pendingUsers = fallbackUsers.filter(u => u.role !== 'admin' && (u.vettingStatus === 'pending' || u.vetting_status === 'pending')).map(normalizeUser);
     }
 
-    // Fallback seed if queue empty for demo testing
-    if (pendingUsers.length === 0 && fallbackUsers.length > 0) {
-      const demoApplicant = fallbackUsers.find(u => u.email === 'anika@brac.edu.bd') || fallbackUsers.find(u => u.role === 'founder');
-      if (demoApplicant) {
-        demoApplicant.vettingStatus = 'pending';
-        demoApplicant.vetting_status = 'pending';
-        pendingUsers.push(normalizeUser(demoApplicant));
-      }
-    }
     res.status(200).json(pendingUsers);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching vetting applicants.' });
@@ -1899,25 +2103,43 @@ app.get('/api/vetting/applicants', async (req, res) => {
 
 app.post('/api/vetting/status', async (req, res) => {
   try {
-    const { userId, status } = req.body;
+    const { userId, status, reason } = req.body;
     if (!userId || !status) return res.status(400).json({ error: 'User ID and status are required.' });
+
+    let targetUser = null;
 
     if (isSupabaseConfigured && supabase) {
       try {
+        const { data } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        if (data) targetUser = data;
         await supabase.from('users').update({ vetting_status: status, vetting_date: new Date().toISOString() }).eq('id', userId);
       } catch (e) {}
     }
     if (mongoose.connection.readyState === 1) {
       try {
+        const m = await User.findById(userId);
+        if (m) targetUser = m;
         await User.findByIdAndUpdate(userId, { vettingStatus: status });
       } catch (e) {}
     }
 
     const fu = fallbackUsers.find(u => u.id === userId || u._id === userId);
     if (fu) {
+      if (!targetUser) targetUser = fu;
       fu.vettingStatus = status;
       fu.vetting_status = status;
       fu.vettingDate = new Date().toISOString();
+    }
+
+    // When rejected, archive to trash database
+    if (status === 'rejected' && targetUser) {
+      await addToTrash({
+        entityType: 'applicant',
+        entityId: userId,
+        title: targetUser.name || 'Applicant',
+        data: normalizeUser(targetUser),
+        reason: reason || 'Application rejected by administrator'
+      });
     }
 
     await createAndDispatchNotification(
@@ -1930,6 +2152,50 @@ app.post('/api/vetting/status', async (req, res) => {
     res.status(200).json({ message: `Applicant status updated to ${status}.`, user: fu ? normalizeUser(fu) : { id: userId, vettingStatus: status } });
   } catch (err) {
     res.status(500).json({ error: 'Error updating vetting status.' });
+  }
+});
+
+// Bulk Reject All Pending Applicants & Archive to Trash
+app.post('/api/admin/vetting/reject-all', async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const rejectReason = reason || 'Bulk rejected by platform administrator';
+    let pendingUsers = [];
+
+    if (isSupabaseConfigured && supabase) {
+      const { data } = await supabase.from('users').select('*').eq('vetting_status', 'pending');
+      if (data) pendingUsers = data;
+    } else if (mongoose.connection.readyState === 1) {
+      pendingUsers = await User.find({ vettingStatus: 'pending' });
+    } else {
+      pendingUsers = fallbackUsers.filter(u => u.role !== 'admin' && (u.vettingStatus === 'pending' || u.vetting_status === 'pending'));
+    }
+
+    for (const user of pendingUsers) {
+      const uId = user.id || user._id;
+      if (isSupabaseConfigured && supabase) {
+        try { await supabase.from('users').update({ vetting_status: 'rejected' }).eq('id', uId); } catch (e) {}
+      }
+      if (mongoose.connection.readyState === 1) {
+        try { await User.findByIdAndUpdate(uId, { vettingStatus: 'rejected' }); } catch (e) {}
+      }
+      const fu = fallbackUsers.find(u => u.id === uId || u._id === uId);
+      if (fu) {
+        fu.vettingStatus = 'rejected';
+        fu.vetting_status = 'rejected';
+      }
+      await addToTrash({
+        entityType: 'applicant',
+        entityId: uId,
+        title: user.name || 'Applicant',
+        data: normalizeUser(user),
+        reason: rejectReason
+      });
+    }
+
+    res.status(200).json({ message: `Rejected and moved ${pendingUsers.length} applicants to trash database.` });
+  } catch (err) {
+    res.status(500).json({ error: 'Error in bulk reject vetting.' });
   }
 });
 
@@ -1995,70 +2261,140 @@ app.put('/api/admin/users/:userId', async (req, res) => {
 app.delete('/api/admin/users/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
+    let targetUser = fallbackUsers.find(u => u.id === userId || u._id === userId);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: supaUser } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+        if (supaUser) targetUser = supaUser;
+        await supabase.from('users').delete().eq('id', userId);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const mUser = await User.findById(userId);
+        if (mUser) targetUser = mUser;
+        await User.findByIdAndDelete(userId);
+      } catch (e) {}
+    }
+
     const idx = fallbackUsers.findIndex(u => u.id === userId || u._id === userId);
     if (idx >= 0) fallbackUsers.splice(idx, 1);
 
-    if (isSupabaseConfigured && supabase) {
-      try { await supabase.from('users').delete().eq('id', userId); } catch (e) {}
+    if (targetUser) {
+      await addToTrash({
+        entityType: 'member',
+        entityId: userId,
+        title: targetUser.name || 'Member',
+        data: normalizeUser(targetUser),
+        reason: 'Deleted by platform administrator'
+      });
     }
-    res.status(200).json({ message: 'User deleted from database.' });
+
+    res.status(200).json({ message: 'User deleted and archived to trash database.' });
   } catch (err) {
     res.status(500).json({ error: 'Error removing user.' });
   }
 });
 
+// TRASH DATABASE API ROUTES
+app.get('/api/admin/trash', async (req, res) => {
+  try {
+    res.status(200).json(fallbackTrash);
+  } catch (err) {
+    res.status(500).json({ error: 'Error fetching trash entries.' });
+  }
+});
+
+app.post('/api/admin/trash/restore/:id', async (req, res) => {
+  try {
+    const restored = await restoreFromTrash(req.params.id);
+    if (!restored) return res.status(404).json({ error: 'Trash item not found.' });
+    res.status(200).json({ message: 'Item restored successfully from trash.', item: restored });
+  } catch (err) {
+    res.status(500).json({ error: 'Error restoring item from trash.' });
+  }
+});
+
+app.delete('/api/admin/trash/:id', async (req, res) => {
+  try {
+    const purged = await purgeFromTrash(req.params.id);
+    if (!purged) return res.status(404).json({ error: 'Trash item not found.' });
+    res.status(200).json({ message: 'Item permanently deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error purging trash item.' });
+  }
+});
+
+app.post('/api/admin/trash/empty', async (req, res) => {
+  try {
+    await emptyAllTrash();
+    res.status(200).json({ message: 'Trash database emptied successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error emptying trash database.' });
+  }
+});
+
 app.get('/api/admin/users/founders', async (req, res) => {
   try {
-    const local = fallbackUsers.filter((u) => u.role === 'founder').map(normalizeUser);
-    if (local.length > 0) return res.status(200).json(local);
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.from('users').select('*').eq('role', 'founder');
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'founder')
+        .neq('vetting_status', 'trash');
       if (!error && data) return res.status(200).json(data.map(normalizeUser));
     }
     if (mongoose.connection.readyState === 1) {
-      const founders = await User.find({ role: 'founder' });
+      const founders = await User.find({ role: 'founder', vettingStatus: { $ne: 'trash' } });
       if (founders) return res.status(200).json(founders.map(normalizeUser));
     }
-    res.status(200).json([]);
+    const local = fallbackUsers.filter((u) => u.role === 'founder' && u.vettingStatus !== 'trash').map(normalizeUser);
+    res.status(200).json(local);
   } catch (err) {
-    res.status(200).json(fallbackUsers.filter(u => u.role === 'founder').map(normalizeUser));
+    res.status(500).json({ error: 'Error fetching founders.' });
   }
 });
 
 app.get('/api/users/founders', async (req, res) => {
   try {
-    // Local trimmed catalog only (do not leak Supabase's old 100-founder dump)
-    const local = fallbackUsers.filter((u) => u.role === 'founder').map(normalizeUser);
-    if (local.length > 0) return res.status(200).json(local);
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.from('users').select('*').eq('role', 'founder');
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'founder')
+        .neq('vetting_status', 'trash');
       if (!error && data) return res.status(200).json(data.map(normalizeUser));
     }
     if (mongoose.connection.readyState === 1) {
-      const founders = await User.find({ role: 'founder' });
+      const founders = await User.find({ role: 'founder', vettingStatus: { $ne: 'trash' } });
       if (founders) return res.status(200).json(founders.map(normalizeUser));
     }
-    res.status(200).json([]);
+    const local = fallbackUsers.filter((u) => u.role === 'founder' && u.vettingStatus !== 'trash').map(normalizeUser);
+    res.status(200).json(local);
   } catch (err) {
-    res.status(200).json(fallbackUsers.filter(u => u.role === 'founder').map(normalizeUser));
+    res.status(500).json({ error: 'Error fetching founders.' });
   }
 });
 
 app.get('/api/admin/users/investors', async (req, res) => {
   try {
-    const local = fallbackUsers.filter((u) => u.role === 'investor').map(normalizeUser);
-    if (local.length > 0) return res.status(200).json(local);
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.from('users').select('*').eq('role', 'investor');
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'investor')
+        .neq('vetting_status', 'trash');
       if (!error && data) return res.status(200).json(data.map(normalizeUser));
     }
     if (mongoose.connection.readyState === 1) {
-      const investors = await User.find({ role: 'investor' });
+      const investors = await User.find({ role: 'investor', vettingStatus: { $ne: 'trash' } });
       if (investors) return res.status(200).json(investors.map(normalizeUser));
     }
-    res.status(200).json([]);
+    const local = fallbackUsers.filter((u) => u.role === 'investor' && u.vettingStatus !== 'trash').map(normalizeUser);
+    res.status(200).json(local);
   } catch (err) {
-    res.status(200).json(fallbackUsers.filter(u => u.role === 'investor').map(normalizeUser));
+    res.status(500).json({ error: 'Error fetching investors.' });
   }
 });
 
@@ -2102,33 +2438,393 @@ app.get('/api/investors/:investorId/profile', async (req, res) => {
 
 app.get('/api/admin/stats', async (req, res) => {
   try {
-    let fc = fallbackUsers.filter(u => u.role === 'founder').length;
-    let ic = fallbackUsers.filter(u => u.role === 'investor').length;
+    let fc = 0;
+    let ic = 0;
     if (isSupabaseConfigured && supabase) {
-      const { data: usersData } = await supabase.from('users').select('role');
+      const { data: usersData } = await supabase.from('users').select('role, vetting_status');
       if (usersData) {
-        fc = usersData.filter(u => u.role === 'founder').length;
-        ic = usersData.filter(u => u.role === 'investor').length;
+        fc = usersData.filter(u => u.role === 'founder' && u.vetting_status !== 'trash').length;
+        ic = usersData.filter(u => u.role === 'investor' && u.vetting_status !== 'trash').length;
       }
+    } else if (mongoose.connection.readyState === 1) {
+      fc = await User.countDocuments({ role: 'founder', vettingStatus: { $ne: 'trash' } });
+      ic = await User.countDocuments({ role: 'investor', vettingStatus: { $ne: 'trash' } });
+    } else {
+      fc = fallbackUsers.filter(u => u.role === 'founder' && u.vettingStatus !== 'trash').length;
+      ic = fallbackUsers.filter(u => u.role === 'investor' && u.vettingStatus !== 'trash').length;
     }
     res.status(200).json({ totalFounders: fc, totalInvestors: ic });
   } catch (err) {
-    res.status(200).json({ totalFounders: 1, totalInvestors: 1 });
+    res.status(200).json({ totalFounders: 0, totalInvestors: 0 });
   }
 });
+
+// DISPUTES & COMPLAINT FREEZE APIS
+const normalizeDispute = (d) => {
+  if (!d) return null;
+  return {
+    ...d,
+    id: d.id,
+    issueType: d.issue_type || d.issueType || 'Incident Report',
+    issue_type: d.issue_type || d.issueType || 'Incident Report',
+    campaignTitle: d.campaign_title || d.campaignTitle || '',
+    campaign_title: d.campaign_title || d.campaignTitle || '',
+    campaignId: d.campaign_id || d.campaignId || '',
+    campaign_id: d.campaign_id || d.campaignId || '',
+    complainant: d.complainant_name || d.complainant || 'User',
+    complainantName: d.complainant_name || d.complainantName || d.complainant || 'User',
+    complainantRole: d.complainant_role || d.complainantRole || 'Investor',
+    complainant_role: d.complainant_role || d.complainantRole || 'Investor',
+    reportedUser: d.reported_user || d.reportedUser || 'Member',
+    reported_user: d.reported_user || d.reportedUser || 'Member',
+    reportedUserId: d.reported_user_id || d.reportedUserId || '',
+    reported_user_id: d.reported_user_id || d.reportedUserId || '',
+    reportedRole: d.reported_role || d.reportedRole || 'founder',
+    reported_role: d.reported_role || d.reportedRole || 'founder',
+    severity: d.severity || 'High',
+    status: d.status || 'Under Investigation (ID Frozen)',
+    description: d.description || '',
+    evidenceFile: d.evidence_file || d.evidenceFile || '',
+    createdAt: d.created_at || d.createdAt || new Date().toISOString(),
+    created_at: d.created_at || d.createdAt || new Date().toISOString()
+  };
+};
 
 app.get('/api/disputes', async (req, res) => {
   try {
+    let all = [...fallbackDisputes];
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.from('disputes').select('*').order('created_at', { ascending: false });
-      if (!error && data) return res.status(200).json(data);
+      if (!error && Array.isArray(data)) {
+        const byId = new Map(all.map(d => [d.id, d]));
+        data.forEach(d => { if (d && d.id) byId.set(d.id, d); });
+        all = Array.from(byId.values());
+      }
     }
-    res.status(200).json([]);
+    res.status(200).json(all.map(normalizeDispute));
   } catch (err) {
-    res.status(200).json([]);
+    res.status(200).json(fallbackDisputes.map(normalizeDispute));
   }
 });
 
+// Submit a new complaint -> Immediately freeze reported user ID and campaign escrow
+app.post('/api/disputes', async (req, res) => {
+  try {
+    const {
+      complainantName,
+      complainantRole,
+      reportedUser,
+      reportedUserId,
+      reportedRole,
+      campaignTitle,
+      campaignId,
+      issueType,
+      description,
+      severity
+    } = req.body;
+
+    const caseId = 'CMP-' + Math.floor(100 + Math.random() * 900);
+    const created_at = new Date().toISOString();
+    const disputeRow = {
+      id: caseId,
+      complainant_name: complainantName || 'Anonymous Reporter',
+      complainant_role: complainantRole || 'investor',
+      reported_user: reportedUser || 'Reported Profile',
+      reported_user_id: reportedUserId || null,
+      reported_role: reportedRole || 'founder',
+      campaign_title: campaignTitle || null,
+      campaign_id: campaignId || null,
+      issue_type: issueType || 'Policy Violation Concern',
+      description: description || 'Report submitted for administrative arbitration.',
+      evidence_file: null,
+      severity: severity || 'High',
+      status: 'Under Investigation (ID Frozen)',
+      created_at
+    };
+
+    // 1. FREEZE REPORTED USER'S ACCOUNT ID
+    if (reportedUserId || reportedUser) {
+      if (isSupabaseConfigured && supabase) {
+        try {
+          if (reportedUserId) {
+            await supabase.from('users').update({ vetting_status: 'frozen' }).eq('id', reportedUserId);
+          } else if (reportedUser) {
+            await supabase.from('users').update({ vetting_status: 'frozen' }).eq('name', reportedUser);
+          }
+        } catch (e) {}
+      }
+      if (mongoose.connection.readyState === 1) {
+        try {
+          if (reportedUserId) await User.findByIdAndUpdate(reportedUserId, { vettingStatus: 'frozen' });
+          else if (reportedUser) await User.findOneAndUpdate({ name: reportedUser }, { vettingStatus: 'frozen' });
+        } catch (e) {}
+      }
+      const fu = fallbackUsers.find(u => (reportedUserId && (u.id === reportedUserId || u._id === reportedUserId)) || (reportedUser && u.name === reportedUser));
+      if (fu) {
+        fu.vettingStatus = 'frozen';
+        fu.vetting_status = 'frozen';
+      }
+    }
+
+    // 2. FREEZE CAMPAIGN ESCROW IF LINKED
+    if (campaignId) {
+      if (isSupabaseConfigured && supabase) {
+        try {
+          await supabase.from('campaigns').update({ escrow_frozen: true }).eq('id', campaignId);
+        } catch (e) {}
+      }
+      const fc = fallbackCampaigns.find(c => c.id === campaignId || c._id === campaignId);
+      if (fc) fc.escrowFrozen = true;
+    }
+
+    // 3. PERSIST DISPUTE RECORD
+    fallbackDisputes.unshift(disputeRow);
+    persistS3DisputesStore();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('disputes').insert([disputeRow]);
+      } catch (e) {
+        console.warn('Supabase dispute insert notice:', e.message);
+      }
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await Dispute.create({
+          id: caseId,
+          complainantName: disputeRow.complainant_name,
+          complainantRole: disputeRow.complainant_role,
+          reportedUser: disputeRow.reported_user,
+          reportedUserId: disputeRow.reported_user_id,
+          reportedRole: disputeRow.reported_role,
+          campaignTitle: disputeRow.campaign_title,
+          campaignId: disputeRow.campaign_id,
+          issueType: disputeRow.issue_type,
+          description: disputeRow.description,
+          severity: disputeRow.severity,
+          status: disputeRow.status
+        });
+      } catch (e) {}
+    }
+
+    // 4. LOG AUDIT ACTION & NOTIFICATION
+    const targetUserId = reportedUserId || fu?._id || fu?.id || 'usr_founder_1';
+    await createAndDispatchNotification(
+      targetUserId,
+      `⚠️ Profile ID Frozen (Complaint Filed)`,
+      `An incident report (#${caseId}: "${issueType}") was submitted against your profile. Your account ID and activities are frozen pending administrative review.`,
+      'warning'
+    );
+
+    res.status(201).json({
+      message: `Report filed successfully. Reported profile ID has been frozen pending decision.`,
+      dispute: normalizeDispute(disputeRow)
+    });
+  } catch (err) {
+    console.error('Error filing dispute:', err);
+    res.status(500).json({ error: 'Failed to file report.' });
+  }
+});
+
+// Admin Decision 1: Dismiss complaint -> Automatically unfreeze user if no other active complaints
+app.post('/api/admin/disputes/:id/dismiss', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let targetDispute = fallbackDisputes.find(d => d.id === id);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data } = await supabase.from('disputes').select('*').eq('id', id).maybeSingle();
+        if (data) targetDispute = data;
+        await supabase.from('disputes').update({ status: 'Dismissed' }).eq('id', id);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const d = await Dispute.findOne({ id });
+        if (d) targetDispute = d;
+        await Dispute.findOneAndUpdate({ id }, { status: 'Dismissed' });
+      } catch (e) {}
+    }
+    if (targetDispute) {
+      targetDispute.status = 'Dismissed';
+      persistS3DisputesStore();
+    }
+
+    // Check if reported user has other unresolved complaints
+    const rUserId = targetDispute?.reported_user_id || targetDispute?.reportedUserId;
+    const rUser = targetDispute?.reported_user || targetDispute?.reportedUser;
+
+    let hasOtherOpenDisputes = false;
+    const allDisputes = [...fallbackDisputes];
+    for (const d of allDisputes) {
+      if (d.id !== id && (d.reported_user_id === rUserId || d.reported_user === rUser)) {
+        if (d.status !== 'Dismissed' && d.status !== 'Resolved' && !String(d.status || '').includes('Dismiss')) {
+          hasOtherOpenDisputes = true;
+          break;
+        }
+      }
+    }
+
+    // UNFREEZE USER ID IF NO REMAINING COMPLAINTS
+    if (!hasOtherOpenDisputes && (rUserId || rUser)) {
+      if (isSupabaseConfigured && supabase) {
+        try {
+          if (rUserId) await supabase.from('users').update({ vetting_status: 'verified' }).eq('id', rUserId);
+          else if (rUser) await supabase.from('users').update({ vetting_status: 'verified' }).eq('name', rUser);
+        } catch (e) {}
+      }
+      if (mongoose.connection.readyState === 1) {
+        try {
+          if (rUserId) await User.findByIdAndUpdate(rUserId, { vettingStatus: 'verified' });
+          else if (rUser) await User.findOneAndUpdate({ name: rUser }, { vettingStatus: 'verified' });
+        } catch (e) {}
+      }
+      const fu = fallbackUsers.find(u => (rUserId && (u.id === rUserId || u._id === rUserId)) || (rUser && u.name === rUser));
+      if (fu) {
+        fu.vettingStatus = 'verified';
+        fu.vetting_status = 'verified';
+      }
+
+      // Unfreeze campaign escrow if linked
+      const cId = targetDispute?.campaign_id || targetDispute?.campaignId;
+      if (cId) {
+        if (isSupabaseConfigured && supabase) {
+          try { await supabase.from('campaigns').update({ escrow_frozen: false }).eq('id', cId); } catch (e) {}
+        }
+        const fc = fallbackCampaigns.find(c => c.id === cId || c._id === cId);
+        if (fc) fc.escrowFrozen = false;
+      }
+
+      const targetId = rUserId || fu?._id || fu?.id || 'usr_founder_1';
+      await createAndDispatchNotification(
+        targetId,
+        `Complaint Dismissed - Account Unfrozen ✅`,
+        `Administrator dismissed complaint #${id}. Your account ID and activities are now restored and UNFROZEN.`,
+        'success'
+      );
+    }
+
+    res.status(200).json({
+      message: hasOtherOpenDisputes
+        ? `Complaint #${id} dismissed. Other unresolved complaints remain active.`
+        : `Complaint #${id} dismissed. Decision confirmed: User ID UNFROZEN.`,
+      dispute: targetDispute ? normalizeDispute(targetDispute) : null,
+      userUnfrozen: !hasOtherOpenDisputes
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to dismiss complaint.' });
+  }
+});
+
+// Admin Decision 2: Resolve complaint (explicit unfreeze or block)
+app.post('/api/admin/disputes/:id/resolve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, notes } = req.body; // action: 'unfreeze' | 'block'
+    let targetDispute = fallbackDisputes.find(d => d.id === id);
+
+    const newStatus = action === 'block' ? 'Resolved (User Blocked)' : 'Resolved (Unfrozen)';
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data } = await supabase.from('disputes').select('*').eq('id', id).maybeSingle();
+        if (data) targetDispute = data;
+        await supabase.from('disputes').update({ status: newStatus }).eq('id', id);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await Dispute.findOneAndUpdate({ id }, { status: newStatus });
+      } catch (e) {}
+    }
+    if (targetDispute) {
+      targetDispute.status = newStatus;
+      persistS3DisputesStore();
+    }
+
+    const rUserId = targetDispute?.reported_user_id || targetDispute?.reportedUserId;
+    const rUser = targetDispute?.reported_user || targetDispute?.reportedUser;
+
+    const userVettingStatus = action === 'block' ? 'blocked' : 'verified';
+    if (rUserId || rUser) {
+      if (isSupabaseConfigured && supabase) {
+        try {
+          if (rUserId) await supabase.from('users').update({ vetting_status: userVettingStatus }).eq('id', rUserId);
+          else if (rUser) await supabase.from('users').update({ vetting_status: userVettingStatus }).eq('name', rUser);
+        } catch (e) {}
+      }
+      if (mongoose.connection.readyState === 1) {
+        try {
+          if (rUserId) await User.findByIdAndUpdate(rUserId, { vettingStatus: userVettingStatus });
+          else if (rUser) await User.findOneAndUpdate({ name: rUser }, { vettingStatus: userVettingStatus });
+        } catch (e) {}
+      }
+      const fu = fallbackUsers.find(u => (rUserId && (u.id === rUserId || u._id === rUserId)) || (rUser && u.name === rUser));
+      if (fu) {
+        fu.vettingStatus = userVettingStatus;
+        fu.vetting_status = userVettingStatus;
+      }
+    }
+
+    res.status(200).json({ message: `Complaint resolved. User status set to ${userVettingStatus}.`, dispute: targetDispute });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to resolve complaint.' });
+  }
+});
+
+// Admin Decision 3: Confirm violation and block user
+app.post('/api/admin/disputes/:id/block-user', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let targetDispute = fallbackDisputes.find(d => d.id === id);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data } = await supabase.from('disputes').select('*').eq('id', id).maybeSingle();
+        if (data) targetDispute = data;
+        await supabase.from('disputes').update({ status: 'Action Taken (User Blocked)' }).eq('id', id);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await Dispute.findOneAndUpdate({ id }, { status: 'Action Taken (User Blocked)' });
+      } catch (e) {}
+    }
+    if (targetDispute) {
+      targetDispute.status = 'Action Taken (User Blocked)';
+      persistS3DisputesStore();
+    }
+
+    const rUserId = targetDispute?.reported_user_id || targetDispute?.reportedUserId;
+    const rUser = targetDispute?.reported_user || targetDispute?.reportedUser;
+
+    if (rUserId || rUser) {
+      if (isSupabaseConfigured && supabase) {
+        try {
+          if (rUserId) await supabase.from('users').update({ vetting_status: 'blocked' }).eq('id', rUserId);
+          else if (rUser) await supabase.from('users').update({ vetting_status: 'blocked' }).eq('name', rUser);
+        } catch (e) {}
+      }
+      if (mongoose.connection.readyState === 1) {
+        try {
+          if (rUserId) await User.findByIdAndUpdate(rUserId, { vettingStatus: 'blocked' });
+          else if (rUser) await User.findOneAndUpdate({ name: rUser }, { vettingStatus: 'blocked' });
+        } catch (e) {}
+      }
+      const fu = fallbackUsers.find(u => (rUserId && (u.id === rUserId || u._id === rUserId)) || (rUser && u.name === rUser));
+      if (fu) {
+        fu.vettingStatus = 'blocked';
+        fu.vetting_status = 'blocked';
+      }
+    }
+
+    res.status(200).json({ message: 'User confirmed blocked following complaint investigation.', dispute: targetDispute });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to block user.' });
+  }
+});
 
 // CAMPAIGN MANAGEMENT & ADMIN AUDIT APIS
 app.get('/api/campaigns', async (req, res) => {
@@ -2144,19 +2840,12 @@ app.get('/api/campaigns', async (req, res) => {
       rawList = fallbackCampaigns.map(normalizeCampaign);
     }
     // Filter public listing to verified campaigns only
-    const verifiedPublic = rawList.filter(c => c && (c.status === 'verified' || c.verified === true));
-    // S3: merge local verified campaigns (local wins) so investor MY INVESTMENTS can join local accepts
+    const verifiedPublic = rawList.filter(c => c && (c.status === 'verified' || c.verified === true) && c.status !== 'trash');
     const byId = new Map();
     verifiedPublic.forEach((c) => {
       const id = c && (c.id || c._id);
       if (id) byId.set(id, c);
     });
-    fallbackCampaigns.map(normalizeCampaign).forEach((c) => {
-      if (!c || !(c.status === 'verified' || c.verified === true)) return;
-      const id = c.id || c._id;
-      if (id) byId.set(id, c);
-    });
-    // S3: drop hollow seed duplicates (e.g. campusbites ৳450k with 0 milestones vs campusbites_1)
     res.status(200).json(s3DedupeLiveCampaigns(Array.from(byId.values())));
   } catch (err) {
     const verifiedPublic = fallbackCampaigns.map(normalizeCampaign).filter(c => c && (c.status === 'verified' || c.verified === true));
@@ -2164,16 +2853,15 @@ app.get('/api/campaigns', async (req, res) => {
   }
 });
 
-// S3: live campaigns a founder can watch (verified), including persisted local store — does not change GET /api/campaigns
+// S3: live campaigns a founder can watch (verified), including persisted local store
 app.get('/api/campaigns/watchable', async (req, res) => {
   try {
-    // Local trimmed catalog only — Supabase still holds the old 50+ campaign dump
     const byId = new Map();
     for (const raw of fallbackCampaigns) {
       const c = normalizeCampaign(raw);
       if (!c) continue;
       const live = c.verified === true || ['verified', 'open', 'live'].includes(String(c.status || '').toLowerCase());
-      if (!live) continue;
+      if (!live || c.status === 'trash') continue;
       const id = c.id || c._id;
       if (id) byId.set(id, c);
     }
@@ -2196,19 +2884,55 @@ app.get('/api/admin/campaigns/pending', async (req, res) => {
       allCampaigns = fallbackCampaigns.map(normalizeCampaign);
     }
 
-    const pending = allCampaigns.filter(c => c && (c.status === 'pending' || c.status === 'revisions' || !c.verified));
-    
-    // Ensure demo pending campaign exists for testing if queue is empty
-    if (pending.length === 0 && fallbackCampaigns.length > 0) {
-      const firstCamp = fallbackCampaigns[0];
-      firstCamp.status = 'pending';
-      firstCamp.verified = false;
-      pending.push(normalizeCampaign(firstCamp));
-    }
+    const pending = allCampaigns.filter(c => c && (c.status === 'pending' || c.status === 'revisions' || c.status === 'revision_required' || !c.verified) && c.status !== 'rejected' && c.status !== 'trash' && c.status !== 'blocked');
     
     res.status(200).json(pending);
   } catch (err) {
     res.status(500).json({ error: 'Error fetching pending campaigns.' });
+  }
+});
+
+// Bulk Reject All Pending Campaigns & Archive to Trash
+app.post('/api/admin/campaigns/reject-all', async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const rejectReason = reason || 'Bulk rejected by platform administrator';
+    let pendingCampaigns = [];
+
+    if (isSupabaseConfigured && supabase) {
+      const { data } = await supabase.from('campaigns').select('*').in('status', ['pending', 'revisions', 'revision_required']);
+      if (data) pendingCampaigns = data;
+    } else if (mongoose.connection.readyState === 1) {
+      pendingCampaigns = await Campaign.find({ verified: false });
+    } else {
+      pendingCampaigns = fallbackCampaigns.filter(c => c && (c.status === 'pending' || c.status === 'revisions' || !c.verified) && c.status !== 'rejected' && c.status !== 'trash');
+    }
+
+    for (const cmp of pendingCampaigns) {
+      const cId = cmp.id || cmp._id;
+      if (isSupabaseConfigured && supabase) {
+        try { await supabase.from('campaigns').update({ status: 'rejected', verified: false }).eq('id', cId); } catch (e) {}
+      }
+      if (mongoose.connection.readyState === 1) {
+        try { await Campaign.findOneAndUpdate({ id: cId }, { status: 'rejected', verified: false }); } catch (e) {}
+      }
+      const fc = fallbackCampaigns.find(c => c.id === cId || c._id === cId);
+      if (fc) {
+        fc.status = 'rejected';
+        fc.verified = false;
+      }
+      await addToTrash({
+        entityType: 'campaign',
+        entityId: cId,
+        title: cmp.title || 'Campaign',
+        data: normalizeCampaign(cmp),
+        reason: rejectReason
+      });
+    }
+
+    res.status(200).json({ message: `Rejected and archived ${pendingCampaigns.length} campaigns to trash database.` });
+  } catch (err) {
+    res.status(500).json({ error: 'Error in bulk reject campaigns.' });
   }
 });
 
@@ -2250,10 +2974,20 @@ app.post('/api/admin/campaigns/:id/reject', async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
+    let targetCamp = fallbackCampaigns.find(c => c.id === id || c._id === id);
 
     if (isSupabaseConfigured && supabase) {
       try {
+        const { data: supaCamp } = await supabase.from('campaigns').select('*').eq('id', id).maybeSingle();
+        if (supaCamp) targetCamp = supaCamp;
         await supabase.from('campaigns').update({ status: 'rejected', verified: false }).eq('id', id);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const m = await Campaign.findOne({ id });
+        if (m) targetCamp = m;
+        await Campaign.findOneAndUpdate({ id }, { status: 'rejected', verified: false });
       } catch (e) {}
     }
 
@@ -2264,17 +2998,66 @@ app.post('/api/admin/campaigns/:id/reject', async (req, res) => {
       cmp.rejectionReason = reason;
     }
 
-    const founderId = cmp?.founder_id || cmp?.founder?._id || 'usr_founder_1';
+    if (targetCamp) {
+      await addToTrash({
+        entityType: 'campaign',
+        entityId: id,
+        title: targetCamp.title || 'Campaign',
+        data: normalizeCampaign(targetCamp),
+        reason: reason || 'Campaign rejected during audit'
+      });
+    }
+
+    const founderId = targetCamp?.founder_id || targetCamp?.founder?._id || 'usr_founder_1';
     await createAndDispatchNotification(
       founderId,
       `Campaign Audit Status: Rejected ❌`,
-      `Your pitch "${cmp?.title || 'campaign'}" was not approved by Admin. Reason: ${reason || 'Compliance threshold mismatch'}.`,
+      `Your pitch "${targetCamp?.title || 'campaign'}" was not approved by Admin. Reason: ${reason || 'Compliance threshold mismatch'}.`,
       'warning'
     );
 
-    res.status(200).json({ message: 'Campaign rejected.', campaign: cmp ? normalizeCampaign(cmp) : null });
+    res.status(200).json({ message: 'Campaign rejected and archived to trash database.', campaign: cmp ? normalizeCampaign(cmp) : null });
   } catch (err) {
     res.status(500).json({ error: 'Error rejecting campaign.' });
+  }
+});
+
+app.delete('/api/admin/campaigns/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let targetCamp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data } = await supabase.from('campaigns').select('*').eq('id', id).maybeSingle();
+        if (data) targetCamp = data;
+        await supabase.from('campaigns').delete().eq('id', id);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const m = await Campaign.findOne({ id });
+        if (m) targetCamp = m;
+        await Campaign.findOneAndDelete({ id });
+      } catch (e) {}
+    }
+
+    const idx = fallbackCampaigns.findIndex(c => c.id === id || c._id === id);
+    if (idx >= 0) fallbackCampaigns.splice(idx, 1);
+
+    if (targetCamp) {
+      await addToTrash({
+        entityType: 'campaign',
+        entityId: id,
+        title: targetCamp.title || 'Campaign',
+        data: normalizeCampaign(targetCamp),
+        reason: 'Deleted by platform administrator'
+      });
+    }
+
+    res.status(200).json({ message: 'Campaign deleted and moved to trash database.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error deleting campaign.' });
   }
 });
 
@@ -2331,15 +3114,40 @@ app.post('/api/admin/campaigns/:id/pause-funding', async (req, res) => {
 app.post('/api/admin/campaigns/:id/block', async (req, res) => {
   try {
     const { id } = req.params;
+    let targetCamp = fallbackCampaigns.find(c => c.id === id || c._id === id);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: supaCamp } = await supabase.from('campaigns').select('*').eq('id', id).maybeSingle();
+        if (supaCamp) targetCamp = supaCamp;
+        await supabase.from('campaigns').update({ status: 'blocked', verified: false }).eq('id', id);
+      } catch (e) {}
+    }
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const mCamp = await Campaign.findOne({ id });
+        if (mCamp) targetCamp = mCamp;
+        await Campaign.findOneAndUpdate({ id }, { status: 'blocked', verified: false });
+      } catch (e) {}
+    }
+
     const cmp = fallbackCampaigns.find(c => c.id === id || c._id === id);
     if (cmp) {
       cmp.status = 'blocked';
       cmp.verified = false;
     }
-    if (isSupabaseConfigured && supabase) {
-      try { await supabase.from('campaigns').update({ status: 'blocked', verified: false }).eq('id', id); } catch (e) {}
+
+    if (targetCamp) {
+      await addToTrash({
+        entityType: 'campaign',
+        entityId: id,
+        title: targetCamp.title || 'Campaign',
+        data: normalizeCampaign(targetCamp),
+        reason: 'Campaign blocked and removed by administrator'
+      });
     }
-    res.status(200).json({ message: 'Campaign blocked.', campaign: cmp ? normalizeCampaign(cmp) : null });
+
+    res.status(200).json({ message: 'Campaign blocked and archived to trash database.', campaign: cmp ? normalizeCampaign(cmp) : null });
   } catch (err) {
     res.status(500).json({ error: 'Error blocking campaign.' });
   }
