@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "seed": "node seed.js"
+    "seed": "node generate_seed_data.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
@@ -17,8 +17,6 @@
     "express": "^4.19.2",
     "fundbridge-root": "file:..",
     "jsonwebtoken": "^9.0.2",
-    "mongodb-memory-server": "^11.2.0",
-    "mongoose": "^8.3.1",
     "multer": "^1.4.5-lts.1",
     "socket.io": "^4.7.5"
   },

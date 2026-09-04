@@ -15,8 +15,6 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
-    "dotenv": "^17.4.2",
-    "mongodb": "^7.5.0",
-    "mongoose": "^9.7.4"
+    "dotenv": "^17.4.2"
   }
 }

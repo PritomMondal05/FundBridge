@@ -264,7 +264,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       const healthRes = await fetch(`${API_BASE_URL}/api/health`);
       if (healthRes.ok) {
         const healthData = await healthRes.json();
-        setDbConnected(healthData.database === 'connected' || healthData.database === 'supabase' || healthData.database === 'mongodb' || healthData.database === 'supabase_active' || healthData.database === 'mongodb_connected');
+        setDbConnected(healthData.database === 'connected' || healthData.database === 'supabase' || healthData.database === 'supabase_active');
       }
 
       // 7. Fetch real database disputes (No dummy data)
