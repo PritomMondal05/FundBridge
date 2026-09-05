@@ -62,7 +62,7 @@ FundBridge/
 │   ├── routes/               # Modular Express API route definitions
 │   ├── utils/                # In-memory stores, file persistence & data normalizers
 │   ├── app.js                # Express app setup and middleware wiring
-│   └── server.js             # Server startup and Socket.IO listener (Port 5000)
+│   └── server.js             # Server startup and Socket.IO listener (Port 5001)
 ├── frontend/                 # React (Vite) Single Page Application
 │   ├── src/
 │   │   ├── components/       # Reusable UI components & modals
@@ -88,9 +88,9 @@ FundBridge/
 ## ⚡ Quick Start & Installation
 
 ### Prerequisites
-* **Node.js** (v18.0.0 or higher)
+* **Node.js** (v18.0.0 or higher, recommended v20 LTS)
 * **npm** (v9.0.0 or higher)
-* **Supabase Account** (for PostgreSQL database host)
+* **Supabase Account** (optional — platform includes automatic offline fallback catalog)
 
 ---
 
@@ -103,32 +103,43 @@ npm run install-all
 
 ---
 
-### 2. Database Setup (Supabase)
+### 2. Database Setup (Supabase / In-Memory Fallback)
+
+#### Option A: Supabase Cloud PostgreSQL (Recommended for Production)
 1. Log in to your [Supabase Dashboard](https://supabase.com).
 2. Create a new project or select an existing project.
 3. Open the **SQL Editor** -> **New query**.
-4. Run `supabase/01_schema_and_tables.sql` to initialize all 18 tables and relationships.
-5. Run `supabase/02_seed_initial_data.sql` to populate 100 verified founders, 30 investors, and 50 startup campaigns.
-6. Run `supabase/03_realtime_notifications.sql` to configure real-time notifications.
+4. Run the SQL migration scripts in this order:
+   - `supabase/01_schema_and_tables.sql` (Creates all 18 tables, relations, and pgcrypto)
+   - `supabase/02_seed_initial_data.sql` (Populates 100 founders, 30 investors, 50 campaigns)
+   - `supabase/03_realtime_notifications.sql` (Configures real-time notifications and indexes)
+5. Test your database connection anytime from terminal:
+   ```bash
+   npm run test:db
+   ```
+
+#### Option B: Offline / In-Memory Fallback (Zero Setup)
+If Supabase is not configured, the backend automatically boots using its built-in JSON catalog with 100 verified founders, 30 investors, 2 admins, and 50 startup campaigns. All edits and milestones persist locally to `backend/s3_*.json`.
 
 ---
 
 ### 3. Environment Setup
 
-Create `.env` files in both `backend` and `frontend` folders (or root as required):
+Pre-configured `.env` files are already included for local development. You can customize them if desired:
 
 **`backend/.env`**:
 ```env
-PORT=5000
-JWT_SECRET=your_jwt_secret_key_here
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-GEMINI_API_KEY=gemini_api_key
+PORT=5001
+SUPABASE_URL=https://eefbczvxcnceqjilrype.supabase.co
+SUPABASE_KEY=sb_publishable_zCJDrvH8o0SHZK_iDcU68w_ZyCAg9W8
+JWT_SECRET=fundbridge_jwt_secret_dev_2026
+GEMINI_API_KEY=your_optional_gemini_api_key
 ```
 
 **`frontend/.env`**:
 ```env
-VITE_API_BASE_URL=http://localhost:5000/api
+VITE_API_URL=http://localhost:5001
+VITE_API_BASE=http://localhost:5001
 ```
 
 ---
@@ -141,7 +152,25 @@ npm start
 ```
 
 * **Frontend UI**: [http://localhost:5173](http://localhost:5173)
-* **Backend API Health Check**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
+* **Backend API Health Check**: [http://localhost:5001/api/health](http://localhost:5001/api/health)
+* **Backend Campaigns Endpoint**: [http://localhost:5001/api/campaigns](http://localhost:5001/api/campaigns)
+
+> **Tip:** You can also run them in separate terminals:
+> - Backend only: `npm run backend` (or `cd backend && npm run dev`)
+> - Frontend only: `npm run frontend` (or `cd frontend && npm run dev`)
+
+---
+
+## 🔑 Demo Login Credentials
+
+The frontend Auth Modal includes **One-Click Demo Login** buttons for instant access:
+
+| Role | Email | Password | Access Level |
+|---|---|---|---|
+| **👑 Super Admin** | `admin@fundbridge.com` | `admin123` | Full verification, escrow approvals, campaign audits |
+| **💼 Alumni Investor** | `nazmus@gmail.com` | `1234` | Portfolio management, term sheets, direct chat |
+| **🚀 Student Founder** | `adibnayem@gmail.com` | `1234` | Pitch creation, milestone tranche claims, updates |
+| **🛡️ Backup Admin** | `admin2@fundbridge.com` | `admin123` | Secondary administrative management |
 
 ---
 
@@ -149,11 +178,12 @@ npm start
 
 From the workspace root directory, you can run:
 
+* `npm start`: Runs both frontend (Vite :5173) and backend (Express :5001) concurrently.
 * `npm run install-all`: Installs root, frontend, and backend packages.
-* `npm start`: Runs both frontend (Vite) and backend (Express) concurrently.
 * `npm run frontend`: Starts only the React frontend dev server (`http://localhost:5173`).
-* `npm run backend`: Starts only the Node.js backend server (`http://localhost:5000`).
-* `npm run seed`: Seeds initial demo campaigns and accounts into the database.
+* `npm run backend`: Starts only the Node.js backend server (`http://localhost:5001`).
+* `npm run test:db`: Tests Supabase connection and displays user table counts.
+* `npm run seed`: Generates and updates backend seed data.
 * `npm run build`: Installs all dependencies and builds the production bundle for frontend.
 
 ---
@@ -163,11 +193,12 @@ From the workspace root directory, you can run:
 FundBridge is ready for deployment on **Vercel**:
 1. Connect your repository to Vercel.
 2. Select Node.js as the runtime.
-3. Configure the environment variables (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `JWT_SECRET`).
-4. Vercel automatically detects [`vercel.json`](file:///e:/WWW/FundBridge/vercel.json) and routes API traffic through [`api/server.js`](file:///e:/WWW/FundBridge/api/server.js).
+3. Configure the environment variables (`SUPABASE_URL`, `SUPABASE_KEY`, `JWT_SECRET`).
+4. Vercel automatically detects [`vercel.json`](vercel.json) and routes API traffic through [`api/server.js`](api/server.js).
 
 ---
 
 ## 📝 License
 
 Distributed under the MIT License. See `LICENSE` for more information.
+

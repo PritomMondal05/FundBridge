@@ -327,7 +327,7 @@ export default function App() {
       const res = await fetch(`${API_BASE_URL}/api/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword })
+        body: JSON.stringify({ email: String(loginEmail || '').trim(), password: loginPassword })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
@@ -385,7 +385,7 @@ export default function App() {
     try {
       const formData = new FormData();
       formData.append('name', regName);
-      formData.append('email', regEmail);
+      formData.append('email', String(regEmail || '').trim());
       formData.append('password', regPassword);
       formData.append('role', registerRole);
 
@@ -1452,48 +1452,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 1-Click Demo Credentials */}
-                <div className="pt-2 border-t border-border-default/80">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">⚡ 1-Click Demo Fill</span>
-                    <span className="text-[10px] text-emerald-600 font-medium">Verified Accounts</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail('admin@fundbridge.com');
-                        setLoginPassword('admin123');
-                      }}
-                      className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-left transition-colors cursor-pointer group"
-                    >
-                      <div className="text-xs font-bold text-obsidian-base">👑 Admin</div>
-                      <div className="text-[10px] text-text-muted truncate">admin@fundbridge.com</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail('nazmus@gmail.com');
-                        setLoginPassword('1234');
-                      }}
-                      className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-left transition-colors cursor-pointer group"
-                    >
-                      <div className="text-xs font-bold text-obsidian-base">💼 Investor</div>
-                      <div className="text-[10px] text-text-muted truncate">nazmus@gmail.com</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail('adibnayem@gmail.com');
-                        setLoginPassword('1234');
-                      }}
-                      className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-left transition-colors cursor-pointer group"
-                    >
-                      <div className="text-xs font-bold text-obsidian-base">🚀 Founder</div>
-                      <div className="text-[10px] text-text-muted truncate">adibnayem@gmail.com</div>
-                    </button>
-                  </div>
-                </div>
 
                 <button
                   type="submit"

@@ -160,6 +160,48 @@ const ensureDefaultAdmins = () => {
 };
 ensureDefaultAdmins();
 
+// S3: Registered users persistence store so new registrations survive nodemon/server restarts
+const S3_REGISTERED_USERS_PATH = path.join(__dirname, 's3_registered_users.json');
+const loadPersistedRegisteredUsers = () => {
+  try {
+    if (fs.existsSync(S3_REGISTERED_USERS_PATH)) {
+      const data = JSON.parse(fs.readFileSync(S3_REGISTERED_USERS_PATH, 'utf8'));
+      if (Array.isArray(data)) {
+        for (const u of data) {
+          const uEmail = String(u.email || '').toLowerCase().trim();
+          const idx = fallbackUsers.findIndex(x => String(x.email || '').toLowerCase().trim() === uEmail);
+          if (idx !== -1) {
+            fallbackUsers[idx] = { ...fallbackUsers[idx], ...u };
+          } else {
+            fallbackUsers.push(u);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Registered users store read warning:', e.message);
+  }
+};
+const persistRegisteredUser = (userObj) => {
+  try {
+    let list = [];
+    if (fs.existsSync(S3_REGISTERED_USERS_PATH)) {
+      list = JSON.parse(fs.readFileSync(S3_REGISTERED_USERS_PATH, 'utf8')) || [];
+    }
+    const uEmail = String(userObj.email || '').toLowerCase().trim();
+    const idx = list.findIndex(x => String(x.email || '').toLowerCase().trim() === uEmail);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...userObj };
+    } else {
+      list.push(userObj);
+    }
+    fs.writeFileSync(S3_REGISTERED_USERS_PATH, JSON.stringify(list, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Persist registered user warning:', e.message);
+  }
+};
+loadPersistedRegisteredUsers();
+
 const fallbackCampaigns = [];
 
 // Populate kept demo campaigns (one per kept founder)
@@ -1450,6 +1492,17 @@ const normalizeUser = (u) => {
     studentId: u.student_id || u.studentId || '',
     studentIdCardImage: u.student_id_card_image || u.studentIdCardImage || '',
     nidCardImage: u.nid_card_image || u.nidCardImage || '',
+    nidOrPassport: u.nid_or_passport || u.nidOrPassport || '',
+    nid_or_passport: u.nid_or_passport || u.nidOrPassport || '',
+    nidOrPassportImage: u.nid_or_passport_image || u.nidOrPassportImage || '',
+    nid_or_passport_image: u.nid_or_passport_image || u.nidOrPassportImage || '',
+    credentialsImage: u.credentials_image || u.credentialsImage || '',
+    credentials_image: u.credentials_image || u.credentialsImage || '',
+    credentialsLink: u.credentials_link || u.credentialsLink || '',
+    credentials_link: u.credentials_link || u.credentialsLink || '',
+    bankOrMfs: u.bank_or_mfs || u.bankOrMfs || '',
+    bank_or_mfs: u.bank_or_mfs || u.bankOrMfs || '',
+    dob: u.dob || '',
     department: u.department || '',
     nid: u.nid || '',
     institution: u.institution || '',
@@ -1681,10 +1734,23 @@ app.post('/api/users/register', cpUpload, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = `usr_${Date.now()}`;
 
+    const studentIdCardImage = req.files?.['studentIdCardImage']?.[0]
+      ? `/uploads/${req.files['studentIdCardImage'][0].filename}`
+      : '';
+    const nidCardImage = req.files?.['nidCardImage']?.[0]
+      ? `/uploads/${req.files['nidCardImage'][0].filename}`
+      : '';
+    const nidOrPassportImage = req.files?.['nidOrPassportImage']?.[0]
+      ? `/uploads/${req.files['nidOrPassportImage'][0].filename}`
+      : '';
+    const credentialsImage = req.files?.['credentialsImage']?.[0]
+      ? `/uploads/${req.files['credentialsImage'][0].filename}`
+      : '';
+
     const newUserObj = {
       id: userId,
       name,
-      email: email.toLowerCase(),
+      email: String(email || '').toLowerCase().trim(),
       password: hashedPassword,
       role,
       vetting_status: 'pending',
@@ -1693,11 +1759,29 @@ app.post('/api/users/register', cpUpload, async (req, res) => {
       mfsNumber: mfsNumber || '01700000000',
       university: university || '',
       student_id: studentId || '',
+      studentId: studentId || '',
+      student_id_card_image: studentIdCardImage,
+      studentIdCardImage,
+      nid_card_image: nidCardImage,
+      nidCardImage,
+      nid_or_passport: nidOrPassport || '',
+      nidOrPassport: nidOrPassport || '',
+      nid_or_passport_image: nidOrPassportImage,
+      nidOrPassportImage,
+      credentials_image: credentialsImage,
+      credentialsImage,
+      credentials_link: credentialsLink || '',
+      credentialsLink: credentialsLink || '',
+      bank_or_mfs: bankOrMfs || '',
+      bankOrMfs: bankOrMfs || '',
+      dob: dob || '',
       department: department || '',
       nid: nid || '',
       institution: institution || '',
       affiliation_status: affiliationStatus || '',
-      passing_year: passingYear || ''
+      affiliationStatus: affiliationStatus || '',
+      passing_year: passingYear || '',
+      passingYear: passingYear || ''
     };
 
     let createdUser = null;
@@ -1713,6 +1797,14 @@ app.post('/api/users/register', cpUpload, async (req, res) => {
           mfs_number: mfsNumber || '01700000000',
           university: university || '',
           student_id: studentId || '',
+          student_id_card_image: studentIdCardImage,
+          nid_card_image: nidCardImage,
+          nid_or_passport: nidOrPassport || '',
+          nid_or_passport_image: nidOrPassportImage,
+          credentials_image: credentialsImage,
+          credentials_link: credentialsLink || '',
+          bank_or_mfs: bankOrMfs || '',
+          dob: dob || '',
           department: department || '',
           nid: nid || '',
           institution: institution || '',
@@ -1748,10 +1840,22 @@ app.post('/api/users/register', cpUpload, async (req, res) => {
       }
     }
 
-    const fallbackUser = normalizeUser(newUserObj);
-    fallbackUsers.push(fallbackUser);
+    const normalized = normalizeUser(newUserObj);
+    const fallbackUser = {
+      ...normalized,
+      password: hashedPassword
+    };
 
-    const userToReturn = createdUser || fallbackUser;
+    const cleanEmail = String(email || '').toLowerCase().trim();
+    const existingIdx = fallbackUsers.findIndex(u => String(u.email || '').toLowerCase().trim() === cleanEmail);
+    if (existingIdx !== -1) {
+      fallbackUsers[existingIdx] = fallbackUser;
+    } else {
+      fallbackUsers.push(fallbackUser);
+    }
+    persistRegisteredUser(fallbackUser);
+
+    const userToReturn = createdUser || normalized;
 
     res.status(201).json({
       message: 'Registration successful.',
@@ -1772,36 +1876,27 @@ app.post('/api/users/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
+    const em = String(email || '').toLowerCase().trim();
     let user = null;
-    // Prefer local trimmed seed so each founder gets a stable usr_founder_N id
-    // (Supabase still has the old 100-founder dump with mismatched ids).
-    const fbLogin = fallbackUsers.find((u) => String(u.email || '').toLowerCase() === String(email || '').toLowerCase());
+    let storedPassword = null;
+
+    // 1. Check local fallbackUsers (which includes registered users and seed users)
+    const fbLogin = fallbackUsers.find((u) => String(u.email || '').toLowerCase().trim() === em);
     if (fbLogin) {
       user = normalizeUser(fbLogin);
-      user.password = fbLogin.password;
+      storedPassword = fbLogin.password;
     }
 
-    if (!user && isSupabaseConfigured && supabase) {
+    // 2. If not found or password missing, check Supabase
+    if ((!user || !storedPassword) && isSupabaseConfigured && supabase) {
       try {
-        const { data: supaUser } = await supabase.from('users').select('*').eq('email', email.toLowerCase()).single();
+        const { data: supaUser } = await supabase.from('users').select('*').eq('email', em).single();
         if (supaUser) {
           user = normalizeUser(supaUser);
-          user.password = supaUser.password;
+          storedPassword = supaUser.password;
         }
       } catch (e) {
-        user = null;
-      }
-    }
-
-    if (!user && false) {
-      try {
-        const mongoUser = await User.findOne({ email: email.toLowerCase() });
-        if (mongoUser) {
-          user = normalizeUser(mongoUser);
-          user.password = mongoUser.password;
-        }
-      } catch (e) {
-        user = null;
+        if (!user) user = null;
       }
     }
 
@@ -1810,14 +1905,31 @@ app.post('/api/users/login', async (req, res) => {
     }
 
     let matches = false;
-    if (user.password === password) {
+    if (storedPassword && storedPassword === password) {
       matches = true;
-    } else if (user.password) {
+    } else if (storedPassword) {
       try {
-        matches = await bcrypt.compare(password, user.password);
+        matches = await bcrypt.compare(password, storedPassword);
       } catch (e) {
         matches = false;
       }
+    }
+
+    // 3. Fallback: check Supabase if local comparison didn't match
+    if (!matches && isSupabaseConfigured && supabase) {
+      try {
+        const { data: supaUser } = await supabase.from('users').select('*').eq('email', em).single();
+        if (supaUser && supaUser.password) {
+          if (supaUser.password === password) {
+            matches = true;
+          } else {
+            matches = await bcrypt.compare(password, supaUser.password).catch(() => false);
+          }
+          if (matches) {
+            user = normalizeUser(supaUser);
+          }
+        }
+      } catch (e) {}
     }
 
     if (!matches) {
@@ -1933,6 +2045,7 @@ app.post('/api/vetting/status', async (req, res) => {
       fu.vettingStatus = status;
       fu.vetting_status = status;
       fu.vettingDate = new Date().toISOString();
+      persistRegisteredUser(fu);
     }
 
     const statusKey = String(status || '').toLowerCase();

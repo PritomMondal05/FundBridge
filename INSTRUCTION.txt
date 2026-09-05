@@ -1,51 +1,172 @@
-=======================================================
-           HOW TO RUN FUNDBRIDGE PROJECT
-=======================================================
+======================================================================
+               HOW TO RUN THE FUNDBRIDGE PROJECT
+======================================================================
 
-1. FIRST TIME SETUP (Install Dependencies)
--------------------------------------------------------
-Open your terminal in this project folder and run:
-
-   npm run install-all
-
-
-2. DATABASE SETUP (Supabase)
--------------------------------------------------------
-- Go to https://supabase.com -> SQL Editor -> New query
-- Run "supabase/01_schema_and_tables.sql" to create database tables
-- Run "supabase/02_seed_initial_data.sql" to populate founders, investors & campaigns
-- Run "supabase/03_realtime_notifications.sql" to enable real-time notifications
-- To verify your database connection anytime, run:
-    npm run test:db
+TABLE OF CONTENTS
+-----------------
+1. Prerequisites
+2. Step 1: Install Dependencies
+3. Step 2: Environment Configuration (.env)
+4. Step 3: Database Setup (Supabase / In-Memory Fallback)
+5. Step 4: Start the Application
+6. Step 5: Access the Application
+7. Step 6: Demo Login Credentials
+8. Available NPM Commands
+9. Troubleshooting & Common Fixes
 
 
-3. HOW TO START THE PROJECT
--------------------------------------------------------
-In your terminal, simply run:
-
-   npm start
-
-This automatically starts BOTH the Frontend and Backend together!
-
-
-4. ACCESS THE APPLICATION
--------------------------------------------------------
-- Frontend UI:  http://localhost:5173
-- Backend API:  http://localhost:5001/api/health
+----------------------------------------------------------------------
+1. PREREQUISITES
+----------------------------------------------------------------------
+Ensure you have the following installed on your machine:
+- Node.js: v18.0.0 or higher (recommended: v20 LTS)
+- npm: v9.0.0 or higher
+- Git (optional, for version control)
 
 
-5. DEFAULT DEMO LOGIN CREDENTIALS
--------------------------------------------------------
-Admin Portal:
-  Email:    admin@fundbridge.com
-  Password: admin123
+----------------------------------------------------------------------
+2. STEP 1: INSTALL DEPENDENCIES
+----------------------------------------------------------------------
+Open your terminal in the root `FundBridge` project directory and run:
 
-Investor Portal:
-  Email:    nazmus@gmail.com
-  Password: 1234
+    npm run install-all
 
-Student Founder Portal:
-  Email:    adibnayem@gmail.com
-  Password: 1234
+This single command automatically installs all dependencies for:
+- Root workspace (concurrently & shared tools)
+- Backend (Express, Socket.IO, Supabase client, Bcrypt, JWT, etc.)
+- Frontend (React 19, Vite, Tailwind CSS v4, GSAP, Lucide icons, etc.)
 
-=======================================================
+
+----------------------------------------------------------------------
+3. STEP 2: ENVIRONMENT CONFIGURATION (.env)
+----------------------------------------------------------------------
+The project comes with pre-configured `.env` files for immediate local 
+development. Verify or adjust them if needed:
+
+A. Backend Environment (`backend/.env`):
+   PORT=5001
+   SUPABASE_URL=https://eefbczvxcnceqjilrype.supabase.co
+   SUPABASE_KEY=sb_publishable_zCJDrvH8o0SHZK_iDcU68w_ZyCAg9W8
+   JWT_SECRET=fundbridge_jwt_secret_dev_2026
+   GEMINI_API_KEY=your_optional_gemini_api_key
+
+B. Frontend Environment (`frontend/.env`):
+   VITE_API_URL=http://localhost:5001
+   VITE_API_BASE=http://localhost:5001
+
+
+----------------------------------------------------------------------
+4. STEP 3: DATABASE SETUP
+----------------------------------------------------------------------
+FundBridge supports TWO database modes:
+
+OPTION A: Supabase Cloud PostgreSQL (Recommended)
+-------------------------------------------------
+1. Log in to your Supabase project (https://supabase.com).
+2. Go to the "SQL Editor" -> Click "New query".
+3. Run the SQL migration scripts in this exact order:
+   - File 1: `supabase/01_schema_and_tables.sql`
+     (Creates all 18 tables, relationships, indexes, and pgcrypto)
+   - File 2: `supabase/02_seed_initial_data.sql`
+     (Seeds 100 founders, 30 investors, 50 campaigns, default admin)
+   - File 3: `supabase/03_realtime_notifications.sql`
+     (Enables real-time publication & high-speed indexing)
+4. Verify your database connection anytime by running:
+     npm run test:db
+
+OPTION B: Offline / In-Memory Fallback Mode (Zero-Config)
+---------------------------------------------------------
+- If Supabase is unavailable or credentials are omitted, the backend 
+  automatically switches to the built-in catalog with 100 student 
+  founders, 30 investors, 2 admins, and 50 startup campaigns.
+- Data edits, milestones, proposals, and chats are automatically saved 
+  locally to `backend/s3_*.json` files.
+
+
+----------------------------------------------------------------------
+5. STEP 4: START THE APPLICATION
+----------------------------------------------------------------------
+To start both the Frontend and Backend together with one command:
+
+    npm start
+
+This runs:
+- React (Vite) Frontend on:   http://localhost:5173
+- Node (Express) Backend on:  http://localhost:5001
+
+--------------------------------------------------
+ALTERNATIVE: Start in Separate Terminals (Optional)
+--------------------------------------------------
+If you prefer separate terminal tabs for debugging:
+
+Terminal 1 (Backend):
+    npm run backend
+    # or: cd backend && npm run dev
+
+Terminal 2 (Frontend):
+    npm run frontend
+    # or: cd frontend && npm run dev
+
+
+----------------------------------------------------------------------
+6. STEP 5: ACCESS THE APPLICATION
+----------------------------------------------------------------------
+- Frontend Web App:     http://localhost:5173
+- Backend API Health:   http://localhost:5001/api/health
+- API Campaigns:        http://localhost:5001/api/campaigns
+- Static File Uploads:  http://localhost:5001/uploads/
+
+
+----------------------------------------------------------------------
+7. STEP 6: DEMO LOGIN CREDENTIALS
+----------------------------------------------------------------------
+You can sign in using any of the preset roles below. 
+TIP: The Auth Modal on the website includes convenient ONE-CLICK 
+buttons for quick login as Admin, Investor, or Founder!
+
+1. 👑 Super Administrator Portal:
+   Email:       admin@fundbridge.com
+   Password:    admin123
+   (Backup Admin: admin2@fundbridge.com / admin123)
+
+2. 💼 Alumni Backer / Investor Portal:
+   Email:       nazmus@gmail.com
+   Password:    1234
+
+3. 🚀 Student Founder Portal:
+   Email:       adibnayem@gmail.com
+   Password:    1234
+
+
+----------------------------------------------------------------------
+8. AVAILABLE NPM COMMANDS
+----------------------------------------------------------------------
+Run these commands from the project root directory:
+
+- `npm start`         : Start both frontend and backend concurrently
+- `npm run install-all`: Install root, frontend, and backend packages
+- `npm run frontend`  : Start only the React (Vite) development server
+- `npm run backend`   : Start only the Express API server with nodemon
+- `npm run test:db`   : Test Supabase connection and query users table
+- `npm run seed`      : Generate/update seed data JSON catalog
+- `npm run build`     : Build the frontend for production deployment
+
+
+----------------------------------------------------------------------
+9. TROUBLESHOOTING & COMMON FIXES
+----------------------------------------------------------------------
+Q: Port 5001 or 5173 is already in use?
+A: On macOS/Linux, find and kill the process:
+     lsof -ti:5001 | xargs kill -9
+     lsof -ti:5173 | xargs kill -9
+   Or change the port in `backend/.env` and update `frontend/.env`.
+
+Q: Frontend fails to connect to the backend?
+A: Ensure backend is running on port 5001 and `frontend/.env` contains:
+     VITE_API_URL=http://localhost:5001
+
+Q: "Cannot find module" after pulling updates?
+A: Reinstall all dependencies:
+     npm run install-all
+
+======================================================================

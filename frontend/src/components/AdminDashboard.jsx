@@ -354,7 +354,7 @@ export default function AdminDashboard({ onLogout, API_BASE_URL, triggerAlert })
       const res = await fetch(`${API_BASE_URL}/api/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: adminEmail, password: adminPassword })
+        body: JSON.stringify({ email: String(adminEmail || '').trim(), password: adminPassword })
       });
       const data = await res.json();
 
