@@ -65,7 +65,7 @@ export default function TransactionMilestoneTracker({
   const [form, setForm] = useState({});
   const [filter, setFilter] = useState('all');
 
-  const loadList = useCallback(async () => {
+  const loadList = useCallback(async (preferId = null) => {
     if (!userId) return;
     setLoading(true);
     setError('');
@@ -79,7 +79,10 @@ export default function TransactionMilestoneTracker({
       if (!res.ok) throw new Error(data.error || 'Unable to load transactions.');
       const rows = Array.isArray(data) ? data : [];
       setList(rows);
-      setSelectedId((current) => current && rows.some((r) => r.id === current) ? current : (rows[0]?.id || ''));
+      setSelectedId((current) => {
+        if (preferId && rows.some((r) => r.id === preferId)) return preferId;
+        return current && rows.some((r) => r.id === current) ? current : (rows[0]?.id || '');
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -108,14 +111,32 @@ export default function TransactionMilestoneTracker({
     const socket = io(API_BASE_URL);
     if (userId) socket.emit('join_room', userId);
     const refresh = (payload) => {
+      if (payload?.partnershipId || payload?.id) {
+        const targetId = payload.partnershipId || payload.id;
+        loadList(targetId);
+      } else {
+        loadList();
+      }
       setTx((prev) => {
         if (!payload?.partnershipId || payload.partnershipId !== selectedId || !payload.partnership) return prev;
         if (prev?.updated_at && payload.updatedAt && payload.updatedAt < prev.updated_at) return prev;
         return payload.partnership;
       });
-      loadList();
     };
-    ['milestone_requested', 'milestone_funded', 'milestone_completion_submitted', 'milestone_verified', 'milestone_disputed', 'milestone_revision_requested', 'milestone_funding_rejected', 'milestone_progress'].forEach((ev) => socket.on(ev, refresh));
+    [
+      'milestone_requested',
+      'milestone_funded',
+      'milestone_completion_submitted',
+      'milestone_verified',
+      'milestone_disputed',
+      'milestone_revision_requested',
+      'milestone_funding_rejected',
+      'milestone_progress',
+      'milestone_updated',
+      'proposal_accepted',
+      'partnership_created',
+      'proposal_updated'
+    ].forEach((ev) => socket.on(ev, refresh));
     return () => socket.disconnect();
   }, [API_BASE_URL, userId, selectedId, loadList]);
 
@@ -164,8 +185,22 @@ export default function TransactionMilestoneTracker({
   }
   if (!list.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-        No investment transactions yet. They appear here after a proposal is accepted.
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 space-y-3">
+        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+          <Flag className="w-6 h-6" />
+        </div>
+        <h4 className="font-bold text-slate-800 text-base">No active investment transactions yet</h4>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          Investment deals appear here immediately after a proposal is accepted. Track tranches, request funding, and submit milestone proof in real time.
+        </p>
+        <button
+          type="button"
+          onClick={() => loadList()}
+          className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <span>Refresh Transactions</span>
+        </button>
       </div>
     );
   }

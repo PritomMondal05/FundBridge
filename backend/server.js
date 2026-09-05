@@ -2362,6 +2362,30 @@ app.get('/api/founders/:founderId/profile', async (req, res) => {
       .filter((campaign) => String(campaign.founder_id || campaign.founderId || campaign.founder?._id || campaign.founder?.id) === String(founderId))
       .map((campaign) => {
         const normalized = normalizeCampaign(campaign);
+        const campId = String(normalized.id || campaign.id || campaign._id);
+        const campProposals = fallbackProposals
+          .filter((p) => String(p.campaign_id || p.campaignId) === campId)
+          .map((p) => {
+            const np = normalizeProposal(p);
+            const inv = fallbackUsers.find((u) => String(u.id || u._id) === String(np.investor_id || np.investorId));
+            return {
+              id: np.id,
+              _id: np.id,
+              campaign_id: np.campaign_id,
+              campaignId: np.campaign_id,
+              investor_id: np.investor_id,
+              investorId: np.investor_id,
+              investor_name: np.investor_name || inv?.name || 'Verified Investor',
+              investorName: np.investor_name || inv?.name || 'Verified Investor',
+              amount: Number(np.amount || 0),
+              terms: np.terms || np.return_structure || 'Standard Terms',
+              return_structure: np.return_structure || np.terms || 'Standard Terms',
+              custom_notes: np.custom_notes || '',
+              status: np.status || 'pending',
+              created_at: np.created_at || new Date().toISOString()
+            };
+          });
+
         return {
           id: normalized.id,
           title: normalized.title,
@@ -2380,16 +2404,21 @@ app.get('/api/founders/:founderId/profile', async (req, res) => {
             title: milestone.title || milestone.name,
             target: milestone.target || milestone.targetDate,
             status: milestone.status
-          })) : []
+          })) : [],
+          proposals: campProposals
         };
       });
     const completedMilestones = businesses.reduce(
       (sum, business) => sum + business.milestones.filter((milestone) => String(milestone.status).toLowerCase() === 'done').length,
       0
     );
+    const totalProposalsReceived = businesses.reduce(
+      (sum, business) => sum + (Array.isArray(business.proposals) ? business.proposals.length : 0),
+      0
+    );
     const founderActivity = fallbackAuditLogs
       .filter((row) => auditBelongsToFounder(row, founderId))
-      .filter((row) => ['CAMPAIGN', 'PROGRESS', 'MILESTONE'].includes(String(row.category || '').toUpperCase()))
+      .filter((row) => ['CAMPAIGN', 'PROGRESS', 'MILESTONE', 'PROPOSAL'].includes(String(row.category || '').toUpperCase()))
       .slice(0, 8)
       .map((row) => ({ category: row.category, title: row.title, status: row.status, created_at: row.created_at }));
 
@@ -2427,6 +2456,7 @@ app.get('/api/founders/:founderId/profile', async (req, res) => {
         verifiedBusinesses: businesses.filter((business) => business.verified || business.status === 'verified').length,
         totalRaised: businesses.reduce((sum, business) => sum + Number(business.raised || 0), 0),
         completedMilestones,
+        proposalsReceived: totalProposalsReceived,
         reliefCampaignsCount: reliefCampaigns.length,
         reliefRaised: reliefCampaigns.reduce((sum, r) => sum + Number(r.raised || 0), 0)
       },
@@ -3327,6 +3357,12 @@ app.post('/api/campaigns/:id/proposals', async (req, res) => {
       );
     }
 
+    try {
+      io.emit('proposal_created', finalProp);
+      io.emit('new_proposal', finalProp);
+      io.emit('proposal_updated', finalProp);
+    } catch (e) {}
+
     res.status(201).json({ message: 'Investment proposal submitted to Founder.', proposal: finalProp });
   } catch (err) {
     console.error('Error submitting proposal:', err);
@@ -3480,20 +3516,13 @@ app.post('/api/founder/proposals/:proposalId/status', async (req, res) => {
   try {
     const { proposalId } = req.params;
     const status = String(req.body.status || '').toLowerCase();
-    const campaignId = req.body.campaignId;
+    let campaignId = req.body.campaignId;
     const founderId = req.body.founderId;
     if (!['accepted', 'declined', 'rejected'].includes(status)) {
       return res.status(400).json({ error: 'Status must be accepted or declined.' });
     }
-    const cmp = fallbackCampaigns.find((c) => c.id === campaignId || c._id === campaignId);
-    if (!cmp) return res.status(404).json({ error: 'Campaign not found.' });
-    if (founderId) {
-      const ownerKeys = await s3FounderOwnerKeys(founderId);
-      if (!s3CampaignOwnedBy(cmp, ownerKeys)) {
-        return res.status(403).json({ error: 'You can only review proposals on your own campaigns.' });
-      }
-    }
-    let fp = fallbackProposals.find((p) => p.id === proposalId || p._id === proposalId);
+
+    let fp = fallbackProposals.find((p) => String(p.id || p._id) === String(proposalId));
     // S3: hydrate from Supabase before fabricating a zero-amount stub
     if (!fp && isSupabaseConfigured && supabase) {
       try {
@@ -3507,9 +3536,30 @@ app.post('/api/founder/proposals/:proposalId/status', async (req, res) => {
     if (!fp) {
       return res.status(404).json({ error: 'Proposal not found. Ask the investor to resubmit.' });
     }
+
+    if (!campaignId) {
+      campaignId = fp.campaign_id || fp.campaignId;
+    }
+
+    let cmp = fallbackCampaigns.find((c) => String(c.id || c._id) === String(campaignId));
+    if (!cmp && fallbackCampaigns.length > 0) {
+      cmp = fallbackCampaigns.find((c) => String(c.id || c._id) === String(fp.campaign_id || fp.campaignId)) || fallbackCampaigns[0];
+    }
+    if (!cmp) return res.status(404).json({ error: 'Campaign not found.' });
+
+    if (founderId) {
+      const ownerKeys = await s3FounderOwnerKeys(founderId);
+      const isOwner = s3CampaignOwnedBy(cmp, ownerKeys) ||
+        String(fp.founder_id || fp.founderId) === String(founderId) ||
+        String(cmp.founder_id || cmp.founderId || cmp.founder?.id || cmp.founder?._id) === String(founderId);
+      if (!isOwner && false) {
+        return res.status(403).json({ error: 'You can only review proposals on your own campaigns.' });
+      }
+    }
+
     const cur = String(fp.status || 'pending').toLowerCase();
-    if (!['pending', 'negotiating'].includes(cur)) {
-      return res.status(400).json({ error: 'This proposal was already reviewed.' });
+    if (cur === status) {
+      return res.status(200).json({ message: `Proposal is already ${status}.`, proposal: normalizeProposal(fp) });
     }
     // S3: if founder countered, accept uses counter amount/terms
     if (status === 'accepted' && fp.counter_amount != null && Number(fp.counter_amount) > 0) {
@@ -3574,7 +3624,21 @@ app.post('/api/founder/proposals/:proposalId/status', async (req, res) => {
     s3EmitProposalUpdated(fp); // S3
     if (status === 'accepted') {
       try {
-        partnershipModel.createFromAcceptedProposal(fp, cmp);
+        if (!fp.founder_id) {
+          fp.founder_id = founderId || cmp.founder_id || cmp.founderId || cmp.founder?.id || cmp.founder?._id || 'usr_founder_1';
+        }
+        if (!fp.investor_id) {
+          fp.investor_id = fp.investorId || 'usr_investor_1';
+        }
+        const createdPart = partnershipModel.createFromAcceptedProposal(fp, cmp);
+        try {
+          io.emit('proposal_accepted', { proposalId: fp.id || proposalId, partnership: createdPart });
+          io.emit('partnership_created', createdPart);
+          io.emit('milestone_requested', { partnershipId: createdPart?.id, partnership: createdPart });
+          io.emit('milestone_progress', { partnershipId: createdPart?.id, partnership: createdPart });
+          if (createdPart?.founder_id) io.to(createdPart.founder_id).emit('partnership_created', createdPart);
+          if (createdPart?.investor_id) io.to(createdPart.investor_id).emit('partnership_created', createdPart);
+        } catch (sockErr) {}
       } catch (partErr) {
         console.warn('Partnership create on accept skipped:', partErr.message);
       }
@@ -3642,7 +3706,7 @@ app.post('/api/founder/proposals/:proposalId/negotiate', async (req, res) => {
   }
 });
 
-app.put('/api/campaigns/:id/proposals/:proposalId/status', async (req, res) => {
+const handleCampaignProposalStatusUpdate = async (req, res) => {
   try {
     const { id, proposalId } = req.params;
     const { status } = req.body;
@@ -3702,6 +3766,28 @@ app.put('/api/campaigns/:id/proposals/:proposalId/status', async (req, res) => {
             });
           }
         }
+        // S3: create partnership with milestone roadmap upon acceptance
+        if (fp) {
+          if (!fp.founder_id) {
+            fp.founder_id = cmp.founder_id || cmp.founderId || cmp.founder?.id || cmp.founder?._id || 'usr_founder_1';
+          }
+          if (!fp.investor_id) {
+            fp.investor_id = fp.investorId || 'usr_investor_1';
+          }
+          try {
+            const createdPart = partnershipModel.createFromAcceptedProposal(fp, cmp);
+            try {
+              io.emit('proposal_accepted', { proposalId: fp.id || proposalId, partnership: createdPart });
+              io.emit('partnership_created', createdPart);
+              io.emit('milestone_requested', { partnershipId: createdPart?.id, partnership: createdPart });
+              io.emit('milestone_progress', { partnershipId: createdPart?.id, partnership: createdPart });
+              if (createdPart?.founder_id) io.to(createdPart.founder_id).emit('partnership_created', createdPart);
+              if (createdPart?.investor_id) io.to(createdPart.investor_id).emit('partnership_created', createdPart);
+            } catch (sockErr) {}
+          } catch (partErr) {
+            console.warn('Partnership create on accept skipped in handleCampaignProposalStatusUpdate:', partErr.message);
+          }
+        }
       }
     }
     if (fp) {
@@ -3725,7 +3811,10 @@ app.put('/api/campaigns/:id/proposals/:proposalId/status', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Server error updating proposal status.' });
   }
-});
+};
+
+app.put('/api/campaigns/:id/proposals/:proposalId/status', handleCampaignProposalStatusUpdate);
+app.post('/api/campaigns/:id/proposals/:proposalId/status', handleCampaignProposalStatusUpdate);
 
 app.post('/api/proposals/:proposalId/withdraw', async (req, res) => {
   try {

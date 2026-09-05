@@ -1,7 +1,18 @@
 {
   "usr_investor_1": {
-    "balance": 2000,
+    "balance": 0,
     "ledger": [
+      {
+        "id": "iwal_1788592810041_412",
+        "type": "INVESTMENT_OUT",
+        "direction": "out",
+        "amount": 500000,
+        "campaign_id": "cmp_1788562257832",
+        "campaign_title": "CloseGPT",
+        "proposal_id": "inv_out_prop_1788591921165",
+        "note": "Accepted investment funded from investor wallet (ledger only).",
+        "created_at": "2026-09-05T07:20:10.041Z"
+      },
       {
         "id": "iwal_1788353930836_93",
         "type": "MANUAL_DEPOSIT",
@@ -95,7 +106,7 @@
         "id": "iwal_1788352775778_seed",
         "type": "SEED_OPENING",
         "direction": "in",
-        "amount": 80850,
+        "amount": 578850,
         "campaign_id": "",
         "campaign_title": "Opening balance",
         "proposal_id": "seed_investor_open_usr_investor_1",

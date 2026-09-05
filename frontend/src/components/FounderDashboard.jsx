@@ -260,17 +260,36 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
         setAllCampaigns(allCampData);
       }
 
-      // If founder has active campaign, fetch proposals for that campaign
-      const activeCamp = userCampaigns.length > 0 ? userCampaigns[0] : null;
-      if (activeCamp) {
-        const campId = activeCamp.id || activeCamp._id;
-        const propRes = await fetch(`${API_BASE_URL}/api/proposals/campaign/${campId}`);
+      // Fetch all proposals for this Founder across all their campaigns
+      let propData = [];
+      try {
+        const propRes = await fetch(`${API_BASE_URL}/api/proposals/founder/${userId}`);
         if (propRes.ok) {
-          const propData = await propRes.json();
-          setProposals(propData);
-          if (propData.length > 0) {
-            setSelectedProposal(propData[0]);
-          }
+          propData = await propRes.json();
+        }
+      } catch (e) {}
+
+      // Fallback to campaign-specific queries if founder route returned empty
+      if ((!propData || propData.length === 0) && userCampaigns.length > 0) {
+        for (const uc of userCampaigns) {
+          const campId = uc.id || uc._id;
+          if (!campId) continue;
+          try {
+            const r = await fetch(`${API_BASE_URL}/api/proposals/campaign/${campId}`);
+            if (r.ok) {
+              const d = await r.json();
+              if (Array.isArray(d)) {
+                propData = [...propData, ...d];
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (Array.isArray(propData)) {
+        setProposals(propData);
+        if (propData.length > 0 && !selectedProposal) {
+          setSelectedProposal(propData[0]);
         }
       }
 
@@ -393,6 +412,34 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
     fetchDatabaseData();
   }, [currentUser]);
 
+  useEffect(() => {
+    const socket = io(API_BASE_URL);
+    const founderId = currentUser?.id || currentUser?._id || user.id;
+    if (founderId) {
+      socket.emit('join_room', founderId);
+    }
+    const handleProposalEvent = (prop) => {
+      fetchDatabaseData();
+      if (prop?.amount) {
+        showToast(`New investment proposal received: ৳ ${Number(prop.amount).toLocaleString()}!`, 'info');
+      }
+    };
+    socket.on('proposal_created', handleProposalEvent);
+    socket.on('new_proposal', handleProposalEvent);
+    socket.on('proposal_updated', () => fetchDatabaseData());
+    socket.on('proposal_accepted', () => fetchDatabaseData());
+    socket.on('partnership_created', () => fetchDatabaseData());
+
+    return () => {
+      socket.off('proposal_created', handleProposalEvent);
+      socket.off('new_proposal', handleProposalEvent);
+      socket.off('proposal_updated');
+      socket.off('proposal_accepted');
+      socket.off('partnership_created');
+      socket.disconnect();
+    };
+  }, [currentUser, API_BASE_URL]);
+
   // Active Campaign Object
   const activeCampaign = campaigns.length > 0 ? campaigns[0] : null;
 
@@ -402,23 +449,41 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
   ) || null;
 
   // Handle Proposal Status Update (Accept/Decline)
-  const handleProposalStatus = async (proposalId, status) => {
-    if (!activeCampaign) return;
-    const campId = activeCampaign.id || activeCampaign._id;
+  const handleProposalStatus = async (proposalId, status, specificCampId = null) => {
+    const targetProposal = proposals.find((p) => String(p.id || p._id) === String(proposalId));
+    const campId = specificCampId || targetProposal?.campaign_id || targetProposal?.campaignId || (activeCampaign?.id || activeCampaign?._id);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/campaigns/${campId}/proposals/${proposalId}/status`, {
+      let errPayload = null;
+      let res = await fetch(`${API_BASE_URL}/api/founder/proposals/${encodeURIComponent(proposalId)}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, founderId: user.id || user._id, campaignId: campId })
       });
+      if (!res.ok) {
+        errPayload = await res.json().catch(() => ({}));
+      }
+      if (!res.ok && campId) {
+        res = await fetch(`${API_BASE_URL}/api/campaigns/${encodeURIComponent(campId)}/proposals/${encodeURIComponent(proposalId)}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, founderId: user.id || user._id })
+        });
+        if (!res.ok) {
+          errPayload = await res.json().catch(() => ({}));
+        }
+      }
       if (res.ok) {
-        showToast(`Investor proposal ${status.toUpperCase()} successfully!`, 'success');
+        if (status === 'accepted') {
+          showToast(`Investor proposal ACCEPTED! Milestone tracker is now active.`, 'success');
+        } else {
+          showToast(`Investor proposal ${status.toUpperCase()} successfully!`, 'info');
+        }
         fetchDatabaseData();
       } else {
-        showToast('Failed to update proposal status.', 'error');
+        showToast(errPayload?.error || 'Failed to update proposal status.', 'error');
       }
     } catch (err) {
-      showToast('Server error updating proposal.', 'error');
+      showToast(err.message || 'Server error updating proposal.', 'error');
     }
   };
 
@@ -1069,70 +1134,187 @@ export default function FounderDashboard({ currentUser, onLogout, API_BASE_URL, 
 
                     {campaigns.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {campaigns.map((c, idx) => (
-                          <div key={c.id || c._id || idx} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h3 className="font-bold text-slate-900 text-sm">{c.title}</h3>
-                                <span className="text-xs text-slate-500">{c.university} • {c.category || 'Startup'}</span>
+                        {campaigns.map((c, idx) => {
+                          const campId = String(c.id || c._id);
+                          const campProposals = proposals.filter(
+                            (p) => String(p.campaign_id || p.campaignId) === campId
+                          );
+
+                          return (
+                            <div key={campId || idx} className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3.5 shadow-2xs hover:border-emerald-300 transition-all">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h3 className="font-bold text-slate-900 text-base">{c.title}</h3>
+                                  <span className="text-xs text-slate-500">{c.university} • {c.category || 'Startup'}</span>
+                                </div>
+                                <span className={`px-2.5 py-1 text-[10px] font-bold rounded uppercase ${
+                                  (c.verified || c.status === 'verified') ? 'bg-emerald-100 text-emerald-800' :
+                                  c.status === 'revisions' ? 'bg-purple-100 text-purple-800' :
+                                  c.status === 'rejected' ? 'bg-rose-100 text-rose-800' :
+                                  'bg-amber-100 text-amber-800'
+                                  }`}>
+                                  {(c.verified || c.status === 'verified') ? 'Verified & Live ✓' :
+                                   c.status === 'revisions' ? 'Revisions Requested 📝' :
+                                   c.status === 'rejected' ? 'Rejected by Admin ❌' :
+                                   'Pending Admin Verification ⏳'}
+                                </span>
                               </div>
-                              <span className={`px-2.5 py-1 text-[10px] font-bold rounded uppercase ${
-                                (c.verified || c.status === 'verified') ? 'bg-emerald-100 text-emerald-800' :
-                                c.status === 'revisions' ? 'bg-purple-100 text-purple-800' :
-                                c.status === 'rejected' ? 'bg-rose-100 text-rose-800' :
-                                'bg-amber-100 text-amber-800'
-                                }`}>
-                                {(c.verified || c.status === 'verified') ? 'Verified & Live ✓' :
-                                 c.status === 'revisions' ? 'Revisions Requested 📝' :
-                                 c.status === 'rejected' ? 'Rejected by Admin ❌' :
-                                 'Pending Admin Verification ⏳'}
-                              </span>
-                            </div>
 
-                            <div className="flex justify-between text-xs font-mono pt-1">
-                              <span className="text-slate-500">Raised: <strong className="text-emerald-700">৳ {Number(c.raised || 0).toLocaleString()}</strong></span>
-                              <span className="text-slate-500">Goal: <strong>৳ {Number(c.goal || 0).toLocaleString()}</strong></span>
-                            </div>
+                              <div className="flex justify-between text-xs font-mono pt-1">
+                                <span className="text-slate-500">Raised: <strong className="text-emerald-700">৳ {Number(c.raised || 0).toLocaleString()}</strong></span>
+                                <span className="text-slate-500">Goal: <strong>৳ {Number(c.goal || 0).toLocaleString()}</strong></span>
+                              </div>
 
-                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                              <div
-                                className="bg-emerald-600 h-full rounded-full"
-                                style={{ width: c.goal > 0 ? `${Math.min(100, Math.round(((c.raised || 0) / c.goal) * 100))}%` : '0%' }}
-                              ></div>
-                            </div>
+                              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-emerald-600 h-full rounded-full"
+                                  style={{ width: c.goal > 0 ? `${Math.min(100, Math.round(((c.raised || 0) / c.goal) * 100))}%` : '0%' }}
+                                ></div>
+                              </div>
 
-                            <div className="flex items-center gap-2 pt-2 border-t border-slate-200/80">
-                              <button
-                                onClick={() => {
-                                  setEditingCampaignId(c.id || c._id);
-                                  setCampaignForm({
-                                    title: c.title || '',
-                                    university: c.university || profileUser.university || '',
-                                    category: c.category || 'FoodTech / SaaS',
-                                    stage: c.stage || 'Prototype / MVP',
-                                    tagline: c.tagline || '',
-                                    coverPhoto: c.cover_photo || c.coverPhoto || '',
-                                    pitchVideoUrl: c.pitch_video_url || c.pitchVideoUrl || '',
-                                    goal: c.goal || 500000,
-                                    durationDays: c.durationDays || 60,
-                                    equityOffer: c.equity_offer || c.equityOffer || '',
-                                    description: c.description || ''
-                                  });
-                                  setActiveTab('campaign');
-                                }}
-                                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                              >
-                                Edit Details
-                              </button>
-                              <button
-                                onClick={() => setActiveTab('milestones')}
-                                className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-800 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                              >
-                                Milestones
-                              </button>
+                              {/* INVESTMENT PROPOSALS SECTION UNDER THIS CAMPAIGN */}
+                              <div className="pt-2.5 border-t border-slate-200/80 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                                    <FileText className="w-3.5 h-3.5 text-sky-600" />
+                                    <span>Investment Proposals</span>
+                                  </span>
+                                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                                    campProposals.length > 0 ? 'bg-sky-100 text-sky-800' : 'bg-slate-200/80 text-slate-600'
+                                  }`}>
+                                    {campProposals.length} {campProposals.length === 1 ? 'Proposal' : 'Proposals'}
+                                  </span>
+                                </div>
+
+                                {campProposals.length > 0 ? (
+                                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                    {campProposals.map((p, pIdx) => {
+                                      const pId = p.id || p._id || pIdx;
+                                      const pStatus = String(p.status || 'pending').toLowerCase();
+                                      return (
+                                        <div key={pId} className="p-3 bg-white border border-slate-200 rounded-xl text-xs space-y-1.5 shadow-2xs">
+                                          <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                              <strong className="text-slate-900 block">{p.investor_name || p.investorName || 'Angel Backer'}</strong>
+                                              <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                                                <span>Offer: <strong className="text-emerald-700 font-mono">৳ {Number(p.amount || 0).toLocaleString()}</strong></span>
+                                                <span>•</span>
+                                                <span>Terms: <strong className="text-slate-700">{p.terms || p.return_structure || 'Standard'}</strong></span>
+                                              </div>
+                                            </div>
+                                            <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase rounded font-mono ${
+                                              pStatus === 'accepted' ? 'bg-emerald-100 text-emerald-800' :
+                                              pStatus === 'declined' || pStatus === 'rejected' ? 'bg-rose-100 text-rose-800' :
+                                              'bg-amber-100 text-amber-800'
+                                            }`}>
+                                              {pStatus === 'accepted' ? 'Accepted ✓' : pStatus === 'declined' || pStatus === 'rejected' ? 'Declined ✕' : 'Pending ⏳'}
+                                            </span>
+                                          </div>
+
+                                          {p.custom_notes && (
+                                            <p className="text-[10px] text-slate-500 italic bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                              "{p.custom_notes}"
+                                            </p>
+                                          )}
+
+                                          {pStatus === 'accepted' && (
+                                            <div className="flex items-center justify-between pt-1 text-[10px]">
+                                              <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                                                <span>✓ Escrow Funded</span>
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => setActiveTab('milestones')}
+                                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md shadow-2xs inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                              >
+                                                <Flag className="w-3 h-3" />
+                                                <span>Track Milestones →</span>
+                                              </button>
+                                            </div>
+                                          )}
+
+                                          {pStatus === 'pending' && (
+                                            <div className="flex items-center gap-1.5 pt-1">
+                                              <button
+                                                type="button"
+                                                onClick={() => handleProposalStatus(pId, 'accepted', campId)}
+                                                className="px-2.5 py-1 bg-[#047857] hover:bg-[#065f46] text-white text-[10px] font-bold rounded-md transition-colors cursor-pointer"
+                                              >
+                                                Accept Offer
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleProposalStatus(pId, 'declined', campId)}
+                                                className="px-2 py-1 border border-slate-300 hover:bg-slate-100 text-slate-700 text-[10px] font-semibold rounded-md transition-colors cursor-pointer"
+                                              >
+                                                Decline
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setSelectedProposal(p);
+                                                  setActiveTab('investors');
+                                                }}
+                                                className="ml-auto text-[10px] text-sky-600 hover:underline font-medium"
+                                              >
+                                                Review in detail →
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-[11px] text-slate-400 bg-white/60 p-2.5 rounded-xl border border-dashed border-slate-200 text-center">
+                                    No investor proposals submitted yet for this campaign.
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/80">
+                                <button
+                                  onClick={() => {
+                                    setEditingCampaignId(c.id || c._id);
+                                    setCampaignForm({
+                                      title: c.title || '',
+                                      university: c.university || profileUser.university || '',
+                                      category: c.category || 'FoodTech / SaaS',
+                                      stage: c.stage || 'Prototype / MVP',
+                                      tagline: c.tagline || '',
+                                      coverPhoto: c.cover_photo || c.coverPhoto || '',
+                                      pitchVideoUrl: c.pitch_video_url || c.pitchVideoUrl || '',
+                                      goal: c.goal || 500000,
+                                      durationDays: c.durationDays || 60,
+                                      equityOffer: c.equity_offer || c.equityOffer || '',
+                                      description: c.description || ''
+                                    });
+                                    setActiveTab('campaign');
+                                  }}
+                                  className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                                >
+                                  Edit Details
+                                </button>
+                                <button
+                                  onClick={() => setActiveTab('milestones')}
+                                  className="px-3 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-800 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                                >
+                                  Milestones
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (campProposals.length > 0) setSelectedProposal(campProposals[0]);
+                                    setActiveTab('investors');
+                                  }}
+                                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1 ml-auto"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>{campProposals.length} Proposals</span>
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="py-6 text-center text-xs text-slate-400 space-y-3">

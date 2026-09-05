@@ -311,5 +311,23 @@
         "created_at": "2026-09-04T15:06:29.075Z"
       }
     ]
+  },
+  "12e2bc2d-b53d-4499-94a9-92f0ae9245c0": {
+    "balance": 500000,
+    "ledger": [
+      {
+        "id": "wal_1788592810036_562",
+        "type": "INVESTMENT_IN",
+        "direction": "in",
+        "amount": 500000,
+        "investor_id": "usr_investor_1",
+        "investor_name": "Nazmus Sakib",
+        "campaign_id": "cmp_1788562257832",
+        "campaign_title": "CloseGPT",
+        "proposal_id": "prop_1788591921165",
+        "note": "Accepted investment proposal credited to founder wallet (ledger only — no payment gateway).",
+        "created_at": "2026-09-05T07:20:10.036Z"
+      }
+    ]
   }
 }

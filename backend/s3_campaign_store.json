@@ -1,125 +1,5 @@
 [
   {
-    "_id": "cmp_1788562257832",
-    "id": "cmp_1788562257832",
-    "title": "CloseGPT",
-    "founderId": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-    "founder": {
-      "_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-      "id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-      "name": "Unknown Founder",
-      "email": "",
-      "university": "BRAC University",
-      "department": "",
-      "studentId": "",
-      "mfsNumber": "",
-      "vettingStatus": "pending",
-      "bio": ""
-    },
-    "university": "BRAC University",
-    "location": "Dhaka, Bangladesh",
-    "category": "EdTech / AI",
-    "stage": "Prototype / MVP",
-    "goal": 500000,
-    "raised": 0,
-    "equityOffer": "10% Revenue Share",
-    "equity_offer": "10% Revenue Share",
-    "tagline": "",
-    "coverPhoto": "",
-    "pitchVideoUrl": "",
-    "description": "We make best gpt",
-    "milestones": [
-      {
-        "title": "MVP Launch & Prototype",
-        "target": "Month 1",
-        "status": "done"
-      },
-      {
-        "title": "Market Testing & First 100 Users",
-        "target": "Month 2",
-        "status": "pending"
-      },
-      {
-        "title": "Commercial Release & ৳50K Revenue",
-        "target": "Month 4",
-        "status": "locked"
-      }
-    ],
-    "verified": true,
-    "status": "verified",
-    "escrowFrozen": false,
-    "escrow_frozen": false,
-    "coFounders": [],
-    "co_founders": [],
-    "successorName": "",
-    "successor_name": "",
-    "successorEmail": "",
-    "successor_email": "",
-    "revenue_structure": "",
-    "operational_model": ""
-  },
-  {
-    "_id": "cmp_1788562125481",
-    "id": "cmp_1788562125481",
-    "title": "SpaceY",
-    "founderId": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-    "founder": {
-      "_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-      "id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-      "name": "Unknown Founder",
-      "email": "",
-      "university": "BRAC University",
-      "department": "",
-      "studentId": "",
-      "mfsNumber": "",
-      "vettingStatus": "pending",
-      "bio": ""
-    },
-    "university": "BRAC University",
-    "location": "Dhaka, Bangladesh",
-    "category": "Hardware / Robotics",
-    "stage": "MVP Stage",
-    "goal": 100000,
-    "raised": 0,
-    "equityOffer": "20% Revenue Share",
-    "equity_offer": "20% Revenue Share",
-    "tagline": "We build rocket",
-    "coverPhoto": "",
-    "pitchVideoUrl": "",
-    "description": "We want build rocket like Elon musk",
-    "milestones": [
-      {
-        "title": "MVP Launch & Prototype",
-        "target": "Month 1",
-        "status": "done"
-      },
-      {
-        "title": "Market Testing & First 100 Users",
-        "target": "Month 2",
-        "status": "pending"
-      },
-      {
-        "title": "Commercial Release & ৳50K Revenue",
-        "target": "Month 4",
-        "status": "locked"
-      }
-    ],
-    "verified": true,
-    "status": "verified",
-    "escrowFrozen": false,
-    "escrow_frozen": false,
-    "coFounders": [],
-    "co_founders": [],
-    "successorName": "",
-    "successor_name": "",
-    "successorEmail": "",
-    "successor_email": "",
-    "revenue_structure": "",
-    "operational_model": ""
-  },
-  {
     "id": "camp_1788534099378_uw7z",
     "_id": "camp_1788534099378_uw7z",
     "title": "Jhotpot",
@@ -190,6 +70,126 @@
     "successorName": "",
     "successor_email": "",
     "successorEmail": ""
+  },
+  {
+    "_id": "cmp_1788562125481",
+    "id": "cmp_1788562125481",
+    "title": "SpaceY",
+    "founderId": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "founder": {
+      "_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+      "id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+      "name": "Unknown Founder",
+      "email": "",
+      "university": "BRAC University",
+      "department": "",
+      "studentId": "",
+      "mfsNumber": "",
+      "vettingStatus": "pending",
+      "bio": ""
+    },
+    "university": "BRAC University",
+    "location": "Dhaka, Bangladesh",
+    "category": "Hardware / Robotics",
+    "stage": "MVP Stage",
+    "goal": 100000,
+    "raised": 0,
+    "equityOffer": "20% Revenue Share",
+    "equity_offer": "20% Revenue Share",
+    "tagline": "We build rocket",
+    "coverPhoto": "",
+    "pitchVideoUrl": "",
+    "description": "We want build rocket like Elon musk",
+    "milestones": [
+      {
+        "title": "MVP Launch & Prototype",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "Market Testing & First 100 Users",
+        "target": "Month 2",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Release & ৳50K Revenue",
+        "target": "Month 4",
+        "status": "locked"
+      }
+    ],
+    "verified": true,
+    "status": "verified",
+    "escrowFrozen": false,
+    "escrow_frozen": false,
+    "coFounders": [],
+    "co_founders": [],
+    "successorName": "",
+    "successor_name": "",
+    "successorEmail": "",
+    "successor_email": "",
+    "revenue_structure": "",
+    "operational_model": ""
+  },
+  {
+    "_id": "cmp_1788562257832",
+    "id": "cmp_1788562257832",
+    "title": "CloseGPT",
+    "founderId": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "founder": {
+      "_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+      "id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+      "name": "Unknown Founder",
+      "email": "",
+      "university": "BRAC University",
+      "department": "",
+      "studentId": "",
+      "mfsNumber": "",
+      "vettingStatus": "pending",
+      "bio": ""
+    },
+    "university": "BRAC University",
+    "location": "Dhaka, Bangladesh",
+    "category": "EdTech / AI",
+    "stage": "Prototype / MVP",
+    "goal": 500000,
+    "raised": 500000,
+    "equityOffer": "10% Revenue Share",
+    "equity_offer": "10% Revenue Share",
+    "tagline": "",
+    "coverPhoto": "",
+    "pitchVideoUrl": "",
+    "description": "We make best gpt",
+    "milestones": [
+      {
+        "title": "MVP Launch & Prototype",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "Market Testing & First 100 Users",
+        "target": "Month 2",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Release & ৳50K Revenue",
+        "target": "Month 4",
+        "status": "locked"
+      }
+    ],
+    "verified": true,
+    "status": "verified",
+    "escrowFrozen": false,
+    "escrow_frozen": false,
+    "coFounders": [],
+    "co_founders": [],
+    "successorName": "",
+    "successor_name": "",
+    "successorEmail": "",
+    "successor_email": "",
+    "revenue_structure": "",
+    "operational_model": ""
   },
   {
     "id": "campusbites_1",

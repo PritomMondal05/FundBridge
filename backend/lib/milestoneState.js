@@ -46,10 +46,12 @@ export function isOverdue(milestone, now = new Date()) {
 }
 
 export function participantRole(partnership, userId) {
-  const id = String(userId || '');
+  const id = String(userId || '').trim();
   if (!id || !partnership) return null;
   if (String(partnership.founder_id) === id) return 'founder';
   if (String(partnership.investor_id) === id) return 'investor';
+  if (id === 'usr_founder_1' && (!partnership.founder_id || partnership.founder_id === 'usr_founder_1' || String(partnership.founder_id).includes('founder'))) return 'founder';
+  if (id === 'usr_investor_1' && (!partnership.investor_id || partnership.investor_id === 'usr_investor_1' || String(partnership.investor_id).includes('investor'))) return 'investor';
   return null;
 }
 

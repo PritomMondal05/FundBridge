@@ -1,5 +1,25 @@
 [
   {
+    "_id": "prop_1788591921165",
+    "id": "prop_1788591921165",
+    "campaign_id": "cmp_1788562257832",
+    "campaignId": "cmp_1788562257832",
+    "investor_id": "usr_investor_1",
+    "investorId": "usr_investor_1",
+    "amount": 500000,
+    "terms": "15% Revenue Share",
+    "return_structure": "15% Revenue Share",
+    "custom_notes": "Need Early access of Astra",
+    "status": "accepted",
+    "created_at": "2026-09-05T07:05:21.165Z",
+    "investor_name": "Nazmus Sakib",
+    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "counter_amount": null,
+    "counter_terms": "",
+    "negotiate_message": "",
+    "negotiated_at": ""
+  },
+  {
     "id": "prop_1788534228561",
     "_id": "prop_1788534228561",
     "campaign_id": "camp_1788534099378_uw7z",

@@ -10,6 +10,7 @@ router.get('/proposals/founder/:founderId', proposalController.getFounderProposa
 
 router.post('/founder/proposals/:proposalId/status', proposalController.updateProposalStatus);
 router.put('/campaigns/:id/proposals/:proposalId/status', proposalController.updateProposalStatus);
+router.post('/campaigns/:id/proposals/:proposalId/status', proposalController.updateProposalStatus);
 router.post('/founder/proposals/:proposalId/negotiate', proposalController.negotiateProposal);
 
 router.post('/proposals/:proposalId/withdraw', proposalController.withdrawProposal);

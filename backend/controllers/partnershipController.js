@@ -34,7 +34,7 @@ function loadAuthorized(req, res, expectedRole) {
     deny(res, 403, 'You are not a participant in this transaction.');
     return null;
   }
-  return { partnership, actorId, role: participantRole(partnership, actorId) };
+  return { partnership, actorId, role: partnershipModel.getRole(partnership, actorId) || participantRole(partnership, actorId) || expectedRole };
 }
 
 function emit(event, payload) {

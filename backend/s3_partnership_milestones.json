@@ -1,5 +1,123 @@
 [
   {
+    "id": "part_1788592810516",
+    "proposal_id": "prop_1788591921165",
+    "campaign_id": "cmp_1788562257832",
+    "campaign_title": "CloseGPT",
+    "roadmap_subtitle": "Prototype / MVP • ৳ 500,000 committed",
+    "investment_type": "15% Revenue Share",
+    "terms": "15% Revenue Share",
+    "contract_url": "#",
+    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "founder_name": "Unknown Founder",
+    "founder_email": "",
+    "founder_university": "BRAC University",
+    "investor_id": "usr_investor_1",
+    "investor_name": "Nazmus Sakib",
+    "investor_institution": "Vantage Capital LLC",
+    "total_committed": 500000,
+    "frozen": false,
+    "created_at": "2026-09-05T07:20:10.516Z",
+    "updated_at": "2026-09-05T07:20:10.516Z",
+    "activity": [
+      {
+        "id": "evt_accept_1788592810516",
+        "actor_role": "founder",
+        "actor_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+        "event": "proposal_accepted",
+        "label": "Investment proposal accepted — escrow funded",
+        "amount": 500000,
+        "created_at": "2026-09-05T07:20:10.516Z"
+      }
+    ],
+    "milestones": [
+      {
+        "id": "phase_1",
+        "phase_number": 1,
+        "title": "PHASE 1",
+        "name": "MVP Launch & Prototype",
+        "amount": 166666,
+        "purpose": "MVP Launch & Prototype",
+        "expected_outcome": "Month 1",
+        "timeline": "Month 1",
+        "due_date": null,
+        "progress": 0,
+        "status": "unlocked",
+        "lifecycle": {
+          "requested": false,
+          "investor_review": "pending",
+          "payment": "locked",
+          "completion": "locked"
+        },
+        "request_details": null,
+        "mandatory_checks": {
+          "vendor_invoice_reconciliation": false,
+          "geotagged_photo_verification": false,
+          "third_party_inspector_attestation": false
+        },
+        "release_details": null,
+        "completion_report": null,
+        "proof_history": []
+      },
+      {
+        "id": "phase_2",
+        "phase_number": 2,
+        "title": "PHASE 2",
+        "name": "Market Testing & First 100 Users",
+        "amount": 166666,
+        "purpose": "Market Testing & First 100 Users",
+        "expected_outcome": "Month 2",
+        "timeline": "Month 2",
+        "due_date": null,
+        "progress": 0,
+        "status": "locked",
+        "lifecycle": {
+          "requested": false,
+          "investor_review": "locked",
+          "payment": "locked",
+          "completion": "locked"
+        },
+        "request_details": null,
+        "mandatory_checks": {
+          "vendor_invoice_reconciliation": false,
+          "geotagged_photo_verification": false,
+          "third_party_inspector_attestation": false
+        },
+        "release_details": null,
+        "completion_report": null,
+        "proof_history": []
+      },
+      {
+        "id": "phase_3",
+        "phase_number": 3,
+        "title": "PHASE 3",
+        "name": "Commercial Release & ৳50K Revenue",
+        "amount": 166668,
+        "purpose": "Commercial Release & ৳50K Revenue",
+        "expected_outcome": "Month 4",
+        "timeline": "Month 4",
+        "due_date": null,
+        "progress": 0,
+        "status": "locked",
+        "lifecycle": {
+          "requested": false,
+          "investor_review": "locked",
+          "payment": "locked",
+          "completion": "locked"
+        },
+        "request_details": null,
+        "mandatory_checks": {
+          "vendor_invoice_reconciliation": false,
+          "geotagged_photo_verification": false,
+          "third_party_inspector_attestation": false
+        },
+        "release_details": null,
+        "completion_report": null,
+        "proof_history": []
+      }
+    ]
+  },
+  {
     "id": "part_alphav_01",
     "proposal_id": "prop_alphav_01",
     "campaign_id": "campusbites_1",

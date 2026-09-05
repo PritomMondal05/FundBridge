@@ -1,5 +1,16 @@
 [
   {
+    "id": "aud::usr_investor_1::1788591922003",
+    "hash": "0xb1ca882ffc0dd30f",
+    "category": "PROPOSAL",
+    "title": "Submitted investment offer ৳ 500,000 on CloseGPT",
+    "status": "PENDING",
+    "latency": "<1s",
+    "created_at": "2026-09-05T07:05:22.003Z",
+    "investor_id": "usr_investor_1",
+    "actor_role": "investor"
+  },
+  {
     "id": "aud::usr_investor_1::1788548874526",
     "hash": "0xd2a7fa4502c3d52b",
     "category": "MILESTONE",

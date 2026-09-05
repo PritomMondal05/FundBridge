@@ -5,6 +5,7 @@ import {
   createAndDispatchNotification,
   creditFounderWalletInvestment
 } from '../utils/storeUtils.js';
+import { getIO } from '../config/socket.js';
 
 export const proposalController = {
   async createProposal(req, res) {
@@ -119,7 +120,18 @@ export const proposalController = {
 
         // Form official partnership with milestone roadmap
         try {
-          partnershipModel.createFromAcceptedProposal(existing, camp);
+          const createdPart = partnershipModel.createFromAcceptedProposal(existing, camp);
+          try {
+            const io = getIO();
+            if (io) {
+              io.emit('proposal_accepted', { proposalId: existing.id || proposalId, partnership: createdPart });
+              io.emit('partnership_created', createdPart);
+              io.emit('milestone_requested', { partnershipId: createdPart?.id, partnership: createdPart });
+              io.emit('milestone_progress', { partnershipId: createdPart?.id, partnership: createdPart });
+              if (createdPart?.founder_id) io.to(createdPart.founder_id).emit('partnership_created', createdPart);
+              if (createdPart?.investor_id) io.to(createdPart.investor_id).emit('partnership_created', createdPart);
+            }
+          } catch (sockErr) {}
         } catch (partErr) {
           console.warn('Could not auto-create partnership on accept:', partErr.message);
         }

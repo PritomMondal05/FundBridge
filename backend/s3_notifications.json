@@ -1,5 +1,57 @@
 [
   {
+    "id": "notif_1788592810059_7udp",
+    "user_id": "usr_investor_1",
+    "recipient_id": "usr_investor_1",
+    "sender_id": null,
+    "type": "PROPOSAL_ACCEPTED",
+    "title": "Proposal ACCEPTED! 📄",
+    "message": "The founder has accepted your investment proposal of ৳ 500,000.",
+    "link_url": "tab:portfolio",
+    "event_key": "proposal_accepted:prop_1788591921165",
+    "is_read": false,
+    "created_at": "2026-09-05T07:20:10.059Z"
+  },
+  {
+    "id": "notif_1788591921627_uvvq",
+    "user_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "recipient_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "sender_id": "usr_investor_1",
+    "type": "NEW_INVESTMENT_PROPOSAL",
+    "title": "New Investment Proposal Received! 💰",
+    "message": "Nazmus Sakib submitted a BDT ৳500,000 funding proposal for your startup.",
+    "link_url": "tab:investors",
+    "event_key": "proposal_new:prop_1788591921165",
+    "is_read": true,
+    "created_at": "2026-09-05T07:05:21.627Z"
+  },
+  {
+    "id": "notif_1788591730698_qes0",
+    "user_id": "usr_1788591433213",
+    "recipient_id": "usr_1788591433213",
+    "sender_id": null,
+    "type": "VERIFICATION_REJECTED",
+    "title": "Trust Vetting Status Updated! 🛡️",
+    "message": "Your FundBridge user profile vetting status has been updated to \"REJECTED\".",
+    "link_url": "tab:settings",
+    "event_key": "vetting:usr_1788591433213:rejected",
+    "is_read": false,
+    "created_at": "2026-09-05T07:02:10.698Z"
+  },
+  {
+    "id": "notif_1788591719697_nl7x",
+    "user_id": "usr_1788591524929",
+    "recipient_id": "usr_1788591524929",
+    "sender_id": null,
+    "type": "VERIFICATION_REJECTED",
+    "title": "Trust Vetting Status Updated! 🛡️",
+    "message": "Your FundBridge user profile vetting status has been updated to \"REJECTED\".",
+    "link_url": "tab:settings",
+    "event_key": "vetting:usr_1788591524929:rejected",
+    "is_read": false,
+    "created_at": "2026-09-05T07:01:59.698Z"
+  },
+  {
     "id": "notif_1788588871342_0fem",
     "user_id": "usr_1788588761733",
     "recipient_id": "usr_1788588761733",
