@@ -15,6 +15,8 @@ Open your terminal in this project folder and run:
 - Run "supabase/01_schema_and_tables.sql" to create database tables
 - Run "supabase/02_seed_initial_data.sql" to populate founders, investors & campaigns
 - Run "supabase/03_realtime_notifications.sql" to enable real-time notifications
+- To verify your database connection anytime, run:
+    npm run test:db
 
 
 3. HOW TO START THE PROJECT
@@ -29,7 +31,7 @@ This automatically starts BOTH the Frontend and Backend together!
 4. ACCESS THE APPLICATION
 -------------------------------------------------------
 - Frontend UI:  http://localhost:5173
-- Backend API:  http://localhost:5000/api/health
+- Backend API:  http://localhost:5001/api/health
 
 
 5. DEFAULT DEMO LOGIN CREDENTIALS

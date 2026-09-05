@@ -1,5 +1,18 @@
 [
   {
+    "id": "notif_1788579920820_wlss",
+    "user_id": "usr_founder_1",
+    "recipient_id": "usr_founder_1",
+    "sender_id": null,
+    "type": "warning",
+    "title": "Campaign Audit Status: Rejected ❌",
+    "message": "Your pitch \"GoCar\" was not approved by Admin. Reason: asdasdasd.",
+    "link_url": null,
+    "event_key": null,
+    "is_read": false,
+    "created_at": "2026-09-05T03:45:20.820Z"
+  },
+  {
     "id": "notif_1788564418057_kg5h",
     "user_id": "usr_founder_2",
     "recipient_id": "usr_founder_2",

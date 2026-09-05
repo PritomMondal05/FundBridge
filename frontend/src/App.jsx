@@ -17,10 +17,10 @@ import {
   Users,
   CheckCircle,
   XCircle,
-  Database,
   TrendingUp,
   LogOut,
-  Info
+  Info,
+  Menu
 } from 'lucide-react';
 import logoUrl from './assets/images/FundBridge Logo Black.svg';
 import logoWhiteUrl from './assets/images/FundBridge Logo White.svg';
@@ -95,7 +95,7 @@ export default function App() {
   // API Dynamic Base URL
   const API_BASE_URL = import.meta.env.VITE_API_URL || (
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:5000'
+      ? 'http://localhost:5001'
       : window.location.origin
   );
 
@@ -133,6 +133,8 @@ export default function App() {
     }
     return 'landing';
   });
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Registration Form States
   const [regName, setRegName] = useState('');
@@ -483,29 +485,33 @@ export default function App() {
           <div className="flex items-center">
             {/* SVG Logo from Assets */}
             <a href="/" className="inline-block">
-              <img src={logoUrl} alt="FundBridge Logo" className="h-10 w-auto" />
+              <img src={logoUrl} alt="FundBridge Logo" className="h-9 w-auto" />
             </a>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 font-medium">
-            <a href="#founders" className="text-text-charcoal hover:text-sky-primary transition-colors text-md">For Entrepreneurs</a>
-            <a href="#investors" className="text-text-charcoal hover:text-sky-primary transition-colors text-md">For Investors</a>
-            <a href="#trust" className="text-text-charcoal hover:text-sky-primary transition-colors text-md">Trust Center</a>
-            <a href="#TESTIMONIALS" className="text-text-charcoal hover:text-sky-primary transition-colors text-md">Success Stories</a>
+          <nav className="hidden md:flex items-center gap-6 lg:gap-8 font-medium">
+            <a href="#founders" className="text-text-charcoal hover:text-sky-primary transition-colors text-sm lg:text-md">For Founders</a>
+            <a href="#investors" className="text-text-charcoal hover:text-sky-primary transition-colors text-sm lg:text-md">For Investors</a>
+            <a href="#ai-matching" className="text-text-charcoal hover:text-sky-primary transition-colors text-sm lg:text-md flex items-center gap-1.5">
+              <span>AI Matching</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-primary/10 text-sky-primary font-bold">LIVE</span>
+            </a>
+            <a href="#trust" className="text-text-charcoal hover:text-sky-primary transition-colors text-sm lg:text-md">Trust Center</a>
+            <a href="#testimonials" className="text-text-charcoal hover:text-sky-primary transition-colors text-sm lg:text-md">Success Stories</a>
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {currentUser ? (
               <>
                 <button
                   onClick={() => setCurrentView(currentUser.role)}
-                  className="px-5 py-2 bg-sky-primary text-white font-medium rounded-sm hover:bg-sky-primary/90 text-sm cursor-pointer transition-all duration-150 shadow-soft"
+                  className="px-4 lg:px-5 py-2 bg-sky-primary text-white font-medium rounded-sm hover:bg-sky-primary/90 text-sm cursor-pointer transition-all duration-150 shadow-soft"
                 >
                   Dashboard
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="px-5 py-2 border border-obsidian-base rounded-sm hover:bg-surface-cool text-obsidian-base font-medium text-sm cursor-pointer transition-all duration-150"
+                  className="px-4 lg:px-5 py-2 border border-obsidian-base rounded-sm hover:bg-surface-cool text-obsidian-base font-medium text-sm cursor-pointer transition-all duration-150"
                 >
                   Logout
                 </button>
@@ -514,20 +520,45 @@ export default function App() {
               <>
                 <button
                   onClick={() => setActiveModal('login')}
-                  className="px-5 py-2 border border-obsidian-base rounded-sm hover:bg-surface-cool text-obsidian-base font-medium text-sm cursor-pointer transition-all duration-150"
+                  className="px-4 lg:px-5 py-2 border border-obsidian-base rounded-sm hover:bg-surface-cool text-obsidian-base font-medium text-sm cursor-pointer transition-all duration-150"
                 >
                   Login
                 </button>
                 <button
                   onClick={() => setActiveModal('register')}
-                  className="px-5 py-2 bg-obsidian-base text-white font-medium rounded-sm hover:bg-obsidian-dark text-sm cursor-pointer transition-all duration-150 shadow-soft"
+                  className="px-4 lg:px-5 py-2 bg-obsidian-base text-white font-medium rounded-sm hover:bg-obsidian-dark text-sm cursor-pointer transition-all duration-150 shadow-soft"
                 >
                   Register
                 </button>
               </>
             )}
+
+            {/* Mobile Menu Toggle Button */}
+            <button
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              className="md:hidden p-2 text-obsidian-base hover:bg-surface-cool rounded-md transition-colors"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-b border-border-default px-6 py-5 shadow-xl space-y-4 animate-fadeIn">
+            <div className="flex flex-col space-y-3 font-medium text-sm">
+              <a href="#founders" onClick={() => setMobileMenuOpen(false)} className="text-text-charcoal hover:text-sky-primary py-1">For Founders</a>
+              <a href="#investors" onClick={() => setMobileMenuOpen(false)} className="text-text-charcoal hover:text-sky-primary py-1">For Investors</a>
+              <a href="#ai-matching" onClick={() => setMobileMenuOpen(false)} className="text-text-charcoal hover:text-sky-primary py-1 flex items-center justify-between">
+                <span>AI Matching</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-primary/10 text-sky-primary font-bold">LIVE</span>
+              </a>
+              <a href="#trust" onClick={() => setMobileMenuOpen(false)} className="text-text-charcoal hover:text-sky-primary py-1">Trust Center</a>
+              <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="text-text-charcoal hover:text-sky-primary py-1">Success Stories</a>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* HERO SECTION B */}
@@ -877,7 +908,7 @@ export default function App() {
         </div>
       </section>
 
-      <section className="py-20 bg-white relative z-10 border-b border-border-default">
+      <section id="ai-matching" className="py-20 bg-white relative z-10 border-b border-border-default scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4 mb-8">
             <div>
@@ -885,7 +916,7 @@ export default function App() {
               <h2 className="text-3xl sm:text-4xl font-medium text-obsidian-base font-display mt-2">Quick live recommendations</h2>
             </div>
             <div className="inline-flex items-center gap-2 bg-sky-primary/10 text-sky-primary border border-sky-primary/20 px-3 py-1.5 rounded-full text-xs font-medium">
-              <Database className="w-4 h-4" />
+              <span className="w-2 h-2 rounded-full bg-sky-primary animate-pulse"></span>
               <span>{aiDemo.loading ? 'Loading live data...' : aiDemo.error ? 'Unavailable' : aiDemo.investor.source === 'gemini' ? 'Gemini AI' : 'Fallback model'}</span>
             </div>
           </div>
@@ -961,7 +992,7 @@ export default function App() {
       </section>
 
       {/* SECTION C: PLATFORM AT A GLANCE (LIVE IMPACT TICKER) */}
-      <section id="trust" className="bg-obsidian-dark py-16 text-white relative z-10 border-t border-border-strong">
+      <section id="trust" className="bg-obsidian-dark py-16 text-white relative z-10 border-t border-border-strong scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <span className="text-sky-primary text-xs font-medium tracking-widest uppercase">LIVE IMPACT</span>
@@ -989,7 +1020,7 @@ export default function App() {
       </section>
 
       {/* SECTION D: TWO LANES, ONE PLATFORM */}
-      <section id="founders" className="py-20 bg-surface-cool/30 relative z-10 border-b border-border-default">
+      <section id="founders" className="py-20 bg-surface-cool/30 relative z-10 border-b border-border-default scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           <div className="text-center mb-16">
@@ -1049,7 +1080,7 @@ export default function App() {
             </div>
 
             {/* RIGHT LANE: ANGEL INVESTORS */}
-            <div className="bg-obsidian-dark rounded-xl p-8 border border-border-strong shadow-2xl flex flex-col justify-between hover:border-neon-mint/30 transition-all text-white">
+            <div id="investors" className="bg-obsidian-dark rounded-xl p-8 border border-border-strong shadow-2xl flex flex-col justify-between hover:border-neon-mint/30 transition-all text-white scroll-mt-24">
               <div>
                 <div className="inline-flex items-center gap-2 bg-neon-mint/10 text-neon-mint px-3 py-1 rounded-full text-xs font-medium mb-6">
                   💼 For Angel Investors
@@ -1102,7 +1133,7 @@ export default function App() {
       </section>
 
       {/* SECTION E: CAPABILITIES CAROUSEL */}
-      <section id="capabilities" className="py-24 bg-obsidian-dark text-white relative z-10 border-t border-border-strong">
+      <section id="capabilities" className="py-24 bg-obsidian-dark text-white relative z-10 border-t border-border-strong scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
@@ -1198,7 +1229,7 @@ export default function App() {
       </section>
 
       {/* SECTION F: TESTIMONIALS */}
-      <section className="py-24 bg-obsidian-base text-white relative z-10 border-t border-border-strong">
+      <section id="testimonials" className="py-24 bg-obsidian-base text-white relative z-10 border-t border-border-strong scroll-mt-20">
         <div className="max-w-5xl mx-auto px-4 text-center">
 
           {/* Large Quotes Icon */}
@@ -1421,9 +1452,52 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* 1-Click Demo Credentials */}
+                <div className="pt-2 border-t border-border-default/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">⚡ 1-Click Demo Fill</span>
+                    <span className="text-[10px] text-emerald-600 font-medium">Verified Accounts</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginEmail('admin@fundbridge.com');
+                        setLoginPassword('admin123');
+                      }}
+                      className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-left transition-colors cursor-pointer group"
+                    >
+                      <div className="text-xs font-bold text-obsidian-base">👑 Admin</div>
+                      <div className="text-[10px] text-text-muted truncate">admin@fundbridge.com</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginEmail('nazmus@gmail.com');
+                        setLoginPassword('1234');
+                      }}
+                      className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-left transition-colors cursor-pointer group"
+                    >
+                      <div className="text-xs font-bold text-obsidian-base">💼 Investor</div>
+                      <div className="text-[10px] text-text-muted truncate">nazmus@gmail.com</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginEmail('adibnayem@gmail.com');
+                        setLoginPassword('1234');
+                      }}
+                      className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-left transition-colors cursor-pointer group"
+                    >
+                      <div className="text-xs font-bold text-obsidian-base">🚀 Founder</div>
+                      <div className="text-[10px] text-text-muted truncate">adibnayem@gmail.com</div>
+                    </button>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
-                  className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-obsidian-base hover:bg-obsidian-dark text-white text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 shadow-soft"
                 >
                   <span>Authenticate Session</span>
                 </button>

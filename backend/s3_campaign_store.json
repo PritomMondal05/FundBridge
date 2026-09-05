@@ -1,53 +1,53 @@
 [
   {
-    "_id": "cmp_1788461352490",
-    "id": "cmp_1788461352490",
-    "title": "GoCar",
-    "founderId": "usr_founder_1",
-    "founder_id": "usr_founder_1",
+    "_id": "cmp_1788562257832",
+    "id": "cmp_1788562257832",
+    "title": "CloseGPT",
+    "founderId": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
     "founder": {
-      "_id": "usr_founder_1",
-      "id": "usr_founder_1",
-      "name": "Ashraf Khan",
-      "email": "ashraf.khan1@univ.edu.bd",
-      "university": "BUET",
-      "department": "Electrical & Electronic Engineering",
-      "studentId": "20100037",
-      "mfsNumber": "01710008371",
-      "vettingStatus": "verified",
-      "bio": "Hardware innovator researching solar IoT devices and precision agriculture tools for rural farmers."
+      "_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+      "id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+      "name": "Unknown Founder",
+      "email": "",
+      "university": "BRAC University",
+      "department": "",
+      "studentId": "",
+      "mfsNumber": "",
+      "vettingStatus": "pending",
+      "bio": ""
     },
-    "university": "BUET",
+    "university": "BRAC University",
     "location": "Dhaka, Bangladesh",
-    "category": "AI / Robotics",
-    "stage": "MVP Stage",
+    "category": "EdTech / AI",
+    "stage": "Prototype / MVP",
     "goal": 500000,
     "raised": 0,
-    "equityOffer": "8% Revenue Share",
-    "equity_offer": "8% Revenue Share",
-    "tagline": "this is a c",
+    "equityOffer": "10% Revenue Share",
+    "equity_offer": "10% Revenue Share",
+    "tagline": "",
     "coverPhoto": "",
     "pitchVideoUrl": "",
-    "description": "GoCar",
+    "description": "We make best gpt",
     "milestones": [
       {
         "title": "MVP Launch & Prototype",
         "target": "Month 1",
-        "status": "pending"
+        "status": "done"
       },
       {
         "title": "Market Testing & First 100 Users",
         "target": "Month 2",
-        "status": "locked"
+        "status": "pending"
       },
       {
-        "title": "Commercial Release & Revenue Target",
+        "title": "Commercial Release & ৳50K Revenue",
         "target": "Month 4",
         "status": "locked"
       }
     ],
-    "verified": false,
-    "status": "rejected",
+    "verified": true,
+    "status": "verified",
     "escrowFrozen": false,
     "escrow_frozen": false,
     "coFounders": [],
@@ -56,8 +56,68 @@
     "successor_name": "",
     "successorEmail": "",
     "successor_email": "",
-    "rejection_reason": "wesdfsdf",
-    "rejectionReason": "dfgfg"
+    "revenue_structure": "",
+    "operational_model": ""
+  },
+  {
+    "_id": "cmp_1788562125481",
+    "id": "cmp_1788562125481",
+    "title": "SpaceY",
+    "founderId": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+    "founder": {
+      "_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+      "id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
+      "name": "Unknown Founder",
+      "email": "",
+      "university": "BRAC University",
+      "department": "",
+      "studentId": "",
+      "mfsNumber": "",
+      "vettingStatus": "pending",
+      "bio": ""
+    },
+    "university": "BRAC University",
+    "location": "Dhaka, Bangladesh",
+    "category": "Hardware / Robotics",
+    "stage": "MVP Stage",
+    "goal": 100000,
+    "raised": 0,
+    "equityOffer": "20% Revenue Share",
+    "equity_offer": "20% Revenue Share",
+    "tagline": "We build rocket",
+    "coverPhoto": "",
+    "pitchVideoUrl": "",
+    "description": "We want build rocket like Elon musk",
+    "milestones": [
+      {
+        "title": "MVP Launch & Prototype",
+        "target": "Month 1",
+        "status": "done"
+      },
+      {
+        "title": "Market Testing & First 100 Users",
+        "target": "Month 2",
+        "status": "pending"
+      },
+      {
+        "title": "Commercial Release & ৳50K Revenue",
+        "target": "Month 4",
+        "status": "locked"
+      }
+    ],
+    "verified": true,
+    "status": "verified",
+    "escrowFrozen": false,
+    "escrow_frozen": false,
+    "coFounders": [],
+    "co_founders": [],
+    "successorName": "",
+    "successor_name": "",
+    "successorEmail": "",
+    "successor_email": "",
+    "revenue_structure": "",
+    "operational_model": ""
   },
   {
     "id": "camp_1788534099378_uw7z",
@@ -130,126 +190,6 @@
     "successorName": "",
     "successor_email": "",
     "successorEmail": ""
-  },
-  {
-    "_id": "cmp_1788562125481",
-    "id": "cmp_1788562125481",
-    "title": "SpaceY",
-    "founderId": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-    "founder": {
-      "_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-      "id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-      "name": "Unknown Founder",
-      "email": "",
-      "university": "BRAC University",
-      "department": "",
-      "studentId": "",
-      "mfsNumber": "",
-      "vettingStatus": "pending",
-      "bio": ""
-    },
-    "university": "BRAC University",
-    "location": "Dhaka, Bangladesh",
-    "category": "Hardware / Robotics",
-    "stage": "MVP Stage",
-    "goal": 100000,
-    "raised": 0,
-    "equityOffer": "20% Revenue Share",
-    "equity_offer": "20% Revenue Share",
-    "tagline": "We build rocket",
-    "coverPhoto": "",
-    "pitchVideoUrl": "",
-    "description": "We want build rocket like Elon musk",
-    "milestones": [
-      {
-        "title": "MVP Launch & Prototype",
-        "target": "Month 1",
-        "status": "done"
-      },
-      {
-        "title": "Market Testing & First 100 Users",
-        "target": "Month 2",
-        "status": "pending"
-      },
-      {
-        "title": "Commercial Release & ৳50K Revenue",
-        "target": "Month 4",
-        "status": "locked"
-      }
-    ],
-    "verified": true,
-    "status": "verified",
-    "escrowFrozen": false,
-    "escrow_frozen": false,
-    "coFounders": [],
-    "co_founders": [],
-    "successorName": "",
-    "successor_name": "",
-    "successorEmail": "",
-    "successor_email": "",
-    "revenue_structure": "",
-    "operational_model": ""
-  },
-  {
-    "_id": "cmp_1788562257832",
-    "id": "cmp_1788562257832",
-    "title": "CloseGPT",
-    "founderId": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-    "founder_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-    "founder": {
-      "_id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-      "id": "12e2bc2d-b53d-4499-94a9-92f0ae9245c0",
-      "name": "Unknown Founder",
-      "email": "",
-      "university": "BRAC University",
-      "department": "",
-      "studentId": "",
-      "mfsNumber": "",
-      "vettingStatus": "pending",
-      "bio": ""
-    },
-    "university": "BRAC University",
-    "location": "Dhaka, Bangladesh",
-    "category": "EdTech / AI",
-    "stage": "Prototype / MVP",
-    "goal": 500000,
-    "raised": 0,
-    "equityOffer": "10% Revenue Share",
-    "equity_offer": "10% Revenue Share",
-    "tagline": "",
-    "coverPhoto": "",
-    "pitchVideoUrl": "",
-    "description": "We make best gpt",
-    "milestones": [
-      {
-        "title": "MVP Launch & Prototype",
-        "target": "Month 1",
-        "status": "done"
-      },
-      {
-        "title": "Market Testing & First 100 Users",
-        "target": "Month 2",
-        "status": "pending"
-      },
-      {
-        "title": "Commercial Release & ৳50K Revenue",
-        "target": "Month 4",
-        "status": "locked"
-      }
-    ],
-    "verified": true,
-    "status": "verified",
-    "escrowFrozen": false,
-    "escrow_frozen": false,
-    "coFounders": [],
-    "co_founders": [],
-    "successorName": "",
-    "successor_name": "",
-    "successorEmail": "",
-    "successor_email": "",
-    "revenue_structure": "",
-    "operational_model": ""
   },
   {
     "id": "campusbites_1",
