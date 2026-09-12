@@ -1,5 +1,5 @@
 {
-  "outputDirectory": "frontend/dist",
+  "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/server.js" },
     { "source": "/((?!api/|assets/|favicon.png|.*\\..*).*)", "destination": "/index.html" }
